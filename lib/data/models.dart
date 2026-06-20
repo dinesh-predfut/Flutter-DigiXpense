@@ -6656,7 +6656,8 @@ class TaskDetailModel {
   DateTime? actualEndDate;
   CreatedByModel? createdBy;
   Map<String, dynamic> taskData;
-
+  final List<CustomFieldValue>? customFields;
+  final List<CustomFieldValue>? customFieldValues;
   List<TagModel> tagId;
   List<AssignedUserModel> assignedTo;
 
@@ -6683,6 +6684,8 @@ class TaskDetailModel {
     required this.tagId,
     required this.assignedTo,
     required this.recId,
+    this.customFields,
+    this.customFieldValues,
   });
 
   factory TaskDetailModel.fromJson(Map<String, dynamic> json) {
@@ -6728,7 +6731,16 @@ class TaskDetailModel {
               isUtc: true,
             ).toLocal()
           : null,
-
+      customFields: json['customFields'] != null
+          ? (json['customFields'] as List)
+              .map((e) => CustomFieldValue.fromJson(e))
+              .toList()
+          : null,
+      customFieldValues: json['customFieldValues'] != null
+          ? (json['customFieldValues'] as List)
+              .map((e) => CustomFieldValue.fromJson(e))
+              .toList()
+          : null,
       actualEndDate: json['ActualEndDate'] != null
           ? DateTime.fromMillisecondsSinceEpoch(
               int.tryParse(json['ActualEndDate'].toString()) ?? 0,
@@ -7264,7 +7276,7 @@ class CardTypeModel {
 
   factory CardTypeModel.fromJson(Map<String, dynamic> json) {
     return CardTypeModel(
-      boardCardId: json['BoardCardId'] ?? '',
+      boardCardId: json['CardId'] ?? '',
       cardName: json['CardName'] ?? '',
       iconUrl: json['IconURL'],
       recId: json['RecId'] ?? 0,
@@ -7436,8 +7448,7 @@ class TaskItem {
   final String checklistsCount;
   final List<dynamic> checkLists;
   final String? parentTaskId;
-  final dynamic dependent;
-
+  final String? dependent;
   final CreatedByModel? createdBy;
 
   TaskItem({
@@ -7535,9 +7546,14 @@ class TaskItem {
       /// ⚠️ STRING like "1/2"
       checklistsCount: json['ChecklistsCount'] ?? "0/0",
 
-      parentTaskId: json['ParentTaskId'],
-      dependent: json['Dependent'],
-
+      parentTaskId: json['ParentTaskId'] is Map<String, dynamic>
+          ? (json['ParentTaskId'] as Map<String, dynamic>)['TaskId']?.toString()
+          : json['ParentTaskId']?.toString(),
+      dependent: json['Dependent'] is List
+          ? (json['Dependent'] as List)
+                .map((e) => e is Map ? e['TaskName'] ?? '' : e.toString())
+                .join(', ')
+          : json['Dependent']?.toString(),
       createdBy: json['CreatedBy'] != null
           ? CreatedByModel.fromJson(json['CreatedBy'])
           : null,
@@ -7551,9 +7567,72 @@ class TaskItem {
   }
 }
 
+// models/custom_field_model.dart
+class CustomFieldModel {
+  final String fieldId;
+  final String fieldName;
+  final String fieldLabel;
+  final String fieldType;
+  final bool isMandatory;
+  final String defaultValue;
+  final String fieldValue;
+
+  CustomFieldModel({
+    required this.fieldId,
+    required this.fieldName,
+    required this.fieldLabel,
+    required this.fieldType,
+    required this.isMandatory,
+    required this.defaultValue,
+    required this.fieldValue,
+  });
+
+  factory CustomFieldModel.fromJson(Map<String, dynamic> json) {
+    return CustomFieldModel(
+      fieldId: json['FieldId'] ?? '',
+      fieldName: json['FieldName'] ?? '',
+      fieldLabel: json['FieldLabel'] ?? '',
+      fieldType: json['FieldType'] ?? '',
+      isMandatory: json['IsMandatory'] ?? false,
+      defaultValue: json['DefaultValue'] ?? '',
+      fieldValue: json['FieldValue'] ?? '',
+    );
+  }
+
+  @override
+  String toString() {
+    return '''
+FieldId: $fieldId
+FieldName: $fieldName
+FieldLabel: $fieldLabel
+FieldType: $fieldType
+IsMandatory: $isMandatory
+DefaultValue: $defaultValue
+FieldValue: $fieldValue
+''';
+  }
+}
+// TaskConfigModel has a list of TaskFieldConfig
+class TaskConfigModel {
+  final bool? allowEstimatedHours;
+  final bool? mandatoryEstimatedHours;
+  final bool? allowCardTypes;
+  final bool? mandatoryCardTypes;
+  final List<TaskFieldConfig> taskData; // This is a List of TaskFieldConfig
+  
+  TaskConfigModel({
+    this.allowEstimatedHours,
+    this.mandatoryEstimatedHours,
+    this.allowCardTypes,
+    this.mandatoryCardTypes,
+    this.taskData = const [],
+  });
+}
+
+
 class TaskFieldConfig {
   String? taskFieldId;
-  String fieldName;
+  String? fieldName;
   String? fieldLabel;
   String? description;
   String? fieldType;
@@ -7562,9 +7641,11 @@ class TaskFieldConfig {
   bool? isMandatory;
   dynamic value;
 
+  List<ListValue>? listValues; // ADD THIS
+
   TaskFieldConfig({
     this.taskFieldId,
-    required this.fieldName,
+    this.fieldName,
     this.fieldLabel,
     this.description,
     this.fieldType,
@@ -7572,19 +7653,56 @@ class TaskFieldConfig {
     this.allowMultiSelect,
     this.isMandatory,
     this.value,
+    this.listValues,
   });
 
   factory TaskFieldConfig.fromJson(Map<String, dynamic> json) {
     return TaskFieldConfig(
-      taskFieldId: json['TaskFieldId'],
-      fieldName: json['FieldName'],
-      fieldLabel: json['FieldLabel'],
-      description: json['Description'],
-      fieldType: json['FieldType'],
-      fieldLinkedTable: json['FieldLinkedTable'],
-      allowMultiSelect: json['AllowMultiSelect'],
-      isMandatory: json['IsMandatory'],
-      value: json['Value'],
+      taskFieldId: json["TaskFieldId"],
+
+      fieldName: json["FieldName"],
+
+      fieldLabel: json["FieldLabel"],
+
+      description: json["Description"],
+
+      fieldType: json["FieldType"],
+
+      fieldLinkedTable: json["FieldLinkedTable"],
+
+      allowMultiSelect: json["AllowMultiSelect"] ?? false,
+
+      isMandatory: json["IsMandatory"] ?? false,
+
+      value: json["Value"],
+
+      listValues: json["ListValues"] == null
+          ? []
+          : (json["ListValues"] as List)
+                .map((e) => ListValue.fromJson(e))
+                .toList(),
+    );
+  }
+}
+
+class ListValue {
+  String taskId;
+  String taskName;
+  int recId;
+
+  ListValue({
+    required this.taskId,
+    required this.taskName,
+    required this.recId,
+  });
+
+  factory ListValue.fromJson(Map<String, dynamic> json) {
+    return ListValue(
+      taskId: json["TaskId"] ?? "",
+
+      taskName: json["TaskName"] ?? "",
+
+      recId: json["RecId"] ?? 0,
     );
   }
 }

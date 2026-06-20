@@ -50,6 +50,8 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
   final version = TextEditingController();
   final actualHours = TextEditingController();
   final cardType = TextEditingController();
+  final cardTypeName = TextEditingController();
+
   final _commentController = TextEditingController();
   final taskId = TextEditingController();
   bool _isCommentPosting = false;
@@ -71,6 +73,16 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
   bool _showList = true;
   bool _loading = true;
   bool _saving = false;
+
+  Future<void> _fetchCustomFieldsForCard(CardTypeModel? selectedCard) async {
+    if (selectedCard == null) return;
+    print("selectedCard${selectedCard.boardCardId}");
+    await controller.fetchCustomFieldsBoards(
+      taskRecId: widget.taskRecId,
+      cardId: cardTypeName.text, // Use the card ID from the selected card
+    );
+  }
+
   Widget buildPreviewWidget(String path) {
     /// 📱 LOCAL FILE
     if (path.startsWith('/') || path.startsWith('file://')) {
@@ -126,6 +138,168 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
     return const Center(child: Text("Preview not available"));
   }
 
+  Widget _buildCustomFields() {
+    return Obx(() {
+      if (controller.isLoadingCustomFields.value) {
+        return const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Center(child: CircularProgressIndicator()),
+        );
+      }
+
+      if (controller.customFieldsBoards.isEmpty) {
+        return const SizedBox.shrink();
+      }
+      // print(
+      //   "controller.customFieldsBoards${controller.customFieldsBoards.value}",
+      // );
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: const [
+              Icon(Icons.settings, size: 20, color: Colors.blueAccent),
+              SizedBox(width: 8),
+              Text(
+                "Custom Fields",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...controller.customFieldsBoards.map((field) {
+            // print("FIELD DATA => ${field.fieldName} ${field.fieldType}");
+
+            return _buildCustomFieldWidget(field);
+          }).toList(),
+        ],
+      );
+    });
+  }
+
+  // Build individual custom field widget based on field type
+  Widget _buildCustomFieldWidget(CustomFieldModel field) {
+    final label = field.fieldLabel;
+    final isMandatory = field.isMandatory;
+
+    switch (field.fieldType) {
+      case 'Amount':
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: TextFormField(
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: isMandatory ? '$label *' : label,
+              hintText: 'Enter $label',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onChanged: (value) {
+              controller.customFieldValues[field.fieldName] = value;
+            },
+          ),
+        );
+
+      case 'Text':
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: TextFormField(
+            maxLines: 3,
+            decoration: InputDecoration(
+              labelText: isMandatory ? '$label *' : label,
+              hintText: 'Enter $label',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onChanged: (value) {
+              controller.customFieldValues[field.fieldName] = value;
+            },
+          ),
+        );
+
+      case 'List':
+        // If it's a list/select type field
+        List<String> options = field.defaultValue
+            .split(',')
+            .map((e) => e.trim())
+            .toList();
+        if (options.isEmpty) options = ['Option 1', 'Option 2', 'Option 3'];
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: SearchableMultiColumnDropdownField<String>(
+            labelText: isMandatory ? '$label *' : label,
+            columnHeaders: [label],
+            items: options,
+            selectedValue: controller.customFieldValues[field.fieldName] ?? '',
+            searchValue: (v) => v,
+            displayText: (v) => v,
+            onChanged: (selected) {
+              controller.customFieldValues[field.fieldName] = selected ?? '';
+            },
+            rowBuilder: (v, _) =>
+                Padding(padding: const EdgeInsets.all(12), child: Text(v)),
+          ),
+        );
+
+      case 'Date':
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _datePicker(
+            label,
+            controller.customFieldValues[field.fieldName] != null
+                ? DateTime.tryParse(
+                    controller.customFieldValues[field.fieldName],
+                  )
+                : null,
+            (date) {
+              controller.customFieldValues[field.fieldName] = date
+                  .toIso8601String();
+            },
+          ),
+        );
+
+      case 'Boolean':
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            children: [
+              Text(label),
+              const Spacer(),
+              Switch(
+                value: controller.customFieldValues[field.fieldName] ?? false,
+                onChanged: (value) {
+                  controller.customFieldValues[field.fieldName] = value;
+                },
+              ),
+            ],
+          ),
+        );
+
+      default:
+        // Default to text field
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: TextFormField(
+            decoration: InputDecoration(
+              labelText: isMandatory ? '$label *' : label,
+              hintText: 'Enter $label',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onChanged: (value) {
+              controller.customFieldValues[field.fieldName] = value;
+            },
+          ),
+        );
+    }
+  }
+
   RxList<CommentModel> comments = <CommentModel>[].obs;
   Future<void> downloadAttachment(String path, String fileName) async {
     try {
@@ -177,8 +351,10 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
   @override
   void initState() {
     super.initState();
-    _loadTask();
-    loadStatuses();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _loadTask();
+      loadStatuses();
+    });
   }
 
   Future<void> loadMembers() async {
@@ -239,12 +415,13 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
     controller.cardType.assignAll(tags);
   }
 
-  Future<void> _loadTask() async {
+ Future<void> _loadTask() async {
     _loading = true;
     setState(() {});
 
     try {
-      Future.wait([
+      // Wait for all initial data to load
+      await Future.wait([
         loadtags(),
         loadMembers(),
         fetchCardTypes(),
@@ -252,6 +429,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         loadChecklist(),
         controller.fetchTaskConfig(widget.taskRecId),
       ]);
+      
       _taskDetails = await controller.fetchTaskDetails(
         widget.taskRecId,
         context,
@@ -259,6 +437,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
 
       if (_taskDetails == null) return;
 
+      // Set basic task details
       _taskNameController.text = _taskDetails!.taskName;
       _notesController.text = _taskDetails!.notes != null
           ? parseHtmlString(_taskDetails!.notes!)
@@ -276,16 +455,30 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
       plannedStartDate = _taskDetails!.plannedStartDate;
       actualHours.text = _taskDetails!.actualHours.toString();
       estimatedHours.text = _taskDetails!.estimatedHours?.toString() ?? "0";
+      
       print("plannedStartDate$plannedStartDate");
+
+      // ========== CARD TYPE ==========
       final cardId = _taskDetails!.cardType?.trim();
       if (cardId != null && cardId.isNotEmpty) {
         controller.selectedCardType.value = controller.cardType
             .firstWhereOrNull((c) => c.boardCardId.trim() == cardId);
+        
+        // Set card type name for custom fields fetch
+        cardTypeName.text = cardId;
+        cardType.text = controller.selectedCardType.value?.cardName ?? '';
+        
+        // Fetch custom fields for this card type
+        await _fetchCustomFieldsForCard(controller.selectedCardType.value);
       }
+
+      // ========== STATUS ==========
       _selectedStatus = _statusList.firstWhere(
-        (s) => s.id == _taskDetails!.status, // match by id or name
-        orElse: () => _statusList.first, // fallback to first item
+        (s) => s.id == _taskDetails!.status,
+        orElse: () => _statusList.first,
       );
+
+      // ========== ASSIGNED MEMBERS ==========
       controller.selectedMembers.clear();
       for (final assigned in _taskDetails!.assignedTo) {
         final user = controller.boardMembers.firstWhereOrNull(
@@ -296,18 +489,13 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
           controller.selectedMembers.add(user);
         }
       }
-      dynamicFieldValues.clear();
-
-      // WidgetsBinding.instance.addPostFrameCallback((_) {
-      // for (final field in controller.taskConfig.value?.taskData ?? []) {
-      //   dynamicFieldValues[field.fieldName] = field.value;
-      // }
-      // });
+      
       controller.userIdController.text = controller.selectedMembers
           .map((e) => e.userId)
           .join(', ');
 
-      // controller.selectedTags.clear();
+      // ========== TAGS ==========
+      controller.selectedTags.clear();
       for (final tag in _taskDetails!.tagId) {
         final matched = controller.taskTags.firstWhereOrNull(
           (t) => t.tagId == tag.tagId,
@@ -315,7 +503,45 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         controller.selectedTags.add(matched ?? tag);
       }
 
-      controller.selectedDependency.clear();
+      // ========== TASK CONFIG / DYNAMIC FIELDS ==========
+      // Load dynamic field values from task config
+      if (controller.taskConfig.value?.taskData != null) {
+        // Clear existing dynamic values
+        controller.dynamicValues?.clear();
+        
+        for (final field in controller.taskConfig.value!.taskData) {
+          // For each field, set its value
+          if (field.value != null) {
+            controller.dynamicValues![field.fieldName!] = field.value;
+          }
+        }
+        
+        // Also store task fields for UI rendering
+        controller.taskFields.assignAll(controller.taskConfig.value!.taskData);
+      }
+
+      // ========== CUSTOM FIELDS ==========
+      // Clear existing custom field values
+      controller.customFieldValues.clear();
+      
+      // Load custom field values if they exist in task details
+      if (_taskDetails!.customFields != null) {
+        // Assuming customFields is a Map<String, dynamic> or List<CustomFieldValue>
+        // You'll need to adapt this based on your actual data structure
+        for (final field in _taskDetails!.customFields!) {
+          // This depends on your actual data structure
+          // Example: if customFields is a list of {fieldName: value}
+          controller.customFieldValues[field.fieldName] = field;
+        }
+      }
+      
+      // Also fetch custom fields from the API if needed
+      if (cardId != null && cardId.isNotEmpty) {
+        await _fetchCustomFieldsForCard(controller.selectedCardType.value);
+      }
+
+      // ========== DEPENDENCIES (commented out) ==========
+      // controller.selectedDependency.clear();
       // final dependent = _taskDetails!.dependent;
       // if (dependent != null && dependent.trim().isNotEmpty) {
       //   final ids = dependent.split(',').map((e) => e.trim());
@@ -333,17 +559,233 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
       //     : controller.tasksValue.firstWhereOrNull(
       //         (t) => t.taskId.trim() == parentId,
       //       );
+      
     } finally {
       _loading = false;
       setState(() {});
     }
 
-    Future.wait([loadAttachmentData(), loadComments()]);
+    // Load attachments and comments after everything else
+    await Future.wait([loadAttachmentData(), loadComments()]);
   }
 
   String parseHtmlString(String htmlString) {
     final document = html_parser.parse(htmlString);
     return document.body?.text ?? '';
+  }
+
+  Widget buildDynamicField(TaskFieldConfig field) {
+    final label = field.fieldLabel ?? field.fieldName;
+    final mandatory = field.isMandatory ?? false;
+
+    switch (field.fieldType) {
+      // Amount / Decimal / Currency
+      case "Amount":
+      case "Decimal":
+      case "Currency":
+      case "Number":
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: TextFormField(
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+
+            decoration: InputDecoration(
+              labelText: mandatory ? "$label *" : label,
+              border: const OutlineInputBorder(),
+            ),
+
+            validator: (value) {
+              if (mandatory && (value == null || value.trim().isEmpty)) {
+                return "$label is required";
+              }
+
+              if (value != null &&
+                  value.isNotEmpty &&
+                  double.tryParse(value) == null) {
+                return "Enter valid $label";
+              }
+
+              return null;
+            },
+
+            onChanged: (value) {
+              controller.dynamicValues![field.fieldName!] =
+                  double.tryParse(value) ?? value;
+            },
+          ),
+        );
+
+      // Integer
+      case "Integer":
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: TextFormField(
+            keyboardType: TextInputType.number,
+
+            decoration: InputDecoration(
+              labelText: mandatory ? "$label *" : label,
+              border: const OutlineInputBorder(),
+            ),
+
+            validator: (value) {
+              if (mandatory && (value == null || value.isEmpty)) {
+                return "$label is required";
+              }
+
+              if (value != null &&
+                  value.isNotEmpty &&
+                  int.tryParse(value) == null) {
+                return "Enter valid number";
+              }
+
+              return null;
+            },
+
+            onChanged: (value) {
+              controller.dynamicValues![field.fieldName!] =
+                  int.tryParse(value) ?? value;
+            },
+          ),
+        );
+
+      // Text
+      case "Text":
+      case "String":
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: TextFormField(
+            decoration: InputDecoration(
+              labelText: mandatory ? "$label *" : label,
+              border: const OutlineInputBorder(),
+            ),
+
+            validator: (value) {
+              if (mandatory && (value == null || value.trim().isEmpty)) {
+                return "$label is required";
+              }
+
+              return null;
+            },
+
+            onChanged: (value) {
+              controller.dynamicValues![field.fieldName!] = value;
+            },
+          ),
+        );
+
+      // URL
+      case "Url":
+      case "URL":
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: TextFormField(
+            keyboardType: TextInputType.url,
+
+            decoration: InputDecoration(
+              labelText: mandatory ? "$label *" : label,
+              border: const OutlineInputBorder(),
+            ),
+
+            validator: (value) {
+              if (mandatory && (value == null || value.isEmpty)) {
+                return "$label is required";
+              }
+
+              if (value != null &&
+                  value.isNotEmpty &&
+                  !Uri.tryParse(value)!.hasAbsolutePath) {
+                return "Enter valid URL";
+              }
+
+              return null;
+            },
+
+            onChanged: (value) {
+              controller.dynamicValues![field.fieldName!] = value;
+            },
+          ),
+        );
+
+      // Dropdown / List
+      case "List":
+      case "SystemList":
+        final options = (field.listValues ?? [])
+            .map((e) => e.taskName)
+            .toList();
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: SearchableMultiColumnDropdownField<String>(
+            labelText: mandatory ? '$label *' : label,
+
+            columnHeaders: [label!],
+
+            items: options,
+
+            selectedValue: controller.customFieldValues[field.fieldName] ?? '',
+
+            searchValue: (v) => v,
+
+            displayText: (v) => v,
+
+            onChanged: (selected) {
+              controller.customFieldValues[field.fieldName!] = selected ?? '';
+            },
+
+            rowBuilder: (v, _) {
+              return Padding(padding: const EdgeInsets.all(12), child: Text(v));
+            },
+          ),
+        );
+
+      // Boolean
+      case "Boolean":
+      case "YesNo":
+        return SwitchListTile(
+          title: Text(label!),
+
+          value: controller.dynamicValues![field.fieldName] ?? false,
+
+          onChanged: (value) {
+            controller.dynamicValues![field.fieldName!] = value;
+          },
+        );
+
+      // Date
+      case "Date":
+        return TextFormField(
+          readOnly: true,
+
+          decoration: InputDecoration(
+            labelText: mandatory ? "$label *" : label,
+            border: const OutlineInputBorder(),
+          ),
+
+          validator: (value) {
+            if (mandatory && (value == null || value.isEmpty)) {
+              return "$label is required";
+            }
+
+            return null;
+          },
+
+          onTap: () {
+            // open date picker here
+          },
+        );
+
+      default:
+        return TextFormField(
+          decoration: InputDecoration(
+            labelText: label,
+            border: const OutlineInputBorder(),
+          ),
+
+          onChanged: (value) {
+            controller.dynamicValues![field.fieldName!] = value;
+          },
+        );
+    }
   }
 
   @override
@@ -457,7 +899,8 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                 TextFormField(
                   controller: _taskNameController,
                   validator: (v) => v!.isEmpty ? 'Required' : null,
-                  decoration: _inputDecoration('${AppLocalizations.of(context)!.taskName} *'
+                  decoration: _inputDecoration(
+                    '${AppLocalizations.of(context)!.taskName} *',
                   ),
                 ),
 
@@ -616,7 +1059,8 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                         key: ValueKey(controller.memberDropdownRefresh.value),
 
                         enabled: true,
-                        labelText: '${AppLocalizations.of(context)!.assignUsers} *',
+                        labelText:
+                            '${AppLocalizations.of(context)!.assignUsers} *',
                         items: controller.boardMembers,
                         selectedValues: controller.selectedMembers,
                         isMultiSelect: true,
@@ -859,9 +1303,24 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                   searchValue: (c) => c.cardName,
                   displayText: (c) => c.cardName,
 
-                  onChanged: (c) {
+                  onChanged: (c) async {
+                    print("Selected Card Object: $c");
+                    print("Card Name: ${c?.cardName}");
+                    print("Board Card ID: ${c?.boardCardId}");
+
                     controller.selectedCardType.value = c;
+
                     cardType.text = c?.cardName ?? '';
+                    cardTypeName.text = c?.boardCardId?.toString() ?? "";
+
+                    print("cardTypeName value: ${cardTypeName.text}");
+
+                    if (c != null && cardTypeName.text.isNotEmpty) {
+                      await _fetchCustomFieldsForCard(c);
+                    } else {
+                      controller.customFieldsBoards.clear();
+                      print("Card ID is empty, API not called");
+                    }
                   },
 
                   rowBuilder: (c, _) => Padding(
@@ -940,119 +1399,38 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                 //     ),
                 //   ),
                 const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: const [
-                    Icon(Icons.settings, size: 20, color: Colors.blueAccent),
-                    SizedBox(width: 8),
-                    Text(
-                      "Configure Fields",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+                if (controller.taskFields.isNotEmpty)
+                  Obx(() {
+                    return Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: const [
+                            Icon(
+                              Icons.settings,
+                              size: 20,
+                              color: Colors.blueAccent,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              "Configure Fields",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ...controller.taskFields.map((field) {
+                          return buildDynamicField(field);
+                        }).toList(),
+                      ],
+                    );
+                  }),
                 const SizedBox(height: 12),
 
-                /// PARENT TASK
-                Obx(() {
-                  final fields =
-                      controller.taskFields; // RxList<TaskFieldConfig>
-                  Widget child = const SizedBox();
-                  if (fields.isEmpty) return const SizedBox();
-
-                  return Column(
-                    children: fields.map((field) {
-                      final label = field.fieldLabel ?? field.fieldName;
-                      final mandatory = field.isMandatory ?? false;
-
-                      /// =========================
-                      /// LIST TYPE
-                      /// =========================
-                      // if (field.fieldType == "List") {
-                      //   /// Parent Task
-                      //   // if (field.fieldName == "Actual Hours") {
-                      //   //   return SearchableMultiColumnDropdownField<TaskModel>(
-                      //   //     labelText: mandatory ? "$label *" : label,
-                      //   //     items: controller.tasksValue,
-                      //   //     selectedValue: controller.selectTast.value,
-                      //   //     searchValue: (t) => t.taskName,
-                      //   //     displayText: (t) => "${t.taskName} ${t.taskId}",
-                      //   //     onChanged: (t) => controller.selectTast.value = t,
-                      //   //     columnHeaders: const ["Task Id", "Task Name"],
-                      //   //     rowBuilder: (t, _) => Row(
-                      //   //       children: [
-                      //   //         Expanded(child: Text(t.taskId)),
-                      //   //         Expanded(child: Text(t.taskName)),
-                      //   //       ],
-                      //   //     ),
-                      //   //   );
-                      //   // }
-
-                      //   /// Dependency (MultiSelect)
-                      //   if (field.fieldName == "Dependency" &&
-                      //       field.allowMultiSelect == true) {
-                      //     return MultiSelectMultiColumnDropdownField<TaskModel>(
-                      //       labelText: mandatory ? "$label *" : label,
-                      //       items: controller.tasksValue,
-                      //       selectedValues: controller.selectedDependency,
-                      //       isMultiSelect: true,
-                      //       searchValue: (t) => "${t.taskId} ${t.taskName}",
-                      //       displayText: (t) => t.taskName,
-                      //       onMultiChanged: (v) =>
-                      //           controller.selectedDependency.assignAll(v),
-                      //       columnHeaders: const ["Task Id", "Task Name"],
-                      //       rowBuilder: (t, _) => Row(
-                      //         children: [
-                      //           Expanded(child: Text(t.taskId)),
-                      //           Expanded(child: Text(t.taskName)),
-                      //         ],
-                      //       ), onChanged: (TaskModel? p1) {  },
-                      //     );
-                      //   }
-
-                      //   /// Other List Fields (Card Types, Risk Level etc.)
-                      //   return SearchableMultiColumnDropdownField<String>(
-                      //     labelText: mandatory ? "$label *" : label,
-                      //     items: controller.getListValues(field),
-                      //     selectedValue: controller.dynamicValues[field.fieldName],
-                      //     searchValue: (v) => v,
-                      //     displayText: (v) => v,
-                      //     onChanged: (v) =>
-                      //         controller.dynamicValues[field.fieldName] = v,
-                      //     columnHeaders: [label],
-                      //     rowBuilder: (v, _) => Padding(
-                      //       padding: const EdgeInsets.all(12),
-                      //       child: Text(v),
-                      //     ),
-                      //   );
-                      // }
-
-                      /// =========================
-                      /// INTEGER TYPE
-                      /// =========================
-                      if (field.fieldType == "Integer") {
-                        return TextFormField(
-                          decoration: InputDecoration(
-                            labelText: mandatory ? "$label *" : label,
-                          ),
-                          keyboardType: TextInputType.number,
-                          onChanged: (v) =>
-                              controller.dynamicValues[field.fieldName] = v,
-                        );
-                      }
-
-                      return Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: 12,
-                        ), // 👈 space here
-                        child: child,
-                      );
-                    }).toList(),
-                  );
-                }),
+                _buildCustomFields(),
                 Row(
                   children: [
                     Text(
@@ -1379,30 +1757,35 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                  Row(
-  children: [
-    Text(
-      AppLocalizations.of(context)!.comment,
-      style: TextStyle(fontWeight: FontWeight.w600),
-    ),
-    SizedBox(width: 8),
-    Container(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor, // or any color
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        '${controller.commentKanba.length}',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    ),
-  ],
-),
+                    Row(
+                      children: [
+                        Text(
+                          AppLocalizations.of(context)!.comment,
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        SizedBox(width: 8),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).primaryColor, // or any color
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${controller.commentKanba.length}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 10),
                     TextField(
                       controller: _commentController,
@@ -1704,7 +2087,9 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         child: Text(
           date == null
               ? 'Select date'
-              : DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(date.toLocal()),
+              : DateFormat(
+                  controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                ).format(date.toLocal()),
         ),
       ),
     );
@@ -1744,6 +2129,25 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
     setState(() {});
   }
 
+  List<Map<String, dynamic>> _buildCustomFieldValuesPayload() {
+    final List<Map<String, dynamic>> payload = [];
+
+    for (final field in controller.customFieldsBoards) {
+      final enteredValue = controller.customFieldValues[field.fieldName];
+      if (enteredValue == null)
+        continue; // skip untouched fields if backend prefers that
+
+      payload.add({
+        "FieldId": field.fieldId, // <-- need to confirm this property name
+        "FieldValue": enteredValue,
+        "FieldName": field.fieldName,
+        "RecId": 0,
+      });
+    }
+
+    return payload;
+  }
+
   Future<void> _saveTask(BuildContext context, [bool? bool]) async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -1767,6 +2171,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         showChecklist: showChecklistOnCard,
         estimatedHours: double.tryParse(estimatedHours.text) ?? 0,
         status: _status,
+        // taskData: controller.dynamicValues,
         selectedTags: controller.selectedTags,
         selectedMembers: controller.selectedMembers,
         selectedCardType: controller.selectedCardType.value,
@@ -1777,10 +2182,11 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         dependentDescription: '',
         context: context,
         checkLists: checklist,
-        taskData: dynamicFieldValues,
+        taskData: controller.dynamicValues,
         plannedStartDate: plannedStartDate,
         plannedEndDate: plannedEndDate,
         riskLevel: riskLevel,
+        customFieldValues: _buildCustomFieldValuesPayload(),
       );
 
       _saving = false;

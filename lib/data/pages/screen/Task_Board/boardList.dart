@@ -2339,21 +2339,21 @@ class _TaskCardState extends State<_TaskCard> {
                       style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      widget.task.plannedEndDate != null
-                          ? DateFormat(
-                             controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-                            ).format(widget.task.plannedStartDate!)
-                          : '-',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ),
+              Expanded(
+  flex: 2,
+  child: Text(
+    widget.task.plannedEndDate == null
+        ? '-'
+        : DateFormat(
+            controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+          ).format(widget.task.plannedEndDate!),
+    style: const TextStyle(fontSize: 12),
+  ),
+),
                 ],
               ),
             if (controller.isEnabled('PlannedStartDate') &&
-                widget.task.plannedEndDate != null)
+                widget.task.plannedStartDate != null)
               Row(
                 children: [
                   Expanded(
@@ -2426,7 +2426,7 @@ class _TaskCardState extends State<_TaskCard> {
               ),
 
             if (controller.isEnabled('PlannedStartDate') &&
-                widget.task.plannedEndDate != null)
+                widget.task.plannedStartDate != null)
               Row(
                 children: [
                   Expanded(
@@ -3204,7 +3204,7 @@ Future<void> showAddTaskBottomSheetInSecond(
                                               .value!
                                               .shelfId,
                                           "TaskName": taskNameCtrl.text,
-                                          "DueDate": dueDateCtrl.text.isEmpty
+                                          "PlannedEndDate": dueDateCtrl.text.isEmpty
                                               ? null
                                               : dueDateCtrl.text,
                                           "AssignedTo": controller

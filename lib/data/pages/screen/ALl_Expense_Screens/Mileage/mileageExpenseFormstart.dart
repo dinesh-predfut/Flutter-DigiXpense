@@ -65,7 +65,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
 
     // Delay your logic safely
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      controller.fetchMileageRates();
+      
       await controller.fetchProjectName();
       await controller.loadSequenceModules();
       await controller.configuration();
@@ -115,7 +115,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       controller.calculatedAmountINR = expense.totalAmountReporting;
 
       print("controller.calculatedAmountINR${controller.recID}");
-
+controller.fetchMileageRates();
       if (expense.travelPoints.isNotEmpty &&
           expense.travelPoints.first.fromLocation ==
               expense.travelPoints.last.toLocation) {
@@ -816,6 +816,10 @@ void scrollToFirstError() {
                                               emp!.employeeId;
                                           controller.employeeName.text =
                                               emp.employeeName;
+                                               controller.fetchMileageRates();
+                                               controller.fetchProjectName();
+                                    loadAndAppendCashAdvanceList();
+                                    
                                         });
                                       },
                                       rowBuilder: (emp, searchQuery) {
@@ -1671,7 +1675,8 @@ void scrollToFirstError() {
                                 ],
                               ),
                               if (allowCashAd) const SizedBox(height: 18),
-                              SearchableMultiColumnDropdownField<VehicleType>(
+                             Obx(() {
+          return SearchableMultiColumnDropdownField<VehicleType>(
                                 labelText:
                                     '${AppLocalizations.of(context)!.mileageType} *',
                                 enabled: controller.isEnable.value,
@@ -1708,7 +1713,9 @@ void scrollToFirstError() {
                                     ),
                                   );
                                 },
-                              ),
+                              );
+                             }),
+                            
                               if (vehicleError != null)
                                 Padding(
                                   padding: const EdgeInsets.only(

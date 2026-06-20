@@ -1121,9 +1121,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                   ),
                   Text(
                     item.receiptDate != null
-                        ? formatDate(
-                                                  item.receiptDate!,
-                                                )
+                        ? formatDate(item.receiptDate!)
                         : 'No date',
                     style: const TextStyle(fontSize: 12),
                   ),

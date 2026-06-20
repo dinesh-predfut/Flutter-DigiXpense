@@ -95,6 +95,10 @@ class _ApprovalViewEditExpensePageState
     receiptDateController.text = formatted;
     employeeName.text = widget.items!.employeeName!;
     employyeID.text = widget.items!.employeeId!;
+      if (widget.items!.stepType == "Approval") {
+      controller.isEnable.value = false;
+      controller.isApprovalEnable.value = true;
+    }
     controller.paymentMethodID = widget.items!.paymentMethod.toString();
     expenseIdController.text = widget.items!.expenseId.toString();
     receiptDateController.text = formatted;
@@ -532,7 +536,7 @@ class _ApprovalViewEditExpensePageState
                 widget.items != null &&
                 PermissionHelper.canUpdate("Cash Advance Requisition") &&
                 widget.items!.approvalStatus != "Cancelled" &&
-                widget.items!.stepType != "Approval")
+                widget.items!.stepType != "Approval" && !controller.isApprovalEnable.value)
               IconButton(
                 icon: const Icon(Icons.edit_document),
                 onPressed: () {

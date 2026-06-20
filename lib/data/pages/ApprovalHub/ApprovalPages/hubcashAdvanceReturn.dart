@@ -1,13 +1,2726 @@
+// import 'dart:async';
+// import 'dart:io';
+
+// import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
+// import 'package:diginexa/core/comman/widgets/button.dart';
+// import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+// import 'package:diginexa/data/models.dart';
+// import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+// import 'package:diginexa/data/service.dart';
+// import 'package:file_picker/file_picker.dart' show FilePicker, FileType;
+// import 'package:flutter/material.dart';
+// import 'package:flutter/services.dart';
+// import 'package:fluttertoast/fluttertoast.dart';
+// import 'package:get/get.dart';
+// import 'package:get/get_core/src/get_main.dart';
+// import 'package:image_cropper/image_cropper.dart';
+// import 'package:image_picker/image_picker.dart';
+// import 'package:intl/intl.dart';
+// import 'package:photo_view/photo_view.dart';
+
+// import '../../../../core/comman/widgets/multiselectDropdown.dart';
+// import '../../../../core/comman/widgets/pageLoaders.dart';
+// import '../../../../l10n/app_localizations.dart';
+
+// class HubApprovalViewEditCashAdvanceReturnPage extends StatefulWidget {
+//   final bool isReadOnly;
+//   final GESpeficExpense? items;
+//   const HubApprovalViewEditCashAdvanceReturnPage({
+//     Key? key,
+//     this.items,
+//     required this.isReadOnly,
+//   }) : super(key: key);
+
+//   @override
+//   State<HubApprovalViewEditCashAdvanceReturnPage> createState() =>
+//       _HubApprovalViewEditCashAdvanceReturnPageState();
+// }
+
+// class _HubApprovalViewEditCashAdvanceReturnPageState
+//     extends State<HubApprovalViewEditCashAdvanceReturnPage>
+//     with TickerProviderStateMixin {
+//   final TextEditingController expenseIdController = TextEditingController();
+//   final TextEditingController receiptDateController = TextEditingController();
+//   final TextEditingController referenceController = TextEditingController();
+//   final TextEditingController employeeName = TextEditingController();
+
+//   final TextEditingController employyeID = TextEditingController();
+//   final RxnString cashAdvanceField = RxnString();
+
+//   TextEditingController merhantName = TextEditingController();
+//   final PhotoViewController _photoViewController = PhotoViewController();
+//   final _formKey = GlobalKey<FormState>();
+//   final List<String> paidToOptions = ['Amazon', 'Flipkart', 'Ola'];
+//   final List<String> paidWithOptions = ['Card', 'Cash', 'UPI'];
+//   final controller = Get.find<Controller>();
+//   late Future<List<ExpenseHistory>> historyFuture;
+//   String? selectedPaidTo;
+//   String? selectedPaidWith;
+//   bool _showHistory = false;
+//   late int workitemrecid;
+//   bool isEditable = false;
+//   int _currentIndex = 0;
+//   late PageController _pageController;
+//   // New state variables for itemize management
+//   int _itemizeCount = 1;
+//   Timer? _debounce;
+//   int _selectedItemizeIndex = 0;
+//   bool showItemizeDetails = true;
+//   List<Controller> itemizeControllers = [];
+//   bool allowMultSelect = true;
+//   @override
+//   void initState() {
+//     super.initState();
+
+//     _pageController = PageController(initialPage: _currentIndex);
+//     WidgetsBinding.instance.addPostFrameCallback((_) async {
+//       expenseIdController.text = "";
+//       receiptDateController.text = "";
+//       employeeName.text = "";
+//       employyeID.text = "";
+//       merhantName.text = "";
+//       controller.fetchPaidto();
+//       controller.fetchPaidwith();
+//       controller.fetchProjectName();
+
+//       controller.fetchUnit();
+//       controller.fetchTaxGroup();
+//       controller.currencyDropDown();
+//       controller.fetchExchangeRate();
+//       controller.fetchUsers();
+//       controller.fetchPaidwith();
+//       controller.fetchCashAdvanceExpenseCategory();
+//       controller.fetchExpenseDocImage(widget.items!.recId);
+//       _initializeData();
+//       historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
+//       final formatted = DateFormat(
+//        controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+//       ).format(widget.items!.receiptDate);
+//       controller.selectedDate = widget.items!.receiptDate;
+//       receiptDateController.text = formatted;
+//       employeeName.text = widget.items!.employeeName!;
+//       employyeID.text = widget.items!.employeeId!;
+//       controller.paymentMethodID = widget.items!.paymentMethod.toString();
+//       expenseIdController.text = widget.items!.expenseId.toString();
+//       receiptDateController.text = formatted;
+//       controller.paidToController.text = widget.items!.merchantName.toString();
+//       controller.paidWithController.text = widget.items!.paymentMethod!;
+//       referenceController.text = widget.items!.referenceNumber.toString();
+//       selectedPaidTo = paidToOptions.first;
+//       selectedPaidWith = paidWithOptions.first;
+//       controller.paidAmount.text = widget.items!.totalAmountTrans.toString();
+//       controller.unitAmount.text = widget.items!.totalAmountTrans.toString();
+//       controller.unitRate.text = widget.items!.exchRate.toString();
+//       controller.amountINR.text = widget.items!.totalAmountReporting.toString();
+//       controller.expenseID = widget.items!.expenseId;
+//       controller.recID = widget.items!.recId;
+//       if (widget.items!.stepType == "Approval") {
+//         setState(() {
+//           isEditable = false;
+//         });
+//       } else {
+//         setState(() {
+//           isEditable = true;
+//         });
+//       }
+//       workitemrecid = widget.items!.workitemrecid!;
+//       controller.currencyDropDowncontroller.text = widget.items!.currency
+//           .toString();
+//       _initializeItemizeControllers();
+//     });
+//     // Initialize itemize controllers
+//   }
+
+//   Future<void> _loadSettings() async {
+//     final settings = await controller.fetchGeneralSettings();
+//     if (settings != null) {
+//       setState(() {
+//         allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
+//         print("allowDocAttachments$allowMultSelect");
+//         // isLoading = false;
+//       });
+//     } else {
+//       // setState(() => isLoading = false);
+//     }
+//   }
+
+//   double _calculateTotalLineAmount(Controller controllers) {
+//     double total = 0.0;
+
+//     // add current line amount
+//     final currentLineAmount =
+//         double.tryParse(controllers.lineAmount.text) ?? 0.0;
+//     total += currentLineAmount;
+
+//     // add other itemized line amounts
+//     for (var itemController in itemizeControllers) {
+//       if (itemController != controllers) {
+//         final amount = double.tryParse(itemController.lineAmount.text) ?? 0.0;
+//         total += amount;
+//       }
+//     }
+//     print("paidAmount${controllers.lineAmount.text}");
+//     // update Paid Amount
+//     controller.paidAmount.text = total.toStringAsFixed(2);
+
+//     // calculate INR amount immediately
+//     final paid = total;
+//     final rate = double.tryParse(controller.unitRate.text) ?? 1.0;
+//     controller.amountINR.text = (paid * rate).toStringAsFixed(2);
+
+//     return total;
+//   }
+
+//   Future<void> _updateAllLineItems() async {
+//     final rate = double.tryParse(controller.unitRate.text) ?? 1.0;
+
+//     for (int i = 0; i < itemizeControllers.length; i++) {
+//       final itemController = itemizeControllers[i];
+
+//       // Recalculate base + INR amounts
+//       _calculateTotalLineAmount(itemController);
+//       controller.calculateLineAmounts(itemController);
+
+//       // final lineAmount = double.tryParse(itemController.lineAmount.text) ?? 0.0;
+//       // final lineAmountInINR = lineAmount * rate;
+
+//       // itemController.lineAmountINR.text = lineAmountInINR.toStringAsFixed(2);
+
+//       // // Sync with model
+//       // widget.items!.expenseTrans[i] = itemController.toExpenseItemUpdateModel();
+//     }
+
+//     setState(() {}); // only if you rely on UI state updates
+//   }
+
+//   void _initializeItemizeControllers() {
+//     itemizeControllers = widget.items!.expenseTrans.map((item) {
+//       final controller = Controller();
+//       controller.projectDropDowncontroller.text = item.projectId ?? '';
+//       controller.descriptionController.text = item.description ?? '';
+//       controller.quantity.text = item.quantity.toString();
+//       controller.unitAmountView.text = item.unitPriceTrans.toString();
+//       controller.lineAmount.text = item.lineAmountTrans.toString();
+//       controller.lineAmountINR.text = item.lineAmountReporting.toString();
+//       controller.taxAmount.text = item.taxAmount.toString();
+//       controller.taxGroupController.text = item.taxGroup!;
+//       controller.categoryController.text = item.expenseCategoryId;
+//       controller.uomId.text = item.uomId;
+//       controller.isReimbursite = item.isReimbursable;
+//       controller.isBillable.value = item.isBillable;
+//       controller.expenseID = item.expenseId.toString();
+//       controller.split = (item.accountingDistributions ?? []).map((dist) {
+//         return AccountingSplit(
+//           paidFor: dist.dimensionValueId ?? '',
+//           percentage: dist.allocationFactor ?? 0.0,
+//           amount: dist.transAmount ?? 0.0,
+//         );
+//       }).toList();
+//       return controller;
+//     }).toList();
+//     _itemizeCount = widget.items!.expenseTrans.length;
+//   }
+
+//   Future<void> waitForDropdownDataAndSetValues() async {
+//     int retries = 0;
+//     while ((controller.paymentMethods.isEmpty ||
+//             controller.expenseCategory.isEmpty) &&
+//         retries < 10) {
+//       await Future.delayed(const Duration(milliseconds: 300));
+//       retries++;
+//     }
+
+//     if (controller.paymentMethods.isNotEmpty) {
+//       controller.selectedPaidWith = controller.paymentMethods.firstWhere(
+//         (e) => e.paymentMethodId == widget.items!.paymentMethod,
+//         orElse: () => controller.paymentMethods.first,
+//       );
+//     }
+
+//     if (controller.project.isNotEmpty) {
+//       controller.selectedProject = controller.project.firstWhere(
+//         (e) => e.code == widget.items!.projectId,
+//         orElse: () => controller.project.first,
+//       );
+//     }
+//     if (controller.currencies.isNotEmpty) {
+//       controller.selectedCurrency.value = controller.currencies.firstWhere(
+//         (e) => e.code == widget.items!.currency,
+//         orElse: () => controller.currencies.first,
+//       );
+//     }
+//     setState(() {});
+//   }
+
+//   void _addItemize() {
+//     if (_itemizeCount < 5) {
+//       setState(() {
+//         // Create new ExpenseItem with default values
+//         final newItem = ExpenseItemUpdate(
+//           description: '',
+//           quantity: 0,
+//           unitPriceTrans: 0,
+//           lineAmountTrans: 0,
+//           lineAmountReporting: 0,
+//           taxAmount: 0,
+//           isReimbursable: false,
+//           isBillable: false,
+//           projectId: controller.projectDropDowncontroller.text ?? '',
+//           expenseCategoryId: controller.categoryController.text ?? "",
+//           uomId: controller.unit.isNotEmpty ? controller.unit.first.code : '',
+//           taxGroup: controller.taxGroup.isNotEmpty
+//               ? controller.taxGroup.first.taxGroupId
+//               : '',
+//           accountingDistributions: [],
+//         );
+//         debugPrint("Added new item: ${newItem.toString()}");
+
+//         widget.items!.expenseTrans.add(newItem);
+
+//         // Create and initialize new controller
+//         final newController = Controller();
+
+//         // Initialize controller with default values
+//         newController.descriptionController.text = newItem.description ?? '';
+//         newController.quantity.text = newItem.quantity.toString();
+//         newController.unitAmountView.text = newItem.unitPriceTrans.toString();
+//         newController.unitPriceTrans.text = newItem.unitPriceTrans.toString();
+//         newController.lineAmount.text = newItem.lineAmountTrans.toString();
+//         newController.lineAmountINR.text = newItem.lineAmountReporting
+//             .toString();
+//         newController.taxAmount.text = newItem.taxAmount.toString();
+//         newController.projectDropDowncontroller.text = newItem.projectId ?? '';
+//         newController.categoryController.text = newItem.expenseCategoryId;
+//         newController.uomId.text = newItem.uomId;
+//         newController.taxGroupController.text = newItem.taxGroup ?? '';
+//         newController.isReimbursite = newItem.isReimbursable;
+//         newController.isBillable.value = newItem.isBillable;
+
+//         // Set dropdown selections if available
+//         if (controller.project.isNotEmpty) {
+//           newController.selectedProject = controller.project.firstWhere(
+//             (p) => p.code == newItem.projectId,
+//             orElse: () => controller.project.first,
+//           );
+//         }
+
+//         if (controller.expenseCategory.isNotEmpty) {
+//           newController.selectedCategory = controller.expenseCategory
+//               .firstWhere(
+//                 (c) => c.categoryId == newItem.expenseCategoryId,
+//                 orElse: () => controller.expenseCategory.first,
+//               );
+//         }
+
+//         if (controller.unit.isNotEmpty) {
+//           newController.selectedunit = controller.unit.firstWhere(
+//             (u) => u.code == newItem.uomId,
+//             orElse: () => controller.unit.first,
+//           );
+//         }
+
+//         if (controller.taxGroup.isNotEmpty) {
+//           newController.selectedTax = controller.taxGroup.firstWhere(
+//             (t) => t.taxGroupId == newItem.taxGroup,
+//             orElse: () => controller.taxGroup.first,
+//           );
+//         }
+
+//         debugPrint(
+//           "Controller added with unit: ${newController.selectedunit?.name}",
+//         );
+
+//         // Add to controllers list (new reference for rebuild)
+//         itemizeControllers = List.from(itemizeControllers)..add(newController);
+
+//         // Update counters
+//         _itemizeCount++;
+//         _selectedItemizeIndex = _itemizeCount - 1;
+//         showItemizeDetails = true;
+//       });
+//     }
+//   }
+
+//   void _removeItemize(int index) {
+//     if (_itemizeCount <= 1) {
+//       setState(() {
+//         showItemizeDetails = false;
+//       });
+//     } else if (index >= 0 && index < widget.items!.expenseTrans.length) {
+//       setState(() {
+//         widget.items!.expenseTrans.removeAt(index);
+//         itemizeControllers.removeAt(index);
+//         _itemizeCount--;
+//         if (_selectedItemizeIndex >= _itemizeCount) {
+//           _selectedItemizeIndex = _itemizeCount - 1;
+//         }
+//       });
+//     }
+//   }
+
+//   Future<void> _pickImage(ImageSource source) async {
+//     final picker = ImagePicker();
+
+//     try {
+//       controller.isImageLoading.value = true;
+
+//       final pickedFile = await picker.pickImage(source: source);
+//       if (pickedFile != null) {
+//         final croppedFile = await _cropImage(File(pickedFile.path));
+//         if (croppedFile != null) {
+//           setState(() {
+//             controller.imageFiles.add(File(croppedFile.path));
+//           });
+//         }
+//       }
+//     } catch (e) {
+//       print("Error picking or cropping image: $e");
+//       Fluttertoast.showToast(
+//         msg: "Failed to upload image",
+//         backgroundColor: Colors.red,
+//       );
+//     } finally {
+//       controller.isImageLoading.value = false;
+//     }
+//   }
+
+//   Future<void> _pickFile() async {
+//     try {
+//       controller.isImageLoading.value = true;
+
+//       final result = await FilePicker.platform.pickFiles(
+//         allowMultiple: true,
+//         type: FileType.custom,
+//          allowedExtensions: controller.allowedExtensions,
+//       );
+
+//       if (result == null) return;
+
+//       for (final pickedFile in result.files) {
+//         if (pickedFile.path == null) continue;
+
+//         File file = File(pickedFile.path!);
+//         final ext = pickedFile.extension?.toLowerCase();
+
+//         /// ✅ IMAGE FLOW
+//         if (ext == 'jpg' || ext == 'jpeg' || ext == 'png') {
+//           final croppedFile = await _cropImage(file);
+
+//           if (croppedFile != null) {
+//             final croppedImage = File(croppedFile.path);
+
+//             await _processSelectedFile(croppedImage);
+//           }
+//         }
+//         /// ✅ PDF / EXCEL / DOC FLOW
+//         else {
+//           await _processSelectedFile(file);
+//         }
+//       }
+//     } catch (e) {
+//       debugPrint("❌ File pick error: $e");
+//     } finally {
+//       controller.isImageLoading.value = false;
+//     }
+//   }
+
+//   Future<void> _initializeData() async {
+//     await loadAndAppendCashAdvanceList();
+//     initializeCashAdvanceSelection();
+//   }
+
+//   void initializeCashAdvanceSelection() {
+//     String? backendSelectedIds = controller.cashAdvReqIds;
+//     print("controller.cashAdvReqIds$backendSelectedIds");
+//     controller.preloadCashAdvanceSelections(
+//       controller.cashAdvanceListDropDown,
+//       backendSelectedIds,
+//     );
+//   }
+
+//   Future<void> _processSelectedFile(File file) async {
+//     // ✅ Check feature states
+//     final featureStates = await controller.getAllFeatureStates();
+
+//     setState(() {
+//       controller.imageFiles.add(file);
+//     });
+//   }
+
+//   Future<void> loadAndAppendCashAdvanceList() async {
+//     controller.cashAdvanceListDropDown.clear();
+//     try {
+//       final newItems = await controller.fetchExpenseCashAdvanceList();
+
+//       final existingIds = controller.cashAdvanceListDropDown
+//           .map((e) => e.cashAdvanceReqId)
+//           .toSet();
+
+//       final uniqueNewItems = newItems.where(
+//         (item) => !existingIds.contains(item.cashAdvanceReqId),
+//       );
+
+//       controller.cashAdvanceListDropDown.addAll(uniqueNewItems);
+
+//       print(
+//         "✅ Updated cashAdvanceListDropDown: ${controller.cashAdvanceListDropDown.length}",
+//       );
+//     } catch (e) {
+//       Get.snackbar('Error', e.toString());
+//     }
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return WillPopScope(
+//       onWillPop: () async {
+//         controller.isEnable.value = false;
+//         controller.isLoadingGE1.value = false;
+//         controller.isApprovalEnable.value = false;
+//         Navigator.pushNamed(context, AppRoutes.dashboard_Main);
+//         return true;
+//       },
+//       child: Scaffold(
+//         body: Form(
+//           key: _formKey,
+//           child: SingleChildScrollView(
+//             padding: const EdgeInsets.all(12),
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 const SizedBox(height: 10),
+//                 Obx(() {
+//                   return GestureDetector(
+//                     onTap: !controller.isEnable.value ? null : () => _pickFile,
+//                     child: Container(
+//                       width: MediaQuery.of(context).size.width * 0.9,
+//                       height: MediaQuery.of(context).size.height * 0.3,
+//                       decoration: BoxDecoration(
+//                         border: Border.all(color: Colors.grey, width: 2),
+//                         borderRadius: BorderRadius.circular(12),
+//                       ),
+
+//                       /// ✅ EMPTY VIEW
+//                       child: controller.imageFiles.isEmpty
+//                           ? Center(
+//                               child: Text(
+//                                 AppLocalizations.of(context)!.tapToUploadDocs,
+//                               ),
+//                             )
+//                           /// ✅ FILE PREVIEW VIEW
+//                           : Stack(
+//                               children: [
+//                                 PageView.builder(
+//                                   controller: _pageController,
+//                                   itemCount: controller.imageFiles.length,
+//                                   onPageChanged: (index) {
+//                                     controller.currentIndex.value = index;
+//                                   },
+
+//                                   itemBuilder: (_, index) {
+//                                     final file = controller.imageFiles[index];
+//                                     final path = file.path;
+
+//                                     return GestureDetector(
+//                                       onTap: () => controller.openFile(
+//                                         context,
+//                                         file,
+//                                         index,
+//                                       ),
+
+//                                       child: Container(
+//                                         margin: const EdgeInsets.all(8),
+//                                         decoration: BoxDecoration(
+//                                           border: Border.all(
+//                                             color: Colors.deepPurple,
+//                                           ),
+//                                           borderRadius: BorderRadius.circular(
+//                                             8,
+//                                           ),
+//                                         ),
+
+//                                         /// ✅ IMAGE
+//                                         child: controller.isImage(path)
+//                                             ? ClipRRect(
+//                                                 borderRadius:
+//                                                     BorderRadius.circular(8),
+//                                                 child: Image.file(
+//                                                   file,
+//                                                   fit: BoxFit.cover,
+//                                                   width: double.infinity,
+//                                                 ),
+//                                               )
+//                                             /// ✅ PDF
+//                                             : controller.isPdf(path)
+//                                             ? Column(
+//                                                 mainAxisAlignment:
+//                                                     MainAxisAlignment.center,
+//                                                 children: [
+//                                                   const Icon(
+//                                                     Icons.picture_as_pdf,
+//                                                     size: 70,
+//                                                     color: Colors.red,
+//                                                   ),
+//                                                   Padding(
+//                                                     padding:
+//                                                         const EdgeInsets.all(8),
+//                                                     child: Text(
+//                                                       file.path.split('/').last,
+//                                                       textAlign:
+//                                                           TextAlign.center,
+//                                                     ),
+//                                                   ),
+//                                                 ],
+//                                               )
+//                                             /// ✅ EXCEL
+//                                             : controller.isExcel(path)
+//                                             ? Column(
+//                                                 mainAxisAlignment:
+//                                                     MainAxisAlignment.center,
+//                                                 children: [
+//                                                   const Icon(
+//                                                     Icons.table_chart,
+//                                                     size: 70,
+//                                                     color: Colors.green,
+//                                                   ),
+//                                                   Text(
+//                                                     file.path.split('/').last,
+//                                                     textAlign: TextAlign.center,
+//                                                   ),
+//                                                 ],
+//                                               )
+//                                             /// ✅ OTHER FILE
+//                                             : Column(
+//                                                 mainAxisAlignment:
+//                                                     MainAxisAlignment.center,
+//                                                 children: [
+//                                                   const Icon(
+//                                                     Icons.insert_drive_file,
+//                                                     size: 70,
+//                                                   ),
+//                                                   Text(
+//                                                     file.path.split('/').last,
+//                                                     textAlign: TextAlign.center,
+//                                                   ),
+//                                                 ],
+//                                               ),
+//                                       ),
+//                                     );
+//                                   },
+//                                 ),
+
+//                                 /// ✅ PAGE COUNT
+//                                 Positioned(
+//                                   bottom: 40,
+//                                   left: 0,
+//                                   right: 0,
+//                                   child: Center(
+//                                     child: Obx(
+//                                       () => Container(
+//                                         padding: const EdgeInsets.symmetric(
+//                                           vertical: 8,
+//                                           horizontal: 16,
+//                                         ),
+//                                         decoration: BoxDecoration(
+//                                           color: Colors.black.withOpacity(0.5),
+//                                           borderRadius: BorderRadius.circular(
+//                                             20,
+//                                           ),
+//                                         ),
+//                                         child: Text(
+//                                           '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+//                                           style: const TextStyle(
+//                                             color: Colors.white,
+//                                             fontSize: 18,
+//                                           ),
+//                                         ),
+//                                       ),
+//                                     ),
+//                                   ),
+//                                 ),
+
+//                                 /// ✅ ADD BUTTON
+//                                 if (controller.isEnable.value)
+//                                   Positioned(
+//                                     bottom: 16,
+//                                     right: 16,
+//                                     child: GestureDetector(
+//                                       onTap: _pickFile,
+//                                       child: Container(
+//                                         decoration: BoxDecoration(
+//                                           color: Colors.deepPurple,
+//                                           shape: BoxShape.circle,
+//                                           border: Border.all(
+//                                             color: Colors.white,
+//                                             width: 2,
+//                                           ),
+//                                         ),
+//                                         padding: const EdgeInsets.all(8),
+//                                         child: const Icon(
+//                                           Icons.add,
+//                                           color: Colors.white,
+//                                           size: 28,
+//                                         ),
+//                                       ),
+//                                     ),
+//                                   ),
+//                               ],
+//                             ),
+//                     ),
+//                   );
+//                 }),
+
+//                 const SizedBox(height: 20),
+//                 Text(
+//                   AppLocalizations.of(context)!.receiptDetails,
+//                   style: const TextStyle(fontWeight: FontWeight.bold),
+//                 ),
+//                 const SizedBox(height: 10),
+//                 _buildTextField(
+//                   label: "${AppLocalizations.of(context)!.expenseId} *",
+//                   controller: expenseIdController,
+//                   isReadOnly: false,
+//                 ),
+//                 buildDateField(
+//                   AppLocalizations.of(context)!.returnDate,
+//                   receiptDateController,
+//                   isReadOnly: !controller.isEnable.value, // pass manually
+//                 ),
+
+//                 const SizedBox(height: 12),
+//                 Obx(() {
+//                   return Column(
+//                     crossAxisAlignment: CrossAxisAlignment.start,
+//                     children: controller.configListAdvance
+//                         .where(
+//                           (field) =>
+//                               field['FieldName'] == 'Location' &&
+//                               field['IsEnabled'] == true,
+//                         )
+//                         .map((field) {
+//                           final String label = field['FieldName'];
+//                           final bool isMandatory =
+//                               field['IsMandatory'] ?? false;
+
+//                           return Column(
+//                             crossAxisAlignment: CrossAxisAlignment.start,
+//                             children: [
+//                               SearchableMultiColumnDropdownField<LocationModel>(
+//                                 labelText: '$label ${isMandatory ? "*" : ""}',
+//                                 columnHeaders: [
+//                                   AppLocalizations.of(context)!.location,
+//                                   AppLocalizations.of(context)!.country,
+//                                 ],
+//                                 enabled: controller.isEnable.value,
+//                                 controller: controller.locationController,
+//                                 items: controller.location,
+//                                 selectedValue: controller.selectedLocation,
+//                                 searchValue: (loc) => loc.location,
+//                                 displayText: (loc) => loc.location,
+//                                 validator: (loc) => isMandatory && loc == null
+//                                     ? AppLocalizations.of(context)!.selectLocale
+//                                     : null,
+//                                 onChanged: (loc) {
+//                                   controller.selectedLocation = loc;
+//                                   controller.fetchMaxAllowedPercentage();
+//                                   if (_debounce?.isActive ?? false)
+//                                     _debounce!.cancel();
+
+//                                   // Start a new debounce timer
+//                                   _debounce = Timer(
+//                                     const Duration(milliseconds: 400),
+//                                     () async {
+//                                       final paidAmountText = controller
+//                                           .paidAmountCA1
+//                                           .text
+//                                           .trim();
+//                                       controller.unitAmount.text =
+//                                           controller.paidAmountCA1.text;
+//                                       final double paidAmounts =
+//                                           double.tryParse(paidAmountText) ??
+//                                           0.0;
+//                                       final currency = controller
+//                                           .currencyDropDowncontrollerCA3
+//                                           .text;
+
+//                                       // Only proceed if currency and amount are provided
+//                                       if (currency.isNotEmpty &&
+//                                           paidAmountText.isNotEmpty) {
+//                                         // Fire API calls concurrently
+//                                         final results = await Future.wait([
+//                                           controller.fetchExchangeRateCA(
+//                                             currency,
+//                                             paidAmountText,
+//                                           ),
+//                                           controller
+//                                               .fetchMaxAllowedPercentage(),
+//                                         ]);
+
+//                                         // Process the first exchange rate response
+//                                         final exchangeResponse1 =
+//                                             results[0] as ExchangeRateResponse?;
+//                                         if (exchangeResponse1 != null) {
+//                                           controller.unitRateCA1.text =
+//                                               exchangeResponse1.exchangeRate
+//                                                   .toString();
+//                                           controller.amountINRCA1.text =
+//                                               exchangeResponse1.totalAmount
+//                                                   .toStringAsFixed(2);
+//                                           controller.isVisible.value = true;
+//                                         }
+
+//                                         // Process max allowed percentage
+//                                         final maxPercentage =
+//                                             results[1] as double?;
+
+//                                         if (maxPercentage != null &&
+//                                             maxPercentage > 0) {
+//                                           final double calculatedPercentage =
+//                                               (paidAmounts * maxPercentage) /
+//                                               100;
+
+//                                           controller.totalRequestedAmount.text =
+//                                               calculatedPercentage.toString();
+//                                           controller
+//                                                   .calculatedPercentage
+//                                                   .value =
+//                                               calculatedPercentage;
+
+//                                           final percentageStr = maxPercentage
+//                                               .toInt()
+//                                               .toString();
+//                                           controller.requestedPercentage.text =
+//                                               '$percentageStr %';
+//                                         }
+//                                         final reqPaidAmount = controller
+//                                             .totalRequestedAmount
+//                                             .text
+//                                             .trim();
+//                                         final reqCurrency = controller
+//                                             .currencyDropDowncontrollerCA2
+//                                             .text;
+//                                         if (reqCurrency.isNotEmpty &&
+//                                             reqPaidAmount.isNotEmpty) {
+//                                           final exchangeResponse =
+//                                               await controller
+//                                                   .fetchExchangeRateCA(
+//                                                     reqCurrency,
+//                                                     reqPaidAmount,
+//                                                   );
+
+//                                           if (exchangeResponse != null) {
+//                                             controller.unitRateCA2.text =
+//                                                 exchangeResponse.exchangeRate
+//                                                     .toString();
+//                                             controller.amountINRCA2.text =
+//                                                 exchangeResponse.totalAmount
+//                                                     .toStringAsFixed(2);
+//                                             // controller.isVisible.value = true;
+//                                           }
+//                                         }
+//                                       }
+//                                     },
+//                                   );
+//                                   field['Error'] =
+//                                       null; // Clear error when value selected
+//                                 },
+//                                 rowBuilder: (loc, searchQuery) {
+//                                   return Padding(
+//                                     padding: const EdgeInsets.symmetric(
+//                                       vertical: 12,
+//                                       horizontal: 16,
+//                                     ),
+//                                     child: Row(
+//                                       children: [
+//                                         Expanded(child: Text(loc.location)),
+//                                         Expanded(child: Text(loc.country)),
+//                                       ],
+//                                     ),
+//                                   );
+//                                 },
+//                               ),
+
+//                               const SizedBox(height: 16),
+//                             ],
+//                           );
+//                         })
+//                         .toList(),
+//                   );
+//                 }),
+//                 Column(
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     Obx(
+//                       () => Container(
+//                         // padding: const EdgeInsets.all(12),
+//                         // margin: const EdgeInsets.only(bottom: 16),
+//                         // decoration: BoxDecoration(
+//                         //   color: Colors.white,
+//                         //   border: Border.all(
+//                         //     color: Colors.grey.shade400,
+//                         //     width: 1,
+//                         //   ),
+//                         //   borderRadius: BorderRadius.circular(12),
+//                         //   boxShadow: [
+//                         //     BoxShadow(
+//                         //       color: Colors.black.withOpacity(0.05),
+//                         //       blurRadius: 6,
+//                         //       offset: const Offset(0, 3),
+//                         //     ),
+//                         //   ],
+//                         // ),
+//                         child:
+//                             MultiSelectMultiColumnDropdownField<
+//                               CashAdvanceDropDownModel
+//                             >(
+//                               labelText: AppLocalizations.of(
+//                                 context,
+//                               )!.cashAdvanceRequest,
+//                               items: controller.cashAdvanceListDropDown,
+//                               isMultiSelect: allowMultSelect ?? false,
+//                               selectedValue: controller.singleSelectedItem,
+//                               selectedValues: controller.multiSelectedItems,
+//                               enabled: controller.isEnable.value,
+//                               searchValue: (proj) => proj.cashAdvanceReqId,
+//                               displayText: (proj) => proj.cashAdvanceReqId,
+//                               validator: (proj) => proj == null
+//                                   ? 'Please select a CashAdvance Field'
+//                                   : null,
+//                               onChanged: (item) {
+//                                 controller.singleSelectedItem =
+//                                     item; // ✅ update selected item
+//                               },
+//                               onMultiChanged: (items) {
+//                                 controller.multiSelectedItems.assignAll(
+//                                   items,
+//                                 ); // ✅ update list
+//                               },
+//                               columnHeaders: [
+//                                 AppLocalizations.of(context)!.requestId,
+//                                 AppLocalizations.of(context)!.requestDate,
+//                               ],
+//                               rowBuilder: (proj, searchQuery) {
+//                                 return Padding(
+//                                   padding: const EdgeInsets.symmetric(
+//                                     vertical: 12,
+//                                     horizontal: 16,
+//                                   ),
+//                                   child: Row(
+//                                     children: [
+//                                       Expanded(
+//                                         child: Text(proj.cashAdvanceReqId),
+//                                       ),
+//                                       Expanded(
+//                                         child: Text(
+//                                           controller.formattedDate(
+//                                             proj.requestDate,
+//                                           ),
+//                                         ),
+//                                       ),
+//                                     ],
+//                                   ),
+//                                 );
+//                               },
+//                             ),
+//                       ),
+//                     ),
+//                   ],
+//                 ),
+//                 const SizedBox(height: 12),
+//                 Column(
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     const SizedBox(height: 4),
+//                     SearchableMultiColumnDropdownField<PaymentMethodModel>(
+//                       enabled: controller.isEnable.value,
+//                       labelText: AppLocalizations.of(context)!.paidWith,
+//                       columnHeaders: [
+//                         AppLocalizations.of(context)!.paymentName,
+//                         AppLocalizations.of(context)!.paymentId,
+//                       ],
+//                       items: controller.paymentMethods,
+//                       selectedValue: controller.selectedPaidWith,
+//                       searchValue: (p) =>
+//                           '${p.paymentMethodName} ${p.paymentMethodId}',
+//                       displayText: (p) => p.paymentMethodName,
+//                       validator: (_) => null,
+//                       onChanged: (p) {
+//                         setState(() {
+//                           controller.selectedPaidWith = p;
+//                           controller.paymentMethodID = p!.paymentMethodId;
+//                           controller.paidWithController.text =
+//                               p.paymentMethodId;
+//                         });
+//                         // loadAndAppendCashAdvanceList();
+//                       },
+//                       controller: controller.paidWithController,
+//                       rowBuilder: (p, searchQuery) {
+//                         return Padding(
+//                           padding: const EdgeInsets.symmetric(
+//                             vertical: 12,
+//                             horizontal: 16,
+//                           ),
+//                           child: Row(
+//                             children: [
+//                               Expanded(child: Text(p.paymentMethodName)),
+//                               Expanded(child: Text(p.paymentMethodId)),
+//                             ],
+//                           ),
+//                         );
+//                       },
+//                     ),
+//                   ],
+//                 ),
+//                 const SizedBox(height: 12),
+//                 _buildTextField(
+//                   label: AppLocalizations.of(context)!.referenceId,
+//                   controller: controller.referenceID,
+//                   isReadOnly: controller.isEnable.value,
+//                 ),
+//                 Row(
+//                   children: [
+//                     Expanded(
+//                       child: TextFormField(
+//                         enabled: false,
+//                         controller: controller.paidAmount,
+//                         onChanged: (_) {
+//                           // controller.fetchExchangeRate();
+
+//                           final paid =
+//                               double.tryParse(controller.paidAmount.text) ??
+//                               0.0;
+//                           final rate =
+//                               double.tryParse(controller.unitRate.text) ?? 1.0;
+
+//                           final result = paid * rate;
+
+//                           controller.amountINR.text = result.toStringAsFixed(2);
+//                         },
+//                         keyboardType: TextInputType.number,
+//                         inputFormatters: [
+//                           FilteringTextInputFormatter.allow(
+//                             RegExp(r'^\d*\.?\d*'),
+//                           ), // Only digits and dots allowed
+//                         ],
+//                         decoration: InputDecoration(
+//                           labelText:
+//                               '${AppLocalizations.of(context)!.paidAmount}*',
+//                           // ignore: prefer_const_constructors
+//                           border: OutlineInputBorder(
+//                             borderRadius: const BorderRadius.only(
+//                               topRight: Radius.circular(0),
+//                               bottomRight: Radius.circular(0),
+//                               topLeft: Radius.circular(10),
+//                               bottomLeft: Radius.circular(10),
+//                             ),
+//                           ),
+//                         ),
+//                         onEditingComplete: () {
+//                           String text = controller.paidAmount.text;
+//                           double? value = double.tryParse(text);
+//                           if (value != null) {
+//                             controller.paidAmount.text = value.toStringAsFixed(
+//                               2,
+//                             );
+//                           }
+//                         },
+//                       ),
+//                     ),
+//                     Expanded(
+//                       child: Obx(
+//                         () => SearchableMultiColumnDropdownField<Currency>(
+//                           enabled: controller.isEnable.value,
+//                           alignLeft: -90,
+//                           dropdownWidth: 280,
+//                           labelText: "",
+//                           columnHeaders: [
+//                             AppLocalizations.of(context)!.code,
+//                             AppLocalizations.of(context)!.name,
+//                             AppLocalizations.of(context)!.symbol,
+//                           ],
+//                           items: controller.currencies,
+//                           selectedValue: controller.selectedCurrency.value,
+//                           backgroundColor: const Color.fromARGB(255, 22, 2, 92),
+//                           searchValue: (c) => '${c.code} ${c.name} ${c.symbol}',
+//                           displayText: (c) => c.code,
+//                           inputDecoration: const InputDecoration(
+//                             suffixIcon: Icon(Icons.arrow_drop_down_outlined),
+//                             filled: true,
+//                             fillColor: Color.fromARGB(55, 5, 23, 128),
+//                             border: OutlineInputBorder(
+//                               borderRadius: BorderRadius.only(
+//                                 topLeft: Radius.circular(0),
+//                                 bottomLeft: Radius.circular(0),
+//                                 topRight: Radius.circular(10),
+//                                 bottomRight: Radius.circular(10),
+//                               ),
+//                             ),
+//                           ),
+//                           validator: (c) =>
+//                               controller.currencyDropDowncontroller.text.isEmpty
+//                               ? AppLocalizations.of(
+//                                   context,
+//                                 )!.pleaseSelectCurrency
+//                               : null,
+//                           onChanged: (c) async {
+//                             controller.selectedCurrency.value = c;
+//                             controller.fetchExchangeRate().then((_) {
+//                               _updateAllLineItems();
+//                             });
+//                           },
+//                           controller: controller.currencyDropDowncontroller,
+//                           rowBuilder: (c, searchQuery) {
+//                             return Padding(
+//                               padding: const EdgeInsets.symmetric(
+//                                 vertical: 12,
+//                                 horizontal: 16,
+//                               ),
+//                               child: Row(
+//                                 children: [
+//                                   Expanded(child: Text(c.code)),
+//                                   Expanded(child: Text(c.name)),
+//                                   Expanded(child: Text(c.symbol)),
+//                                 ],
+//                               ),
+//                             );
+//                           },
+//                         ),
+//                       ),
+//                     ),
+//                     const SizedBox(width: 10),
+//                     Expanded(
+//                       child: TextFormField(
+//                         enabled: controller.isEnable.value,
+//                         controller: controller.unitRate,
+//                         decoration: InputDecoration(
+//                           labelText: '${AppLocalizations.of(context)!.rate} *',
+//                           border: OutlineInputBorder(
+//                             borderRadius: BorderRadius.circular(10),
+//                           ),
+//                         ),
+//                         onChanged: (val) {
+//                           // Fetch exchange rate if needed
+//                           // controller.fetchExchangeRate();
+
+//                           final paid =
+//                               double.tryParse(controller.paidAmount.text) ??
+//                               0.0;
+//                           final rate = double.tryParse(val) ?? 1.0;
+
+//                           // ✅ Perform calculation
+//                           final result = paid * rate;
+
+//                           controller.amountINR.text = result.toStringAsFixed(2);
+//                           controller.isVisible.value = true;
+//                           for (int i = 0; i < itemizeControllers.length; i++) {
+//                             final itemController = itemizeControllers[i];
+//                             // controller
+//                             // .calculateLineAmounts(itemController);
+//                             final unitPrice =
+//                                 double.tryParse(
+//                                   itemController.unitPriceTrans.text,
+//                                 ) ??
+//                                 0.0;
+
+//                             final lineAmountInINR = unitPrice * rate;
+//                             itemController.lineAmountINR.text = lineAmountInINR
+//                                 .toStringAsFixed(2);
+
+//                             // Sync with the model
+//                             widget.items!.expenseTrans[i] = itemController
+//                                 .toExpenseItemUpdateModel();
+//                           }
+
+//                           // ✅ Trigger UI update
+//                           setState(() {});
+//                           print("Paid Amount: $paid");
+//                           print("Rate: $rate");
+//                           print(
+//                             "Calculated INR Amount: ${controller.amountINR.text}",
+//                           );
+//                         },
+//                       ),
+//                     ),
+//                   ],
+//                 ),
+//                 const SizedBox(height: 20),
+//                 TextFormField(
+//                   controller: controller.amountINR,
+//                   enabled: false,
+//                   decoration: InputDecoration(
+//                     labelText:
+//                         '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency} *',
+//                     filled: true,
+//                     border: OutlineInputBorder(
+//                       borderRadius: BorderRadius.circular(10),
+//                     ),
+//                   ),
+//                 ),
+//                 const SizedBox(height: 20),
+//                 // Modified Itemized Expenses Section
+//                 Column(
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     Row(
+//                       mainAxisAlignment: MainAxisAlignment.start,
+//                       children: [
+//                         Text(
+//                           "${AppLocalizations.of(context)!.itemize} ${AppLocalizations.of(context)!.expense}",
+//                           style: const TextStyle(
+//                             fontWeight: FontWeight.bold,
+//                             fontSize: 16,
+//                           ),
+//                         ),
+//                       ],
+//                     ),
+//                     const SizedBox(height: 10),
+//                     ListView.builder(
+//                       shrinkWrap: true,
+//                       physics: const NeverScrollableScrollPhysics(),
+//                       itemCount: widget.items!.expenseTrans.length,
+//                       itemBuilder: (context, index) {
+//                         final item = widget.items!.expenseTrans[index];
+//                         final itemController = itemizeControllers[index];
+//                         // _calculateTotalLineAmount(itemController);
+//                         return Card(
+//                           margin: const EdgeInsets.only(bottom: 16),
+//                           child: Column(
+//                             crossAxisAlignment: CrossAxisAlignment.start,
+//                             children: [
+//                               Padding(
+//                                 padding: const EdgeInsets.all(12),
+//                                 child: Row(
+//                                   mainAxisAlignment:
+//                                       MainAxisAlignment.spaceBetween,
+//                                   children: [
+//                                     Text(
+//                                       "${AppLocalizations.of(context)!.item} ${index + 1}",
+//                                       style: const TextStyle(
+//                                         fontWeight: FontWeight.bold,
+//                                         fontSize: 16,
+//                                       ),
+//                                     ),
+//                                     Row(
+//                                       mainAxisAlignment: MainAxisAlignment.end,
+//                                       children: [
+//                                         if (controller.isEnable.value &&
+//                                             widget.items!.expenseTrans.length >
+//                                                 1)
+//                                           IconButton(
+//                                             icon: const Icon(
+//                                               Icons.delete,
+//                                               color: Colors.red,
+//                                             ),
+//                                             onPressed: () =>
+//                                                 _removeItemize(index),
+//                                             tooltip: 'Remove this item',
+//                                           ),
+//                                         if (controller.isEnable.value)
+//                                           IconButton(
+//                                             icon: const Icon(
+//                                               Icons.add,
+//                                               color: Colors.green,
+//                                             ),
+//                                             onPressed: _addItemize,
+//                                             tooltip: 'Add new item',
+//                                           ),
+//                                       ],
+//                                     ),
+//                                   ],
+//                                 ),
+//                               ),
+//                               Padding(
+//                                 padding: const EdgeInsets.symmetric(
+//                                   horizontal: 12,
+//                                 ),
+//                                 child: Column(
+//                                   crossAxisAlignment: CrossAxisAlignment.start,
+//                                   children: [
+//                                     Obx(() {
+//                                       return Column(
+//                                         crossAxisAlignment:
+//                                             CrossAxisAlignment.start,
+//                                         children: controller.configListAdvance
+//                                             .where(
+//                                               (field) =>
+//                                                   field['FieldName'] ==
+//                                                       'Project Id' &&
+//                                                   field['IsEnabled'] == true,
+//                                             )
+//                                             .map((field) {
+//                                               final String label =
+//                                                   field['FieldName'];
+//                                               final bool isMandatory =
+//                                                   field['IsMandatory'] ?? false;
+
+//                                               return Column(
+//                                                 crossAxisAlignment:
+//                                                     CrossAxisAlignment.start,
+//                                                 children: [
+//                                                   SearchableMultiColumnDropdownField<
+//                                                     Project
+//                                                   >(
+//                                                     labelText:
+//                                                         '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""}',
+//                                                     columnHeaders: [
+//                                                       AppLocalizations.of(
+//                                                         context,
+//                                                       )!.projectName,
+//                                                       AppLocalizations.of(
+//                                                         context,
+//                                                       )!.projectId,
+//                                                     ],
+//                                                     // enabled: controller.isEditModePerdiem,
+//                                                     controller: controller
+//                                                         .projectIdController,
+//                                                     items: controller.project,
+//                                                     selectedValue: controller
+//                                                         .selectedProject,
+//                                                     searchValue: (proj) =>
+//                                                         '${proj.name} ${proj.code}',
+//                                                     displayText: (proj) =>
+//                                                         proj.code,
+//                                                     onChanged: (proj) {
+//                                                       setState(() {
+//                                                         controller
+//                                                                 .selectedProject =
+//                                                             proj;
+//                                                         if (proj != null) {
+//                                                           controller
+//                                                                   .showProjectError
+//                                                                   .value =
+//                                                               false;
+//                                                         }
+//                                                       });
+//                                                       // Optional: Fetch categories after selecting project
+//                                                       // controller.fetchExpenseCategory();
+//                                                     },
+//                                                     rowBuilder:
+//                                                         (proj, searchQuery) {
+//                                                           return Padding(
+//                                                             padding:
+//                                                                 const EdgeInsets.symmetric(
+//                                                                   vertical: 12,
+//                                                                   horizontal:
+//                                                                       16,
+//                                                                 ),
+//                                                             child: Row(
+//                                                               children: [
+//                                                                 SizedBox(
+//                                                                   width: 10,
+//                                                                 ),
+//                                                                 Expanded(
+//                                                                   child: Text(
+//                                                                     proj.name,
+//                                                                   ),
+//                                                                 ),
+//                                                                 Expanded(
+//                                                                   child: Text(
+//                                                                     proj.code,
+//                                                                   ),
+//                                                                 ),
+//                                                               ],
+//                                                             ),
+//                                                           );
+//                                                         },
+//                                                   ),
+//                                                   if (controller
+//                                                       .showProjectError
+//                                                       .value)
+//                                                     const Padding(
+//                                                       padding: EdgeInsets.only(
+//                                                         top: 4,
+//                                                       ),
+//                                                       child: Text(
+//                                                         'Please select a Project',
+//                                                         style: TextStyle(
+//                                                           color: Colors.red,
+//                                                           fontSize: 12,
+//                                                         ),
+//                                                       ),
+//                                                     ),
+//                                                   const SizedBox(height: 16),
+//                                                 ],
+//                                               );
+//                                             })
+//                                             .toList(),
+//                                       );
+//                                     }),
+//                                     const SizedBox(height: 12),
+//                                     SearchableMultiColumnDropdownField<
+//                                       ExpenseCategory
+//                                     >(
+//                                       labelText: AppLocalizations.of(
+//                                         context,
+//                                       )!.projectId,
+//                                       enabled: controller.isEnable.value,
+//                                       columnHeaders: [
+//                                         AppLocalizations.of(
+//                                           context,
+//                                         )!.categoryName,
+//                                         AppLocalizations.of(
+//                                           context,
+//                                         )!.categoryName,
+//                                       ],
+//                                       items: controller.expenseCategory,
+//                                       selectedValue:
+//                                           itemController.selectedCategory,
+//                                       searchValue: (p) =>
+//                                           '${p.categoryName} ${p.categoryId}',
+//                                       displayText: (p) => p.categoryId,
+//                                       validator: (_) => null,
+//                                       onChanged: (p) {
+//                                         setState(() {
+//                                           itemController.selectedCategory = p;
+//                                           itemController.selectedCategoryId =
+//                                               p!.categoryId;
+//                                           widget.items!.expenseTrans[index] =
+//                                               itemController
+//                                                   .toExpenseItemUpdateModel();
+//                                           itemController
+//                                                   .categoryController
+//                                                   .text =
+//                                               p.categoryId;
+//                                         });
+//                                       },
+//                                       controller:
+//                                           itemController.categoryController,
+//                                       rowBuilder: (p, searchQuery) {
+//                                         return Padding(
+//                                           padding: const EdgeInsets.symmetric(
+//                                             vertical: 12,
+//                                             horizontal: 16,
+//                                           ),
+//                                           child: Row(
+//                                             children: [
+//                                               Expanded(
+//                                                 child: Text(p.categoryName),
+//                                               ),
+//                                               Expanded(
+//                                                 child: Text(p.categoryId),
+//                                               ),
+//                                             ],
+//                                           ),
+//                                         );
+//                                       },
+//                                     ),
+//                                     const SizedBox(height: 12),
+//                                     _buildTextField(
+//                                       label: AppLocalizations.of(
+//                                         context,
+//                                       )!.comments,
+//                                       controller:
+//                                           itemController.descriptionController,
+//                                       isReadOnly: controller.isEnable.value,
+//                                       onChanged: (value) {
+//                                         setState(() {
+//                                           widget.items!.expenseTrans[index] =
+//                                               itemController
+//                                                   .toExpenseItemUpdateModel();
+//                                         });
+//                                       },
+//                                     ),
+//                                     SearchableMultiColumnDropdownField<Unit>(
+//                                       labelText:
+//                                           '${AppLocalizations.of(context)!.unit} *',
+//                                       enabled: controller.isEnable.value,
+//                                       columnHeaders: [
+//                                         AppLocalizations.of(context)!.uomId,
+//                                         AppLocalizations.of(context)!.uomName,
+//                                       ],
+//                                       items: controller.unit,
+
+//                                       selectedValue:
+//                                           itemController.selectedunit,
+//                                       searchValue: (tax) =>
+//                                           '${tax.code} ${tax.name}',
+//                                       displayText: (tax) => tax.name,
+//                                       validator: (tax) =>
+//                                           itemController.uomId.text.isEmpty
+//                                           ? 'Please select a Unit'
+//                                           : null,
+//                                       onChanged: (tax) {
+//                                         setState(() {
+//                                           itemController.selectedunit = tax;
+//                                           itemController.uomId.text = tax!.code;
+//                                           widget.items!.expenseTrans[index] =
+//                                               itemController
+//                                                   .toExpenseItemUpdateModel();
+//                                         });
+//                                       },
+//                                       controller: itemController.uomId,
+//                                       rowBuilder: (tax, searchQuery) {
+//                                         return Padding(
+//                                           padding: const EdgeInsets.symmetric(
+//                                             vertical: 12,
+//                                             horizontal: 16,
+//                                           ),
+//                                           child: Row(
+//                                             children: [
+//                                               Expanded(child: Text(tax.code)),
+//                                               Expanded(child: Text(tax.name)),
+//                                             ],
+//                                           ),
+//                                         );
+//                                       },
+//                                     ),
+//                                     const SizedBox(height: 12),
+//                                     _buildTextField(
+//                                       label:
+//                                           "${AppLocalizations.of(context)!.quantity} *",
+//                                       controller: itemController.quantity,
+//                                       isReadOnly: controller.isEnable.value,
+//                                       validator: (value) =>
+//                                           _validateNumericField(
+//                                             value!,
+//                                             AppLocalizations.of(
+//                                               context,
+//                                             )!.quantity,
+//                                             true,
+//                                           ),
+//                                       onChanged: (value) {
+//                                         WidgetsBinding.instance
+//                                             .addPostFrameCallback((_) {
+//                                               controller
+//                                                   .fetchExchangeRate()
+//                                                   .then((_) {
+//                                                     _updateAllLineItems();
+//                                                   });
+//                                             });
+
+//                                         setState(() {
+//                                           widget.items!.expenseTrans[index] =
+//                                               itemController
+//                                                   .toExpenseItemUpdateModel();
+//                                         });
+//                                       },
+//                                     ),
+//                                     _buildTextField(
+//                                       label:
+//                                           "${AppLocalizations.of(context)!.unitAmount} *",
+//                                       controller: itemController.unitPriceTrans,
+//                                       isReadOnly: controller.isEnable.value,
+//                                       validator: (value) =>
+//                                           _validateNumericField(
+//                                             value!,
+//                                             AppLocalizations.of(
+//                                               context,
+//                                             )!.unitAmount,
+//                                             true,
+//                                           ),
+//                                       inputFormatters: [
+//                                         FilteringTextInputFormatter.digitsOnly,
+//                                         LengthLimitingTextInputFormatter(
+//                                           10,
+//                                         ), // Max 10 digits
+//                                       ],
+//                                       onChanged: (value) {
+//                                         WidgetsBinding.instance
+//                                             .addPostFrameCallback((_) {
+//                                               controller
+//                                                   .fetchExchangeRate()
+//                                                   .then((_) {
+//                                                     _updateAllLineItems();
+//                                                   });
+//                                             });
+
+//                                         setState(() {
+//                                           widget.items!.expenseTrans[index] =
+//                                               itemController
+//                                                   .toExpenseItemUpdateModel();
+//                                         });
+//                                       },
+//                                     ),
+//                                     _buildTextField(
+//                                       label: AppLocalizations.of(
+//                                         context,
+//                                       )!.lineAmount,
+//                                       controller: itemController.lineAmount,
+//                                       isReadOnly: false,
+//                                       onChanged: (value) {
+//                                         setState(() {
+//                                           widget.items!.expenseTrans[index] =
+//                                               itemController
+//                                                   .toExpenseItemUpdateModel();
+//                                         });
+//                                       },
+//                                     ),
+//                                     _buildTextField(
+//                                       label:
+//                                           '${AppLocalizations.of(context)!.lineAmountInInr} ${controller.organizationCurrency}',
+//                                       controller: itemController.lineAmountINR,
+//                                       isReadOnly: false,
+//                                       onChanged: (value) {
+//                                         setState(() {
+//                                           widget.items!.expenseTrans[index] =
+//                                               itemController
+//                                                   .toExpenseItemUpdateModel();
+//                                         });
+//                                       },
+//                                     ),
+//                                     if (controller.isEnable.value)
+//                                       Row(
+//                                         mainAxisAlignment:
+//                                             MainAxisAlignment.end,
+//                                         children: [
+//                                           TextButton(
+//                                             onPressed: () {
+//                                               final double lineAmount =
+//                                                   double.tryParse(
+//                                                     itemController
+//                                                         .lineAmount
+//                                                         .text,
+//                                                   ) ??
+//                                                   0.0;
+//                                               if (itemController
+//                                                       .split
+//                                                       .isEmpty &&
+//                                                   item
+//                                                       .accountingDistributions
+//                                                       .isNotEmpty) {
+//                                                 itemController.split.assignAll(
+//                                                   item.accountingDistributions
+//                                                       .map((e) {
+//                                                         return AccountingSplit(
+//                                                           paidFor: e
+//                                                               .dimensionValueId,
+//                                                           percentage: e
+//                                                               .allocationFactor,
+//                                                           amount: e.transAmount,
+//                                                         );
+//                                                       })
+//                                                       .toList(),
+//                                                 );
+//                                               } else if (itemController
+//                                                   .split
+//                                                   .isEmpty) {
+//                                                 itemController.split.add(
+//                                                   AccountingSplit(
+//                                                     percentage: 100.0,
+//                                                   ),
+//                                                 );
+//                                               }
+
+//                                               showModalBottomSheet(
+//                                                 context: context,
+//                                                 isScrollControlled: true,
+//                                                 shape:
+//                                                     const RoundedRectangleBorder(
+//                                                       borderRadius:
+//                                                           BorderRadius.vertical(
+//                                                             top:
+//                                                                 Radius.circular(
+//                                                                   16,
+//                                                                 ),
+//                                                           ),
+//                                                     ),
+//                                                 builder: (context) => Padding(
+//                                                   padding: EdgeInsets.only(
+//                                                     bottom: MediaQuery.of(
+//                                                       context,
+//                                                     ).viewInsets.bottom,
+//                                                     left: 16,
+//                                                     right: 16,
+//                                                     top: 24,
+//                                                   ),
+//                                                   child: SingleChildScrollView(
+//                                                     child: AccountingDistributionWidget(
+//                                                       splits:
+//                                                           itemController.split,
+//                                                       lineAmount: lineAmount,
+//                                                       onChanged:
+//                                                           (i, updatedSplit) {
+//                                                             if (!mounted)
+//                                                               return;
+//                                                             itemController
+//                                                                     .split[i] =
+//                                                                 updatedSplit;
+//                                                           },
+//                                                       onDistributionChanged: (newList) {
+//                                                         if (!mounted) return;
+//                                                         item.accountingDistributions
+//                                                             .clear();
+//                                                         item.accountingDistributions
+//                                                             .addAll(newList);
+//                                                       },
+//                                                     ),
+//                                                   ),
+//                                                 ),
+//                                               );
+//                                             },
+//                                             child: Text(
+//                                               AppLocalizations.of(
+//                                                 context,
+//                                               )!.accountDistribution,
+//                                               style: const TextStyle(
+//                                                 color: Colors.blue,
+//                                                 decoration:
+//                                                     TextDecoration.underline,
+//                                                 decorationColor: Colors.blue,
+//                                                 fontSize: 12,
+//                                                 fontWeight: FontWeight.w500,
+//                                               ),
+//                                             ),
+//                                           ),
+//                                         ],
+//                                       ),
+//                                   ],
+//                                 ),
+//                               ),
+//                             ],
+//                           ),
+//                         );
+//                       },
+//                     ),
+//                   ],
+//                 ),
+//                 const SizedBox(height: 10),
+//                 _buildSection(
+//                   title: AppLocalizations.of(context)!.trackingHistory,
+//                   children: [
+//                     const SizedBox(height: 12),
+//                     FutureBuilder<List<ExpenseHistory>>(
+//                       future: historyFuture,
+//                       builder: (context, snapshot) {
+//                         if (snapshot.connectionState ==
+//                             ConnectionState.waiting) {
+//                           return const Center(
+//                             child: CircularProgressIndicator(),
+//                           );
+//                         }
+
+//                         if (snapshot.hasError) {
+//                           return Center(
+//                             child: Text("No Data Available Please Skip Next"),
+//                           );
+//                         }
+
+//                         final historyList = snapshot.data!;
+//                         if (historyList.isEmpty) {
+//                           return Center(
+//                             child: Padding(
+//                               padding: const EdgeInsets.all(16),
+//                               child: Text(
+//                                 AppLocalizations.of(context)!.noHistoryMessage,
+//                                 textAlign: TextAlign.center,
+//                                 style: const TextStyle(color: Colors.grey),
+//                               ),
+//                             ),
+//                           );
+//                         }
+//                         return ListView.builder(
+//                           shrinkWrap: true,
+//                           physics: const NeverScrollableScrollPhysics(),
+//                           itemCount: historyList.length,
+//                           itemBuilder: (context, index) {
+//                             final item = historyList[index];
+//                             print("Trackingitem: $item");
+//                             return _buildTimelineItem(
+//                               item,
+//                               index == historyList.length - 1,
+//                             );
+//                           },
+//                         );
+//                       },
+//                     ),
+//                   ],
+//                 ),
+//                 const SizedBox(height: 20),
+
+//                 if (widget.items!.stepType == "Review")
+//                   Row(
+//                     children: [
+//                       // 🔵 Update Button
+//                       Obx(() {
+//                         final isUpdateLoading =
+//                             controller.buttonLoaders['update'] ?? false;
+//                         final isUpdateAcceptLoading =
+//                             controller.buttonLoaders['update_accept'] ?? false;
+//                         final isRejectLoading =
+//                             controller.buttonLoaders['reject'] ?? false;
+//                         final isAnyLoading = controller.buttonLoaders.values
+//                             .any((loading) => loading);
+
+//                         return Expanded(
+//                           child: ElevatedButton(
+//                             onPressed:
+//                                 (isUpdateLoading ||
+//                                     isUpdateAcceptLoading ||
+//                                     isRejectLoading ||
+//                                     isAnyLoading)
+//                                 ? null
+//                                 : () async {
+//                                     if (!(_formKey.currentState?.validate() ??
+//                                         false))
+//                                       return;
+//                                     controller.setButtonLoading('update', true);
+//                                     controller.addToFinalItems(widget.items!);
+//                                     await controller
+//                                         .cashadvanceregistrationsHub(
+//                                           context,
+//                                           true,
+//                                           widget.items!.recId!,
+//                                           widget.items!.expenseId,
+//                                           workitemrecid,
+//                                         );
+
+//                                     controller.setButtonLoading(
+//                                       'update',
+//                                       false,
+//                                     );
+//                                   },
+//                             style: ElevatedButton.styleFrom(
+//                               backgroundColor: const Color.fromARGB(
+//                                 255,
+//                                 3,
+//                                 20,
+//                                 117,
+//                               ),
+//                             ),
+//                             child: isUpdateLoading
+//                                 ? const SizedBox(
+//                                     height: 20,
+//                                     width: 20,
+//                                     child: CircularProgressIndicator(
+//                                       color: Colors.white,
+//                                       strokeWidth: 2,
+//                                     ),
+//                                   )
+//                                 : Text(
+//                                     AppLocalizations.of(context)!.update,
+//                                     style: TextStyle(color: Colors.white),
+//                                   ),
+//                           ),
+//                         );
+//                       }),
+
+//                       const SizedBox(width: 12),
+
+//                       // 🟢 Update & Accept Button
+//                       Obx(() {
+//                         final isUpdateLoading =
+//                             controller.buttonLoaders['update'] ?? false;
+//                         final isUpdateAcceptLoading =
+//                             controller.buttonLoaders['update_accept'] ?? false;
+//                         final isRejectLoading =
+//                             controller.buttonLoaders['reject'] ?? false;
+//                         final isAnyLoading = controller.buttonLoaders.values
+//                             .any((loading) => loading);
+
+//                         return Expanded(
+//                           child: ElevatedButton(
+//                             onPressed:
+//                                 (isUpdateAcceptLoading ||
+//                                     isUpdateLoading ||
+//                                     isRejectLoading ||
+//                                     isAnyLoading)
+//                                 ? null
+//                                 : () async {
+//                                     if (!(_formKey.currentState?.validate() ??
+//                                         false))
+//                                       return;
+//                                     controller.setButtonLoading(
+//                                       'update_accept',
+//                                       true,
+//                                     );
+
+//                                     controller.addToFinalItems(widget.items!);
+//                                     await controller
+//                                         .cashadvanceregistrationsHub(
+//                                           context,
+//                                           true,
+//                                           widget.items!.recId!,
+//                                           widget.items!.expenseId,
+//                                           workitemrecid,
+//                                         );
+
+//                                     controller.setButtonLoading(
+//                                       'update_accept',
+//                                       false,
+//                                     );
+//                                   },
+//                             style: ElevatedButton.styleFrom(
+//                               backgroundColor: const Color.fromARGB(
+//                                 255,
+//                                 3,
+//                                 20,
+//                                 117,
+//                               ),
+//                             ),
+//                             child: isUpdateAcceptLoading
+//                                 ? const SizedBox(
+//                                     height: 20,
+//                                     width: 20,
+//                                     child: CircularProgressIndicator(
+//                                       color: Colors.white,
+//                                       strokeWidth: 2,
+//                                     ),
+//                                   )
+//                                 : Flexible(
+//                                     child: Text(
+//                                       AppLocalizations.of(
+//                                         context,
+//                                       )!.updateAndAccept,
+//                                       overflow: TextOverflow.ellipsis,
+//                                       maxLines: 1,
+//                                       softWrap: false,
+//                                       style: const TextStyle(
+//                                         color: Colors.white,
+//                                         fontSize: 12,
+//                                       ),
+//                                     ),
+//                                   ),
+//                           ),
+//                         );
+//                       }),
+//                     ],
+//                   ),
+//                 if (widget.items!.stepType == "Review")
+//                   const SizedBox(height: 12), // space between rows
+//                 //  if (controller.isEnable.value &&
+//                 //       widget.items!.stepType == "Review")
+//                 if (widget.items!.stepType == "Review")
+//                   Row(
+//                     children: [
+//                       Obx(() {
+//                         final isUpdateLoading =
+//                             controller.buttonLoaders['update'] ?? false;
+//                         final isUpdateAcceptLoading =
+//                             controller.buttonLoaders['update_accept'] ?? false;
+//                         final isRejectLoading =
+//                             controller.buttonLoaders['reject'] ?? false;
+//                         final isAnyLoading = controller.buttonLoaders.values
+//                             .any((loading) => loading);
+
+//                         return Expanded(
+//                           child: ElevatedButton(
+//                             onPressed:
+//                                 (isRejectLoading ||
+//                                     isUpdateLoading ||
+//                                     isUpdateAcceptLoading ||
+//                                     isAnyLoading)
+//                                 ? null
+//                                 : () {
+//                                     controller.setButtonLoading('reject', true);
+//                                     controller.addToFinalItems(widget.items!);
+//                                     showActionPopup(context, "Reject");
+//                                   },
+//                             style: ElevatedButton.styleFrom(
+//                               backgroundColor: const Color.fromARGB(
+//                                 255,
+//                                 238,
+//                                 20,
+//                                 20,
+//                               ),
+//                             ),
+//                             child: isRejectLoading
+//                                 ? const SizedBox(
+//                                     height: 20,
+//                                     width: 20,
+//                                     child: CircularProgressIndicator(
+//                                       color: Colors.white,
+//                                       strokeWidth: 2,
+//                                     ),
+//                                   )
+//                                 : Text(
+//                                     AppLocalizations.of(context)!.reject,
+//                                     style: TextStyle(color: Colors.white),
+//                                   ),
+//                           ),
+//                         );
+//                       }),
+//                       const SizedBox(width: 12),
+//                       Expanded(
+//                         child: ElevatedButton(
+//                           onPressed: () {
+//                             controller.skipCurrentItem(
+//                               widget.items!.workitemrecid!,
+//                               context,
+//                             );
+//                           },
+//                           style: ElevatedButton.styleFrom(
+//                             backgroundColor: Colors.grey,
+//                           ),
+//                           child: Text(AppLocalizations.of(context)!.skip),
+//                         ),
+//                       ),
+//                     ],
+//                   ),
+
+//                 if (widget.items!.stepType == "Approval")
+//                   Row(
+//                     children: [
+//                       // ✅ Approve Button
+//                       Obx(() {
+//                         final isLoading =
+//                             controller.buttonLoaders['approve'] ?? false;
+//                         return Expanded(
+//                           child: ElevatedButton(
+//                             onPressed: isLoading
+//                                 ? null
+//                                 : () {
+//                                     controller.setButtonLoading(
+//                                       'approve',
+//                                       true,
+//                                     );
+//                                     showActionPopup(context, "Approve");
+
+//                                     controller.setButtonLoading(
+//                                       'approve',
+//                                       false,
+//                                     );
+//                                   },
+//                             style: ElevatedButton.styleFrom(
+//                               backgroundColor: const Color.fromARGB(
+//                                 255,
+//                                 30,
+//                                 117,
+//                                 3,
+//                               ),
+//                             ),
+//                             child: isLoading
+//                                 ? const SizedBox(
+//                                     height: 20,
+//                                     width: 20,
+//                                     child: CircularProgressIndicator(
+//                                       color: Colors.white,
+//                                       strokeWidth: 2,
+//                                     ),
+//                                   )
+//                                 : Text(
+//                                     AppLocalizations.of(context)!.approve,
+//                                     style: TextStyle(color: Colors.white),
+//                                   ),
+//                           ),
+//                         );
+//                       }),
+
+//                       const SizedBox(width: 12),
+
+//                       // 🔴 Reject Button
+//                       Obx(() {
+//                         final isLoading =
+//                             controller.buttonLoaders['reject_approval'] ??
+//                             false;
+//                         return Expanded(
+//                           child: ElevatedButton(
+//                             onPressed: isLoading
+//                                 ? null
+//                                 : () {
+//                                     controller.setButtonLoading(
+//                                       'reject_approval',
+//                                       true,
+//                                     );
+//                                     showActionPopup(context, "Reject");
+
+//                                     controller.setButtonLoading(
+//                                       'reject_approval',
+//                                       false,
+//                                     );
+//                                   },
+//                             style: ElevatedButton.styleFrom(
+//                               backgroundColor: const Color.fromARGB(
+//                                 255,
+//                                 238,
+//                                 20,
+//                                 20,
+//                               ),
+//                             ),
+//                             child: isLoading
+//                                 ? const SizedBox(
+//                                     height: 20,
+//                                     width: 20,
+//                                     child: CircularProgressIndicator(
+//                                       color: Colors.white,
+//                                       strokeWidth: 2,
+//                                     ),
+//                                   )
+//                                 : Text(
+//                                     AppLocalizations.of(context)!.reject,
+//                                     style: TextStyle(color: Colors.white),
+//                                   ),
+//                           ),
+//                         );
+//                       }),
+//                     ],
+//                   ),
+
+//                 if (widget.items!.stepType == "Approval")
+//                   Row(
+//                     children: [
+//                       // 🔵 Escalate Button
+//                       Obx(() {
+//                         final isLoading =
+//                             controller.buttonLoaders['escalate'] ?? false;
+//                         return Expanded(
+//                           child: ElevatedButton(
+//                             onPressed: isLoading
+//                                 ? null
+//                                 : () {
+//                                     controller.setButtonLoading(
+//                                       'escalate',
+//                                       true,
+//                                     );
+//                                     showActionPopup(context, "Escalate");
+
+//                                     controller.setButtonLoading(
+//                                       'escalate',
+//                                       false,
+//                                     );
+//                                   },
+//                             style: ElevatedButton.styleFrom(
+//                               backgroundColor: const Color.fromARGB(
+//                                 255,
+//                                 3,
+//                                 20,
+//                                 117,
+//                               ),
+//                             ),
+//                             child: isLoading
+//                                 ? const SizedBox(
+//                                     height: 20,
+//                                     width: 20,
+//                                     child: CircularProgressIndicator(
+//                                       color: Colors.white,
+//                                       strokeWidth: 2,
+//                                     ),
+//                                   )
+//                                 : Text(
+//                                     AppLocalizations.of(context)!.escalate,
+//                                     style: TextStyle(color: Colors.white),
+//                                   ),
+//                           ),
+//                         );
+//                       }),
+
+//                       const SizedBox(width: 12),
+
+//                       // ⚪ Close Button
+//                       Expanded(
+//                         child: ElevatedButton(
+//                           onPressed: () {
+//                             controller.skipCurrentItem(
+//                               widget.items!.workitemrecid!,
+//                               context,
+//                             );
+//                           },
+//                           style: ElevatedButton.styleFrom(
+//                             backgroundColor: Colors.grey,
+//                           ),
+//                           child: Text(AppLocalizations.of(context)!.skip),
+//                         ),
+//                       ),
+//                     ],
+//                   ),
+//                 const SizedBox(height: 30),
+//               ],
+//             ),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+
+//   Widget buildDateField(
+//     String label,
+//     TextEditingController controllers, {
+//     required bool isReadOnly,
+//   }) {
+//     return TextFormField(
+//       controller: controllers,
+//       readOnly: true, // Always readonly because we use the calendar
+//       enabled: !isReadOnly, // Disable editing if readonly
+//       decoration: InputDecoration(
+//         labelText: label,
+//         suffixIcon: IconButton(
+//           icon: const Icon(Icons.calendar_today),
+//           onPressed: isReadOnly
+//               ? null // Disable button if readonly
+//               : () async {
+//                   // 🟢 Use controllers.text for initialDate or fallback
+//                   DateTime initialDate = DateTime.now();
+//                   if (controllers.text.isNotEmpty) {
+//                     try {
+//                       initialDate =
+//                           DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy') // Adjust your format
+//                               .parseStrict(controllers.text.trim());
+//                     } catch (e) {
+//                       print("Invalid date format: ${controllers.text}");
+//                       initialDate = DateTime.now(); // fallback
+//                     }
+//                   }
+
+//                   final picked = await showDatePicker(
+//                     context: context,
+//                     initialDate: initialDate,
+//                     firstDate: DateTime(2000),
+//                      lastDate: DateTime.now(),
+//                   );
+
+//                   if (picked != null) {
+//                     controllers.text = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(picked);
+//                     setState(() {
+//                       controller.selectedDate = picked;
+
+//                       controller.selectedProject = null;
+//                       for (var c in itemizeControllers) {
+//                         c.expenseCategory.value = [];
+//                         c.categoryController.clear();
+//                         c.projectDropDowncontroller.clear();
+//                       }
+//                     });
+//                     loadAndAppendCashAdvanceList();
+//                     controller.fetchCashAdvanceExpenseCategory();
+//                     controller.fetchProjectName();
+//                     controller.selectedDate = picked;
+//                   }
+//                 },
+//         ),
+//         border: const OutlineInputBorder(),
+//       ),
+//     );
+//   }
+
+//   // ... (keep all your existing helper methods below)
+//   Future<File?> _cropImage(File file) async {
+//     final croppedFile = await ImageCropper().cropImage(
+//       sourcePath: file.path,
+//       aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1), // optional
+//       uiSettings: [
+//         AndroidUiSettings(
+//           toolbarTitle: 'Crop Image',
+//           toolbarColor: Colors.deepPurple,
+//           toolbarWidgetColor: Colors.white,
+//           lockAspectRatio: false,
+//         ),
+//         IOSUiSettings(title: 'Crop Image', aspectRatioLockEnabled: false),
+//       ],
+//     );
+
+//     if (croppedFile != null) {
+//       final croppedImage = File(croppedFile.path);
+//       return croppedImage;
+//       // ignore: use_build_context_synchronously
+//       // await controller.sendUploadedFileToServer(context, croppedImage);
+//     }
+
+//     return null;
+//   }
+
+//   void _zoomIn() {
+//     _photoViewController.scale = _photoViewController.scale! * 1.2;
+//   }
+
+//   void _zoomOut() {
+//     _photoViewController.scale = _photoViewController.scale! / 1.2;
+//   }
+
+//   void _deleteImage() {
+//     setState(() {
+//       controller.imageFile = null;
+//     });
+//   }
+
+//   void _showFullImage(File file, int index) {
+//     showDialog(
+//       context: context,
+//       barrierColor: Colors.black.withOpacity(
+//         0.9,
+//       ), // darker transparent background
+//       builder: (context) {
+//         return Dialog(
+//           backgroundColor: Colors.transparent, // remove white box background
+//           insetPadding: const EdgeInsets.all(8),
+//           child: Stack(
+//             alignment: Alignment.center,
+//             children: [
+//               // Full image view
+//               PhotoView.customChild(
+//                 minScale: PhotoViewComputedScale.contained,
+//                 maxScale: PhotoViewComputedScale.covered * 9.0,
+//                 backgroundDecoration: const BoxDecoration(
+//                   color: Colors.transparent,
+//                 ),
+//                 child: Image.file(file, fit: BoxFit.contain),
+//               ),
+
+//               // Close button (top-left)
+//               Positioned(
+//                 top: 30,
+//                 right: 20,
+//                 child: IconButton(
+//                   icon: const Icon(Icons.close, color: Colors.white, size: 30),
+//                   onPressed: () {
+//                     controller.closeField();
+//                     Navigator.pop(context);
+//                   },
+//                 ),
+//               ),
+
+//               // Floating edit & delete buttons (top-right)
+//               Positioned(
+//                 top: 80,
+//                 right: 20,
+//                 child: Column(
+//                   children: [
+//                     if (controller.isEnable.value)
+//                       FloatingActionButton.small(
+//                         heroTag: "edit_$index",
+//                         onPressed: () async {
+//                           final croppedFile = await _cropImage(file);
+//                           if (croppedFile != null) {
+//                             setState(() {
+//                               controller.imageFiles[index] = croppedFile;
+//                             });
+//                             Navigator.pop(context);
+//                             _showFullImage(croppedFile, index);
+//                           }
+//                         },
+//                         backgroundColor: Colors.deepPurple,
+//                         child: const Icon(Icons.edit),
+//                       ),
+//                     const SizedBox(height: 12),
+//                     if (controller.isEnable.value)
+//                       FloatingActionButton.small(
+//                         heroTag: "delete_$index",
+//                         onPressed: () {
+//                           Navigator.pop(context);
+//                           setState(() {
+//                             controller.imageFiles.removeAt(index);
+//                           });
+//                         },
+//                         backgroundColor: Colors.red,
+//                         child: const Icon(Icons.delete),
+//                       ),
+//                   ],
+//                 ),
+//               ),
+//             ],
+//           ),
+//         );
+//       },
+//     );
+//   }
+
+//   Widget _buildTimelineItem(ExpenseHistory item, bool isLast) {
+//     return Row(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         Column(
+//           children: [
+//             const Icon(Icons.check_circle, color: Colors.blue),
+//             if (!isLast)
+//               Container(width: 2, height: 40, color: Colors.grey.shade300),
+//           ],
+//         ),
+//         const SizedBox(width: 10),
+//         Expanded(
+//           child: Card(
+//             margin: const EdgeInsets.symmetric(vertical: 8),
+//             child: Padding(
+//               padding: const EdgeInsets.all(12),
+//               child: Column(
+//                 crossAxisAlignment: CrossAxisAlignment.start,
+//                 children: [
+//                   Text(
+//                     item.eventType,
+//                     style: const TextStyle(fontWeight: FontWeight.bold),
+//                   ),
+//                   const SizedBox(height: 4),
+//                   Text(item.notes),
+//                   const SizedBox(height: 6),
+//                   Text(
+//                     '${AppLocalizations.of(context)!.submittedOn}${DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(item.createdDate)}',
+//                     style: const TextStyle(color: Colors.grey),
+//                   ),
+//                 ],
+//               ),
+//             ),
+//           ),
+//         ),
+//       ],
+//     );
+//   }
+
+//   void showActionPopup(BuildContext context, String status) {
+//     final TextEditingController commentController = TextEditingController();
+//     bool isCommentError = false;
+//     final loc = AppLocalizations.of(context)!;
+//     showModalBottomSheet(
+//       context: context,
+//       isScrollControlled: true,
+//       shape: const RoundedRectangleBorder(
+//         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+//       ),
+//       builder: (context) {
+//         return StatefulBuilder(
+//           builder: (context, setState) {
+//             return Padding(
+//               padding: MediaQuery.of(context).viewInsets,
+//               child: Container(
+//                 padding: const EdgeInsets.all(16),
+//                 child: Column(
+//                   mainAxisSize: MainAxisSize.min,
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     Center(
+//                       child: Container(
+//                         width: 50,
+//                         height: 5,
+//                         decoration: BoxDecoration(
+//                           color: Colors.grey[400],
+//                           borderRadius: BorderRadius.circular(10),
+//                         ),
+//                       ),
+//                     ),
+//                     const SizedBox(height: 12),
+//                     Text(
+//                       loc.action,
+//                       style: const TextStyle(
+//                         fontSize: 20,
+//                         fontWeight: FontWeight.bold,
+//                       ),
+//                     ),
+//                     if (status == "Escalate") ...[
+//                       Text(
+//                         '${loc.selectUser}*',
+//                         style: const TextStyle(fontSize: 16),
+//                       ),
+//                       const SizedBox(height: 8),
+//                       Obx(
+//                         () => SearchableMultiColumnDropdownField<User>(
+//                           labelText: '${loc.user} *',
+//                           columnHeaders: [loc.userName, loc.userId],
+//                           items: controller.userList,
+//                           selectedValue: controller.selectedUser.value,
+//                           searchValue: (user) =>
+//                               '${user.userName} ${user.userId}',
+//                           displayText: (user) => user.userId,
+//                           onChanged: (user) {
+//                             controller.userIdController.text =
+//                                 user?.userId ?? '';
+//                             controller.selectedUser.value = user;
+//                           },
+//                           controller: controller.userIdController,
+//                           rowBuilder: (user, searchQuery) {
+//                             return Padding(
+//                               padding: const EdgeInsets.symmetric(
+//                                 vertical: 12,
+//                                 horizontal: 16,
+//                               ),
+//                               child: Row(
+//                                 children: [
+//                                   Expanded(child: Text(user.userName)),
+//                                   Expanded(child: Text(user.userId)),
+//                                 ],
+//                               ),
+//                             );
+//                           },
+//                         ),
+//                       ),
+//                       const SizedBox(height: 16),
+//                     ],
+//                     const SizedBox(height: 16),
+//                     Text(
+//                       '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : ''}',
+//                       style: const TextStyle(fontSize: 16),
+//                     ),
+//                     const SizedBox(height: 8),
+//                     TextField(
+//                       controller: commentController,
+//                       maxLines: 3,
+//                       decoration: InputDecoration(
+//                         hintText: loc.enterCommentHere,
+//                         border: OutlineInputBorder(
+//                           borderRadius: BorderRadius.circular(8),
+//                           borderSide: BorderSide(
+//                             color: isCommentError ? Colors.red : Colors.grey,
+//                             width: 2,
+//                           ),
+//                         ),
+//                         focusedBorder: OutlineInputBorder(
+//                           borderRadius: BorderRadius.circular(8),
+//                           borderSide: BorderSide(
+//                             color: isCommentError ? Colors.red : Colors.teal,
+//                             width: 2,
+//                           ),
+//                         ),
+//                         errorText: isCommentError
+//                             ? 'Comment is required.'
+//                             : null,
+//                       ),
+//                       onChanged: (value) {
+//                         if (isCommentError && value.trim().isNotEmpty) {
+//                           setState(() => isCommentError = false);
+//                         }
+//                       },
+//                     ),
+//                     const SizedBox(height: 16),
+//                     Row(
+//                       mainAxisAlignment: MainAxisAlignment.end,
+//                       children: [
+//                         TextButton(
+//                           onPressed: () {
+//                             controller.closeField();
+//                             Navigator.pop(context);
+//                           },
+//                           child: Text(loc.close),
+//                         ),
+//                         const SizedBox(width: 8),
+//                         ElevatedButton(
+//                           onPressed: () async {
+//                             final comment = commentController.text.trim();
+//                             if (status != "Approve" && comment.isEmpty) {
+//                               setState(() => isCommentError = true);
+//                               return;
+//                             }
+
+//                             // Show full-page loading indicator
+//                             showDialog(
+//                               context: context,
+//                               barrierDismissible: false,
+//                               builder: (ctx) =>
+//                                   const Center(child: SkeletonLoaderPage()),
+//                             );
+
+//                             final success = await controller
+//                                 .approvalHubpostApprovalAction(
+//                                   context,
+//                                   workitemrecid: [workitemrecid!],
+//                                   decision: status,
+//                                   comment: commentController.text,
+//                                 );
+
+//                             // Hide the loading indicator
+//                             if (Navigator.of(
+//                               context,
+//                               rootNavigator: true,
+//                             ).canPop()) {
+//                               Navigator.of(context, rootNavigator: true).pop();
+//                             }
+
+//                             if (!context.mounted) return;
+
+//                             if (success) {
+//                               Navigator.pushNamed(
+//                                 context,
+//                                 AppRoutes.approvalHubMain,
+//                               );
+//                               controller.isApprovalEnable.value = false;
+//                             } else {
+//                               ScaffoldMessenger.of(context).showSnackBar(
+//                                 const SnackBar(
+//                                   content: Text('Failed to submit action'),
+//                                 ),
+//                               );
+//                             }
+//                           },
+//                           style: ElevatedButton.styleFrom(
+//                             backgroundColor: Colors.teal,
+//                             foregroundColor: Colors.white,
+//                           ),
+//                           child: Text(status),
+//                         ),
+//                       ],
+//                     ),
+//                     const SizedBox(height: 30),
+//                   ],
+//                 ),
+//               ),
+//             );
+//           },
+//         );
+//       },
+//     );
+//   }
+
+//   String? _validateNumericField(
+//     String value,
+//     String fieldName,
+//     bool isMandatory,
+//   ) {
+//     if (isMandatory && value.isEmpty) {
+//       return '$fieldName ${AppLocalizations.of(context)!.fieldRequired}';
+//     }
+//     if (value.isNotEmpty) {
+//       final numericValue = double.tryParse(value);
+//       if (numericValue == null) {
+//         return '$fieldName ${AppLocalizations.of(context)!.somethingWentWrong}';
+//       }
+//       if (numericValue < 0) {
+//         return '$fieldName ${AppLocalizations.of(context)!.somethingWentWrong}';
+//       }
+//     }
+//     return null;
+//   }
+
+//   String? _validateDateField(String value, String fieldName, bool isMandatory) {
+//     if (isMandatory && value.isEmpty) {
+//       return '$fieldName ${AppLocalizations.of(context)!.fieldRequired}';
+//     }
+//     if (value.isNotEmpty) {
+//       try {
+//         DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').parseStrict(value);
+//       } catch (e) {
+//         return '$fieldName ${AppLocalizations.of(context)!.somethingWentWrong}';
+//       }
+//     }
+//     return null;
+//   }
+
+//   Widget _buildTextField({
+//     required String label,
+//     required TextEditingController controller,
+//     required bool isReadOnly,
+//     void Function(String)? onChanged,
+//     List<TextInputFormatter>? inputFormatters,
+//     TextInputType keyboardType = TextInputType.text,
+//     String? Function(String?)? validator,
+//   }) {
+//     return Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         const SizedBox(height: 4),
+//         TextFormField(
+//           controller: controller,
+//           enabled: isReadOnly,
+//           onChanged: onChanged,
+//           inputFormatters: inputFormatters,
+//           keyboardType: keyboardType,
+//           validator: validator,
+//           decoration: InputDecoration(
+//             labelText: label,
+//             contentPadding: const EdgeInsets.symmetric(
+//               vertical: 20,
+//               horizontal: 16,
+//             ),
+//             border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+//           ),
+//         ),
+//         const SizedBox(height: 12),
+//       ],
+//     );
+//   }
+
+//   Widget _buildDropdownField({
+//     required String label,
+//     required List<String> items,
+//     required String? selectedValue,
+//     required bool isReadOnly,
+//     required void Function(String?) onChanged,
+//   }) {
+//     return Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         Text(
+//           label,
+//           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+//         ),
+//         const SizedBox(height: 4),
+//         DropdownButtonFormField<String>(
+//           value: selectedValue,
+//           decoration: InputDecoration(
+//             contentPadding: const EdgeInsets.symmetric(
+//               horizontal: 12,
+//               vertical: 10,
+//             ),
+//             border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+//           ),
+//           onChanged: isReadOnly ? null : onChanged,
+//           items: items
+//               .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
+//               .toList(),
+//         ),
+//         const SizedBox(height: 12),
+//       ],
+//     );
+//   }
+
+//   Widget _buildCollapsibleItem(
+//     String title,
+//     bool expanded,
+//     VoidCallback toggle,
+//     Widget child,
+//   ) {
+//     return Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         GestureDetector(
+//           onTap: toggle,
+//           child: Row(
+//             children: [
+//               Text(
+//                 title,
+//                 style: const TextStyle(
+//                   color: Colors.blue,
+//                   decoration: TextDecoration.underline,
+//                   fontWeight: FontWeight.w500,
+//                 ),
+//               ),
+//               Icon(expanded ? Icons.expand_less : Icons.expand_more),
+//             ],
+//           ),
+//         ),
+//         if (expanded)
+//           Padding(padding: const EdgeInsets.only(top: 10), child: child),
+//       ],
+//     );
+//   }
+
+//   Widget _buildSection({
+//     required String title,
+//     required List<Widget> children,
+//   }) {
+//     return Padding(
+//       padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+//       child: SizedBox(
+//         width: double.infinity,
+//         child: Card(
+//           elevation: 0,
+//           shape: RoundedRectangleBorder(
+//             borderRadius: BorderRadius.circular(12),
+//           ),
+//           child: ExpansionTile(
+//             title: Text(
+//               title,
+//               style: const TextStyle(
+//                 fontWeight: FontWeight.bold,
+//                 fontSize: 16,
+//                 color: Colors.deepPurple,
+//               ),
+//             ),
+//             backgroundColor: Colors.white,
+//             collapsedBackgroundColor: Colors.white,
+//             textColor: Colors.deepPurple,
+//             iconColor: Colors.deepPurple,
+//             collapsedIconColor: Colors.grey,
+//             childrenPadding: const EdgeInsets.symmetric(
+//               horizontal: 8,
+//               vertical: 6,
+//             ),
+//             shape: RoundedRectangleBorder(
+//               borderRadius: BorderRadius.circular(12),
+//             ),
+//             children: children,
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
+
 import 'dart:async';
 import 'dart:io';
 
 import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
 import 'package:diginexa/core/comman/widgets/button.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:diginexa/data/service.dart';
-import 'package:file_picker/file_picker.dart' show FilePicker, FileType;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -16,20 +2729,20 @@ import 'package:get/get_core/src/get_main.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:photo_view/photo_view.dart';
 
-import '../../../../core/comman/widgets/multiselectDropdown.dart';
-import '../../../../core/comman/widgets/pageLoaders.dart';
-import '../../../../l10n/app_localizations.dart';
+import '../../../../../core/comman/widgets/multiselectDropdown.dart';
+import '../../../../../l10n/app_localizations.dart';
 
 class HubApprovalViewEditCashAdvanceReturnPage extends StatefulWidget {
   final bool isReadOnly;
   final GESpeficExpense? items;
   const HubApprovalViewEditCashAdvanceReturnPage({
-    Key? key,
+    super.key,
     this.items,
     required this.isReadOnly,
-  }) : super(key: key);
+  });
 
   @override
   State<HubApprovalViewEditCashAdvanceReturnPage> createState() =>
@@ -43,132 +2756,416 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
   final TextEditingController receiptDateController = TextEditingController();
   final TextEditingController referenceController = TextEditingController();
   final TextEditingController employeeName = TextEditingController();
-
   final TextEditingController employyeID = TextEditingController();
-  final RxnString cashAdvanceField = RxnString();
-
   TextEditingController merhantName = TextEditingController();
   final PhotoViewController _photoViewController = PhotoViewController();
-  final _formKey = GlobalKey<FormState>();
+  late Future<Map<String, bool>> _featureFuture;
+  final Map<String, TextEditingController> fieldControllers = {};
+  bool allowCashAd = false;
+
   final List<String> paidToOptions = ['Amazon', 'Flipkart', 'Ola'];
   final List<String> paidWithOptions = ['Card', 'Cash', 'UPI'];
   final controller = Get.find<Controller>();
   late Future<List<ExpenseHistory>> historyFuture;
-  String? selectedPaidTo;
-  String? selectedPaidWith;
-  bool _showHistory = false;
-  late int workitemrecid;
-  bool isEditable = false;
-  int _currentIndex = 0;
   late PageController _pageController;
-  // New state variables for itemize management
+  String? selectedPaidTo;
+  String? statusApproval;
+  String? selectedPaidWith;
+  bool allowMultSelect = false;
+  bool _showHistory = false;
+  late FocusNode _focusNode;
+  bool isEditable = false;
+  int? workitemrecid;
   int _itemizeCount = 1;
-  Timer? _debounce;
   int _selectedItemizeIndex = 0;
   bool showItemizeDetails = true;
   List<Controller> itemizeControllers = [];
-  bool allowMultSelect = true;
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  bool _isTyping = false;
+
+  late final projectConfig;
+  late final taxGroupConfig;
+  late final taxAmountConfig;
+  late final isReimbursibleConfig;
+  late final isRefrenceIDConfig;
+  late final isBillableConfig;
+  late final isLocationConfig;
+
   @override
   void initState() {
     super.initState();
 
-    _pageController = PageController(initialPage: _currentIndex);
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      expenseIdController.text = "";
-      receiptDateController.text = "";
-      employeeName.text = "";
-      employyeID.text = "";
-      merhantName.text = "";
+    // print("widget.isReadOnly${widget.isReadOnly}");
+    _focusNode = FocusNode();
+    controller.selectedDate ??= DateTime.now();
+    _focusNode.addListener(() {
+      setState(() {
+        _isTyping = _focusNode.hasFocus;
+      });
+    });
+    _featureFuture = controller.getAllFeatureStates();
+    expenseIdController.text = "";
+    receiptDateController.text = "";
+    merhantName.text = "";
+    _pageController = PageController(
+      initialPage: controller.currentIndex.value,
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // calculateAmounts(widget.items!.exchRate.toString());
       controller.fetchPaidto();
       controller.fetchPaidwith();
       controller.fetchProjectName();
-
+      controller.fetchExpenseCategory();
       controller.fetchUnit();
       controller.fetchTaxGroup();
       controller.currencyDropDown();
       controller.fetchExchangeRate();
       controller.fetchUsers();
-      controller.fetchPaidwith();
-      controller.fetchCashAdvanceExpenseCategory();
       controller.fetchExpenseDocImage(widget.items!.recId);
+      controller.configuration();
+
+      _loadSettings();
+      controller.loadAllCustomFieldValues(
+        savedValues: widget.items!.expenseHeaderCustomFieldValues,
+      );
+      _initializeItemizeControllers();
       _initializeData();
-      historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
+    });
+
+    historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
+    final formatted = DateFormat(
+      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(widget.items!.receiptDate);
+    controller.selectedDate = widget.items!.receiptDate;
+    statusApproval = widget.items!.approvalStatus;
+    receiptDateController.text = formatted;
+    if (widget.items != null && widget.items!.paymentMethod != null) {
+      controller.paymentMethodID = widget.items!.paymentMethod.toString();
+    }
+    if (widget.items!.approvalStatus == "Approved") {
+      controller.isEnable.value = false;
+    }
+    expenseIdController.text = widget.items!.expenseId.toString();
+    receiptDateController.text = formatted;
+    if (widget.items?.merchantId == null) {
+      //  // print("merchantIdfalse");
+      controller.isManualEntryMerchant = true;
+    } else {
+      controller.isManualEntryMerchant = false;
+      //  // print("merchantIdtrue");
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.paidToController.text =
+          widget.items?.merchantId?.toString() ?? '';
+    });
+    //  // print('--- AccountingDistributions Added ---');
+    controller.referenceID.text =
+        widget.items?.referenceNumber?.toString() ?? '';
+    if (widget.items != null && widget.items!.paymentMethod != null) {
+      controller.paidWithController.text = widget.items!.paymentMethod!;
+    } else {
+      controller.paidWithController.text = '';
+    }
+
+    selectedPaidWith = paidWithOptions.first;
+    controller.paidAmount.text = widget.items!.totalAmountTrans.toStringAsFixed(
+      2,
+    );
+    controller.unitAmount.text = widget.items!.totalAmountTrans.toStringAsFixed(
+      2,
+    );
+    controller.unitRate.text = widget.items!.exchRate.toStringAsFixed(2);
+    controller.cashAdvReqIds = widget.items!.cashAdvReqId;
+    controller.employeeDropDownController.text = widget.items!.employeeId!;
+    controller.employeeName.text = widget.items!.employeeName!;
+    controller.justificationnotes.text = widget.items?.justificateNotes ?? '';
+    controller.approvalamountINR.text = widget.items!.totalAmountReporting
+        .toStringAsFixed(2);
+    controller.amountINR.text = widget.items!.totalAmountReporting
+        .toStringAsFixed(2);
+    controller.expenseID = widget.items!.expenseId;
+    controller.recID =
+        widget.items!.recId ?? widget.items!.unprocessedRecId ?? null;
+    workitemrecid = widget.items!.workitemrecid!;
+    controller.isBillableCreate = widget.items!.isBillable;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.items!.merchantId == null) {
+        controller.manualPaidToController.text = widget.items!.merchantName!;
+      } else {
+        controller.paidToController.text = widget.items!.merchantName!;
+      }
+    });
+    if (widget.items!.stepType == "Approval") {
+      setState(() {
+        isEditable = false;
+        controller.isEnable.value = false;
+      });
+    } else {
+      setState(() {
+        isEditable = true;
+        controller.isEnable.value = true;
+      });
+    }
+    controller.currencyDropDowncontroller.text = widget.items!.currency
+        .toString();
+
+    projectConfig = controller.getFieldConfig("Project Id");
+    taxGroupConfig = controller.getFieldConfig("Tax Group");
+    taxAmountConfig = controller.getFieldConfig("Tax Amount");
+    isReimbursibleConfig = controller.getFieldConfig("Is Reimbursible");
+    isRefrenceIDConfig = controller.getFieldConfig("Refrence Id");
+    isBillableConfig = controller.getFieldConfig("Is Billable");
+    isLocationConfig = controller.getFieldConfig("Location");
+    waitForDropdownDataAndSetValues();
+  }
+
+  Future<void> _initializeControllerData() async {
+    try {
+      // Fetch all required data first
+      await Future.wait([
+        controller.fetchPaidto(),
+        controller.fetchPaidwith(),
+        controller.fetchProjectName(),
+        controller.fetchExpenseCategory(),
+        controller.fetchUnit(),
+        controller.fetchTaxGroup(),
+        controller.currencyDropDown(),
+        controller.fetchExchangeRate(),
+        controller.fetchUsers(),
+        controller.fetchExpenseDocImage(widget.items!.recId),
+        controller.configuration(),
+      ]);
+
+      // Wait for a microtask to ensure build is complete
+      await Future.microtask(() {});
+
+      // Now set the values
       final formatted = DateFormat(
-       controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+        controller.selectedFormat?.key ?? 'dd/MM/yyyy',
       ).format(widget.items!.receiptDate);
       controller.selectedDate = widget.items!.receiptDate;
       receiptDateController.text = formatted;
       employeeName.text = widget.items!.employeeName!;
       employyeID.text = widget.items!.employeeId!;
+      statusApproval = widget.items!.approvalStatus;
       controller.paymentMethodID = widget.items!.paymentMethod.toString();
       expenseIdController.text = widget.items!.expenseId.toString();
       receiptDateController.text = formatted;
       controller.paidToController.text = widget.items!.merchantName.toString();
       controller.paidWithController.text = widget.items!.paymentMethod!;
-      referenceController.text = widget.items!.referenceNumber.toString();
+      controller.referenceID.text = widget.items!.referenceNumber.toString();
       selectedPaidTo = paidToOptions.first;
       selectedPaidWith = paidWithOptions.first;
       controller.paidAmount.text = widget.items!.totalAmountTrans.toString();
       controller.unitAmount.text = widget.items!.totalAmountTrans.toString();
       controller.unitRate.text = widget.items!.exchRate.toString();
-      controller.amountINR.text = widget.items!.totalAmountReporting.toString();
+      controller.cashAdvReqIds = widget.items!.cashAdvReqId;
+      controller.justificationnotes.text = widget.items!.justificateNotes!;
+      controller.employeeName.text = widget.items!.employeeName!;
+      controller.employeeDropDownController.text = widget.items!.employeeId!;
+      controller.isBillableCreate = widget.items!.isBillable;
       controller.expenseID = widget.items!.expenseId;
       controller.recID = widget.items!.recId;
-      if (widget.items!.stepType == "Approval") {
-        setState(() {
-          isEditable = false;
-        });
-      } else {
-        setState(() {
-          isEditable = true;
-        });
-      }
       workitemrecid = widget.items!.workitemrecid!;
       controller.currencyDropDowncontroller.text = widget.items!.currency
           .toString();
-      _initializeItemizeControllers();
-    });
-    // Initialize itemize controllers
-  }
 
-  Future<void> _loadSettings() async {
-    final settings = await controller.fetchGeneralSettings();
-    if (settings != null) {
-      setState(() {
-        allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
-        print("allowDocAttachments$allowMultSelect");
-        // isLoading = false;
-      });
-    } else {
-      // setState(() => isLoading = false);
+      print("totalAmountReporting${controller.approvalamountINR.text}");
+
+      // Call setState once at the end
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      print("Error initializing controller data: $e");
     }
   }
 
-  double _calculateTotalLineAmount(Controller controllers) {
-    double total = 0.0;
+  String? _validateRequiredField(
+    String value,
+    String fieldName,
+    bool isMandatory,
+  ) {
+    if (isMandatory && (value.isEmpty || value.trim().isEmpty)) {
+      return '$fieldName ${AppLocalizations.of(context)!.fieldRequired}';
+    }
+    return null;
+  }
 
-    // add current line amount
-    final currentLineAmount =
-        double.tryParse(controllers.lineAmount.text) ?? 0.0;
-    total += currentLineAmount;
-
-    // add other itemized line amounts
-    for (var itemController in itemizeControllers) {
-      if (itemController != controllers) {
-        final amount = double.tryParse(itemController.lineAmount.text) ?? 0.0;
-        total += amount;
+  String? _validateNumericField(
+    String value,
+    String fieldName,
+    bool isMandatory,
+  ) {
+    if (isMandatory && value.isEmpty) {
+      return '$fieldName ${AppLocalizations.of(context)!.fieldRequired}';
+    }
+    if (value.isNotEmpty) {
+      final numericValue = double.tryParse(value);
+      if (numericValue == null) {
+        return '$fieldName ${AppLocalizations.of(context)!.somethingWentWrong}';
+      }
+      if (numericValue < 0) {
+        return '$fieldName ${AppLocalizations.of(context)!.somethingWentWrong}';
       }
     }
-    print("paidAmount${controllers.lineAmount.text}");
-    // update Paid Amount
-    controller.paidAmount.text = total.toStringAsFixed(2);
+    return null;
+  }
 
-    // calculate INR amount immediately
-    final paid = total;
-    final rate = double.tryParse(controller.unitRate.text) ?? 1.0;
-    controller.amountINR.text = (paid * rate).toStringAsFixed(2);
+  String? _validateDateField(String value, String fieldName, bool isMandatory) {
+    if (isMandatory && value.isEmpty) {
+      return '$fieldName ${AppLocalizations.of(context)!.fieldRequired}';
+    }
+    if (value.isNotEmpty) {
+      try {
+        DateFormat(
+          controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+        ).parseStrict(value);
+      } catch (e) {
+        return '$fieldName ${AppLocalizations.of(context)!.somethingWentWrong}';
+      }
+    }
+    return null;
+  }
 
-    return total;
+  bool _validateForm() {
+    String? firstError;
+
+    void check(String? error) {
+      if (error != null && firstError == null) {
+        firstError = error;
+      }
+    }
+
+    if (!controller.isManualEntryMerchant) {
+      check(
+        _validateRequiredField(
+          controller.paidToController.text,
+          AppLocalizations.of(context)!.selectMerchant,
+          true,
+        ),
+      );
+    } else {
+      check(
+        _validateRequiredField(
+          controller.manualPaidToController.text,
+          AppLocalizations.of(context)!.enterMerchantName,
+          true,
+        ),
+      );
+    }
+
+    // check(_validateRequiredField(
+    //   controller.paidWithController.text,
+    //   AppLocalizations.of(context)!.paidWith,
+    //   true,
+    // ));
+
+    check(
+      _validateNumericField(
+        controller.paidAmount.text,
+        AppLocalizations.of(context)!.paidAmount,
+        true,
+      ),
+    );
+
+    check(
+      _validateRequiredField(
+        controller.currencyDropDowncontroller.text,
+        AppLocalizations.of(context)!.currency,
+        true,
+      ),
+    );
+
+    check(
+      _validateNumericField(
+        controller.unitRate.text,
+        AppLocalizations.of(context)!.rate,
+        true,
+      ),
+    );
+
+    if (isRefrenceIDConfig.isEnabled && isRefrenceIDConfig.isMandatory) {
+      check(
+        _validateRequiredField(
+          controller.referenceID.text,
+          AppLocalizations.of(context)!.referenceId,
+          true,
+        ),
+      );
+    }
+
+    for (int i = 0; i < itemizeControllers.length; i++) {
+      final item = itemizeControllers[i];
+
+      if (projectConfig.isEnabled && projectConfig.isMandatory) {
+        check(
+          _validateRequiredField(
+            item.projectDropDowncontroller.text,
+            "Item ${i + 1} Project",
+            true,
+          ),
+        );
+      }
+
+      check(
+        _validateRequiredField(
+          item.categoryController.text,
+          "Item ${i + 1} Category",
+          true,
+        ),
+      );
+
+      check(
+        _validateRequiredField(item.uomId.text, "Item ${i + 1} Unit", true),
+      );
+
+      check(
+        _validateNumericField(
+          item.quantity.text,
+          "Item ${i + 1} Quantity",
+          true,
+        ),
+      );
+
+      // check(
+      //   _validateNumericField(
+      //     item.unitPriceTrans.text,
+      //     "Item ${i + 1} Unit Amount",
+      //     true,
+      //   ),
+      // );
+
+      if (taxGroupConfig.isEnabled && taxGroupConfig.isMandatory) {
+        check(
+          _validateRequiredField(
+            item.taxGroupController.text,
+            "Item ${i + 1} Tax Group",
+            true,
+          ),
+        );
+      }
+
+      if (taxAmountConfig.isEnabled && taxAmountConfig.isMandatory) {
+        check(
+          _validateNumericField(
+            item.taxAmount.text,
+            "Item ${i + 1} Tax Amount",
+            true,
+          ),
+        );
+      }
+    }
+
+    /// ✅ SHOW ERROR
+    if (firstError != null) {
+      print("Validation Error${firstError!}");
+      return false;
+    }
+
+    return true;
   }
 
   Future<void> _updateAllLineItems() async {
@@ -176,49 +3173,464 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
 
     for (int i = 0; i < itemizeControllers.length; i++) {
       final itemController = itemizeControllers[i];
-
-      // Recalculate base + INR amounts
-      _calculateTotalLineAmount(itemController);
+      _calculateTotalLineAmount(itemController).toStringAsFixed(2);
       controller.calculateLineAmounts(itemController);
 
-      // final lineAmount = double.tryParse(itemController.lineAmount.text) ?? 0.0;
-      // final lineAmountInINR = lineAmount * rate;
+      final lineAmount = double.tryParse(itemController.lineAmount.text) ?? 0.0;
+      final lineAmountInINR = lineAmount * rate;
 
-      // itemController.lineAmountINR.text = lineAmountInINR.toStringAsFixed(2);
+      itemController.lineAmountINR.text = lineAmountInINR.toStringAsFixed(2);
 
-      // // Sync with model
-      // widget.items!.expenseTrans[i] = itemController.toExpenseItemUpdateModel();
+      widget.items!.expenseTrans[i] = itemController.toExpenseItemUpdateModel();
     }
 
-    setState(() {}); // only if you rely on UI state updates
+    setState(() {});
+  }
+
+  double _calculateTotalLineAmount(Controller controllers) {
+    double total = 0.0;
+
+    final currentLineAmount =
+        double.tryParse(controllers.lineAmount.text) ?? 0.0;
+    total += currentLineAmount;
+
+    for (var itemController in itemizeControllers) {
+      if (itemController != controllers) {
+        final amount = double.tryParse(itemController.lineAmount.text) ?? 0.0;
+        total += amount;
+      }
+    }
+
+    controller.paidAmount.text = total.toStringAsFixed(2);
+
+    final paid = total;
+    final rate = double.tryParse(controller.unitRate.text) ?? 1.0;
+    controller.approvalamountINR.text = (paid * rate).toStringAsFixed(2);
+
+    return total;
   }
 
   void _initializeItemizeControllers() {
-    itemizeControllers = widget.items!.expenseTrans.map((item) {
-      final controller = Controller();
-      controller.projectDropDowncontroller.text = item.projectId ?? '';
-      controller.descriptionController.text = item.description ?? '';
-      controller.quantity.text = item.quantity.toString();
-      controller.unitAmountView.text = item.unitPriceTrans.toString();
-      controller.lineAmount.text = item.lineAmountTrans.toString();
-      controller.lineAmountINR.text = item.lineAmountReporting.toString();
-      controller.taxAmount.text = item.taxAmount.toString();
-      controller.taxGroupController.text = item.taxGroup!;
-      controller.categoryController.text = item.expenseCategoryId;
-      controller.uomId.text = item.uomId;
-      controller.isReimbursite = item.isReimbursable;
-      controller.isBillable.value = item.isBillable;
-      controller.expenseID = item.expenseId.toString();
-      controller.split = (item.accountingDistributions ?? []).map((dist) {
+    final mainController = Get.find<Controller>();
+
+    print("Initializing itemize controllers for approval page");
+    print(
+      "Main controller customFields length: ${mainController.customFields.length}",
+    );
+
+    itemizeControllers = widget.items!.expenseTrans.asMap().entries.map((
+      entry,
+    ) {
+      final index = entry.key;
+      final item = entry.value;
+      final newController = Controller();
+
+      // Set basic fields
+      newController.lineItemControllers = List<dynamic>.from(
+        itemizeControllers,
+      );
+      newController.projectDropDowncontroller.text = item.projectId ?? '';
+      newController.descriptionController.text = item.description ?? '';
+      newController.quantity.text = item.quantity.toString();
+      newController.unitPriceTrans.text = item.unitPriceTrans.toString();
+      newController.lineAmount.text = item.lineAmountTrans.toString();
+      newController.lineAmountINR.text = item.lineAmountReporting.toString();
+      newController.taxAmount.text = item.taxAmount.toString();
+      newController.taxGroupController.text = item.taxGroup ?? '';
+      newController.categoryController.text = item.expenseCategoryId ?? '';
+      newController.uomId.text = item.uomId ?? '';
+      newController.isReimbursable = item.isReimbursable;
+      newController.isBillable.value = item.isBillable;
+
+      // ✅ CRITICAL: First, make sure customFieldsItems has all fields from main controller
+      if (mainController.customFields.isNotEmpty) {
+        newController.cloneCustomFieldsFromRx(mainController.customFields);
+        print(
+          "Cloned ${newController.customFieldsItems.length} fields for item $index",
+        );
+      } else {
+        print("Main controller customFields is empty for item $index");
+        newController.customFieldsItems.value = [];
+      }
+
+      // ✅ LOAD EXPENSE TRANS CUSTOM FIELDS (Transaction level)
+      if (item.expenseTransCustomFieldValues != null &&
+          item.expenseTransCustomFieldValues!.isNotEmpty) {
+        print(
+          "Loading ExpenseTrans custom fields for item $index: ${item.expenseTransCustomFieldValues!.length} fields",
+        );
+
+        for (var savedField in item.expenseTransCustomFieldValues!) {
+          final savedFieldId = savedField['FieldId'];
+          final savedFieldValue = savedField['FieldValue'];
+          final savedFieldName = savedField['FieldName'];
+
+          print(
+            "Looking for ExpenseTrans field: $savedFieldId - $savedFieldName",
+          );
+
+          final matchingFieldIndex = newController.customFieldsItems.indexWhere(
+            (f) => f['FieldId'] == savedFieldId,
+          );
+
+          if (matchingFieldIndex != -1) {
+            final field = newController.customFieldsItems[matchingFieldIndex];
+            final fieldType = field['FieldType'];
+            print("✅ Found matching ExpenseTrans field: ${field['FieldName']}");
+            _setFieldValue(field, savedFieldValue, fieldType);
+          } else {
+            print(
+              "⚠️ Could not find matching ExpenseTrans field, creating new one",
+            );
+            final newField = {
+              'FieldId': savedFieldId,
+              'FieldName': savedFieldName,
+              'FieldValue': savedFieldValue,
+              'FieldType': 'Text',
+              'ObjectName': 'ExpenseTrans',
+              'EnteredValue': savedFieldValue?.toString() ?? '',
+            };
+            newController.customFieldsItems.add(newField);
+          }
+        }
+      }
+
+      // ✅ LOAD EXPENSE CATEGORIES CUSTOM FIELDS (Category level)
+      if (item.expenseTransExpensecategorycustomfieldvalues != null &&
+          item.expenseTransExpensecategorycustomfieldvalues!.isNotEmpty) {
+        print(
+          "Loading ExpenseCategories custom fields for item $index: ${item.expenseTransExpensecategorycustomfieldvalues!.length} fields",
+        );
+
+        for (var savedField
+            in item.expenseTransExpensecategorycustomfieldvalues!) {
+          final savedFieldId = savedField['FieldId'];
+          final savedFieldValue = savedField['FieldValue'];
+          final savedFieldName = savedField['FieldName'];
+
+          print(
+            "Looking for ExpenseCategories field: $savedFieldId - $savedFieldName",
+          );
+
+          // Try to find existing field
+          int matchingFieldIndex = newController.customFieldsItems.indexWhere(
+            (f) =>
+                f['FieldId'] == savedFieldId &&
+                f['ObjectName'] == 'ExpenseCategories',
+          );
+
+          if (matchingFieldIndex == -1) {
+            matchingFieldIndex = newController.customFieldsItems.indexWhere(
+              (f) => f['FieldId'] == savedFieldId,
+            );
+          }
+
+          if (matchingFieldIndex != -1) {
+            final field = newController.customFieldsItems[matchingFieldIndex];
+            field['ObjectName'] = 'ExpenseCategories';
+            final fieldType = field['FieldType'] ?? 'Text';
+            print(
+              "✅ Found matching ExpenseCategories field: ${field['FieldName']}",
+            );
+            _setFieldValue(field, savedFieldValue, fieldType);
+          } else {
+            // Create new field from saved data
+            print(
+              "⚠️ Could not find matching ExpenseCategories field, creating new one",
+            );
+
+            // Find category to get field type
+            final matchingCategory = controller.expenseCategory
+                .firstWhereOrNull(
+                  (cat) => cat.categoryId == item.expenseCategoryId,
+                );
+
+            String fieldType = 'Text';
+            if (matchingCategory != null &&
+                matchingCategory.customFields != null) {
+              final categoryField = matchingCategory.customFields!
+                  .firstWhereOrNull((cf) => cf['FieldId'] == savedFieldId);
+              if (categoryField != null) {
+                fieldType = categoryField['FieldType'] ?? 'Text';
+              }
+            }
+
+            final newField = {
+              'FieldId': savedFieldId,
+              'FieldName': savedFieldName,
+              'FieldLabel': savedFieldName,
+              'FieldType': fieldType,
+              'ObjectName': 'ExpenseCategories',
+              'ExpenseType': 'General Expenses',
+              'EnteredValue': savedFieldValue?.toString() ?? '',
+              'Options': [],
+              'Error': null,
+            };
+
+            // Initialize Rx based on field type
+            _initializeFieldRx(newField, savedFieldValue?.toString() ?? '');
+            newController.customFieldsItems.add(newField);
+            print("  → Created new ExpenseCategories field: $savedFieldName");
+          }
+        }
+      }
+
+      // Also load default category custom fields from the category itself
+      final matchingCategory = controller.expenseCategory.firstWhereOrNull(
+        (cat) => cat.categoryId == item.expenseCategoryId,
+      );
+
+      if (matchingCategory != null &&
+          matchingCategory.customFields != null &&
+          matchingCategory.customFields!.isNotEmpty) {
+        print(
+          "Checking default ExpenseCategories custom fields from category: ${matchingCategory.categoryId}",
+        );
+
+        for (var categoryField in matchingCategory.customFields!) {
+          final fieldId = categoryField['FieldId'];
+          final defaultValue = categoryField['DefaultValue']?.toString() ?? '';
+
+          final existingFieldIndex = newController.customFieldsItems.indexWhere(
+            (f) =>
+                f['FieldId'] == fieldId &&
+                f['ObjectName'] == 'ExpenseCategories',
+          );
+
+          if (existingFieldIndex != -1) {
+            final field = newController.customFieldsItems[existingFieldIndex];
+            final currentValue = field['EnteredValue'];
+            if (currentValue == null ||
+                currentValue == '' ||
+                currentValue.toString().isEmpty) {
+              print(
+                "  → Setting default value for ${field['FieldName']}: $defaultValue",
+              );
+              _setFieldValue(field, defaultValue, field['FieldType']);
+            }
+          } else {
+            print(
+              "  → Creating new field from category: ${categoryField['FieldName']}",
+            );
+            final newField = Map<String, dynamic>.from(categoryField);
+            newField['ObjectName'] = 'ExpenseCategories';
+            newField['ExpenseType'] = 'General Expenses';
+            final defaultVal = newField['DefaultValue']?.toString() ?? '';
+            newField['EnteredValue'] = defaultVal;
+            _initializeFieldRx(newField, defaultVal);
+            newController.customFieldsItems.add(newField);
+          }
+        }
+      }
+
+      // ✅ Split mapping
+      newController.split = (item.accountingDistributions ?? []).map((dist) {
         return AccountingSplit(
           paidFor: dist.dimensionValueId ?? '',
           percentage: dist.allocationFactor ?? 0.0,
           amount: dist.transAmount ?? 0.0,
         );
       }).toList();
-      return controller;
+
+      // ✅ Set category logic
+      if (newController.categoryController.text.isNotEmpty &&
+          controller.expenseCategory.isNotEmpty) {
+        final matchedCategory = controller.expenseCategory.firstWhere(
+          (e) => e.categoryId == newController.categoryController.text,
+          orElse: () => controller.expenseCategory.first,
+        );
+
+        newController.selectedCategory = matchedCategory;
+        newController.itemisationMandatory.value =
+            matchedCategory.itemisationMandatory;
+        newController.minExpenseAmount.value =
+            (matchedCategory.minExpensesAmount ?? 0).toDouble();
+        newController.maxExpenseAmount.value =
+            (matchedCategory.maxExpenseAmount ?? 0).toDouble();
+        newController.receiptRequiredLimit.value =
+            (matchedCategory.receiptRequiredLimit ?? 0).toDouble();
+      }
+
+      // Refresh after loading all fields
+      newController.customFieldsItems.refresh();
+      return newController;
     }).toList();
+
     _itemizeCount = widget.items!.expenseTrans.length;
+    print("Total itemize controllers created: ${itemizeControllers.length}");
+  }
+
+  // Helper method to initialize Rx based on field type
+  void _initializeFieldRx(Map<String, dynamic> field, String defaultValue) {
+    final fieldType = field['FieldType'];
+
+    if (fieldType == 'List' ||
+        fieldType == 'CustomList' ||
+        fieldType == 'SystemList') {
+      final options = field['Options'] as List<CustomDropdownValue>?;
+      CustomDropdownValue? matchedOption;
+      if (options != null && defaultValue.isNotEmpty) {
+        matchedOption = options.firstWhereOrNull(
+          (opt) => opt.valueName == defaultValue || opt.valueId == defaultValue,
+        );
+      }
+      field['SelectedValue'] = matchedOption;
+      field['_rxSelectedValue'] = Rx<CustomDropdownValue?>(matchedOption);
+    } else if (fieldType == 'Checkbox') {
+      final boolValue = defaultValue.toLowerCase() == 'true';
+      field['_rxCheckboxValue'] = Rx<bool>(boolValue);
+    } else if (fieldType == 'Date' || fieldType == 'Date&Time') {
+      DateTime? dateValue;
+      if (defaultValue.isNotEmpty) {
+        try {
+          dateValue = DateTime.parse(defaultValue);
+        } catch (e) {
+          print("Error parsing date: $e");
+        }
+      }
+      field['_rxDateValue'] = Rx<DateTime?>(dateValue);
+    } else if (fieldType == 'LongInteger') {
+      field['_rxIntValue'] = Rx<int?>(int.tryParse(defaultValue));
+    } else if (fieldType == 'Decimal') {
+      field['_rxDoubleValue'] = Rx<double?>(double.tryParse(defaultValue));
+    } else {
+      field['_rxStringValue'] = Rx<String?>(defaultValue);
+      // Create controller for text fields
+      field['_controller'] = TextEditingController(text: defaultValue);
+      field['_focusNode'] = FocusNode();
+    }
+  }
+
+  // Helper method to set field value based on type (same as in ViewEditExpensePage)
+  void _setFieldValue(
+    Map<String, dynamic> field,
+    dynamic savedFieldValue,
+    String fieldType,
+  ) {
+    if (fieldType == 'List' ||
+        fieldType == 'CustomList' ||
+        fieldType == 'SystemList') {
+      final options = field['Options'] as List<CustomDropdownValue>?;
+      CustomDropdownValue? matchedOption;
+      if (options != null && options.isNotEmpty && savedFieldValue != null) {
+        matchedOption = options.firstWhereOrNull(
+          (opt) =>
+              opt.valueName == savedFieldValue ||
+              opt.valueId == savedFieldValue,
+        );
+      }
+      field['EnteredValue'] = savedFieldValue?.toString() ?? '';
+      field['SelectedValue'] = matchedOption;
+      if (field['_rxSelectedValue'] == null) {
+        field['_rxSelectedValue'] = Rx<CustomDropdownValue?>(matchedOption);
+      } else {
+        (field['_rxSelectedValue'] as Rx<CustomDropdownValue?>).value =
+            matchedOption;
+      }
+    } else if (fieldType == 'Checkbox') {
+      final boolValue =
+          savedFieldValue == 'true' ||
+          savedFieldValue == 'True' ||
+          savedFieldValue == '1' ||
+          savedFieldValue == true;
+      field['EnteredValue'] = boolValue;
+      if (field['_rxCheckboxValue'] == null) {
+        field['_rxCheckboxValue'] = Rx<bool>(boolValue);
+      } else {
+        (field['_rxCheckboxValue'] as Rx<bool>).value = boolValue;
+      }
+    } else if (fieldType == 'Date' || fieldType == 'Date&Time') {
+      DateTime? parsedDate = _parseDateTime(
+        savedFieldValue,
+        fieldType == 'Date&Time',
+      );
+      field['EnteredValue'] = parsedDate;
+      if (field['_rxDateValue'] == null) {
+        field['_rxDateValue'] = Rx<DateTime?>(parsedDate);
+      } else {
+        (field['_rxDateValue'] as Rx<DateTime?>).value = parsedDate;
+      }
+    } else if (fieldType == 'LongInteger') {
+      final intValue = int.tryParse(savedFieldValue?.toString() ?? '');
+      field['EnteredValue'] = intValue;
+      if (field['_rxIntValue'] == null) {
+        field['_rxIntValue'] = Rx<int?>(intValue);
+      } else {
+        (field['_rxIntValue'] as Rx<int?>).value = intValue;
+      }
+      if (field['_controller'] != null) {
+        field['_controller'].text = intValue?.toString() ?? '';
+      }
+    } else if (fieldType == 'Decimal') {
+      final doubleValue = double.tryParse(savedFieldValue?.toString() ?? '');
+      field['EnteredValue'] = doubleValue;
+      if (field['_rxDoubleValue'] == null) {
+        field['_rxDoubleValue'] = Rx<double?>(doubleValue);
+      } else {
+        (field['_rxDoubleValue'] as Rx<double?>).value = doubleValue;
+      }
+      if (field['_controller'] != null) {
+        field['_controller'].text = doubleValue?.toString() ?? '';
+      }
+    } else {
+      final stringValue = savedFieldValue?.toString() ?? '';
+      field['EnteredValue'] = stringValue;
+      if (field['_rxStringValue'] == null) {
+        field['_rxStringValue'] = Rx<String?>(stringValue);
+      } else {
+        (field['_rxStringValue'] as Rx<String?>).value = stringValue;
+      }
+      if (field['_controller'] != null) {
+        field['_controller'].text = stringValue;
+      }
+    }
+    field['Error'] = null;
+  }
+
+  // Helper method to parse DateTime (add this method)
+  DateTime? _parseDateTime(dynamic value, bool isDateTime) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    if (value is String && value.isNotEmpty) {
+      try {
+        if (value.contains('/')) {
+          final parts = value.split(' ');
+          final dateParts = parts[0].split('/');
+          if (dateParts.length == 3) {
+            if (isDateTime && parts.length >= 2) {
+              final timeParts = parts[1].split(':');
+              final isPM = parts.length > 2 && parts[2].toUpperCase() == 'PM';
+              int hour = int.parse(timeParts[0]);
+              if (isPM && hour != 12) hour += 12;
+              if (!isPM && hour == 12) hour = 0;
+              return DateTime(
+                int.parse(dateParts[2]),
+                int.parse(dateParts[1]),
+                int.parse(dateParts[0]),
+                hour,
+                int.parse(timeParts[1]),
+              );
+            } else {
+              return DateTime(
+                int.parse(dateParts[2]),
+                int.parse(dateParts[1]),
+                int.parse(dateParts[0]),
+              );
+            }
+          }
+        } else {
+          final millis = int.tryParse(value);
+          if (millis != null) {
+            return DateTime.fromMillisecondsSinceEpoch(millis);
+          }
+          return DateTime.parse(value);
+        }
+      } catch (e) {
+        print("Error parsing date: $e");
+      }
+    }
+    return null;
   }
 
   Future<void> waitForDropdownDataAndSetValues() async {
@@ -255,7 +3667,6 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
   void _addItemize() {
     if (_itemizeCount < 5) {
       setState(() {
-        // Create new ExpenseItem with default values
         final newItem = ExpenseItemUpdate(
           description: '',
           quantity: 0,
@@ -277,13 +3688,14 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
 
         widget.items!.expenseTrans.add(newItem);
 
-        // Create and initialize new controller
         final newController = Controller();
 
-        // Initialize controller with default values
+        // Get the current item controller to clone from
+        final currentController = itemizeControllers[_selectedItemizeIndex];
+
+        // Clone basic fields
         newController.descriptionController.text = newItem.description ?? '';
         newController.quantity.text = newItem.quantity.toString();
-        newController.unitAmountView.text = newItem.unitPriceTrans.toString();
         newController.unitPriceTrans.text = newItem.unitPriceTrans.toString();
         newController.lineAmount.text = newItem.lineAmountTrans.toString();
         newController.lineAmountINR.text = newItem.lineAmountReporting
@@ -293,10 +3705,107 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
         newController.categoryController.text = newItem.expenseCategoryId;
         newController.uomId.text = newItem.uomId;
         newController.taxGroupController.text = newItem.taxGroup ?? '';
-        newController.isReimbursite = newItem.isReimbursable;
-        newController.isBillable.value = newItem.isBillable;
+        newController.isReimbursable = newItem.isReimbursable;
+        newController.isBillableCreate = newItem.isBillable;
 
-        // Set dropdown selections if available
+        // ✅ CRITICAL: Clone ExpenseTrans custom fields from current controller
+        if (currentController.customFields.isNotEmpty) {
+          newController.cloneCustomFieldsFromRx(currentController.customFields);
+        }
+
+        // ✅ CRITICAL: Clone ExpenseCategories custom fields with their values
+        if (currentController.customFieldsItems.isNotEmpty) {
+          final clonedCategoryFields = currentController.customFieldsItems
+              .where((f) => f['ObjectName'] == 'ExpenseCategories')
+              .map((field) {
+                final Map<String, dynamic> cloned = Map<String, dynamic>.from(
+                  field,
+                );
+                // Preserve all values
+                cloned['EnteredValue'] = field['EnteredValue'];
+                cloned['SelectedValue'] = field['SelectedValue'];
+
+                // Preserve Rx objects
+                if (field['_rxStringValue'] != null) {
+                  final currentValue =
+                      (field['_rxStringValue'] as Rx<String?>).value;
+                  cloned['_rxStringValue'] = Rx<String?>(currentValue);
+                }
+                if (field['_rxCheckboxValue'] != null) {
+                  final currentValue =
+                      (field['_rxCheckboxValue'] as Rx<bool>).value;
+                  cloned['_rxCheckboxValue'] = Rx<bool>(currentValue);
+                }
+                if (field['_rxDateValue'] != null) {
+                  final currentValue =
+                      (field['_rxDateValue'] as Rx<DateTime?>).value;
+                  cloned['_rxDateValue'] = Rx<DateTime?>(currentValue);
+                }
+                if (field['_rxIntValue'] != null) {
+                  final currentValue = (field['_rxIntValue'] as Rx<int?>).value;
+                  cloned['_rxIntValue'] = Rx<int?>(currentValue);
+                }
+                if (field['_rxDoubleValue'] != null) {
+                  final currentValue =
+                      (field['_rxDoubleValue'] as Rx<double?>).value;
+                  cloned['_rxDoubleValue'] = Rx<double?>(currentValue);
+                }
+                if (field['_rxSelectedValue'] != null) {
+                  final currentValue =
+                      (field['_rxSelectedValue'] as Rx<CustomDropdownValue?>)
+                          .value;
+                  cloned['_rxSelectedValue'] = Rx<CustomDropdownValue?>(
+                    currentValue,
+                  );
+                }
+
+                // Clone controllers for MobileNumber fields
+                if (field['_phoneController'] != null) {
+                  final phoneText =
+                      (field['_phoneController'] as TextEditingController).text;
+                  cloned['_phoneController'] = TextEditingController(
+                    text: phoneText,
+                  );
+                }
+                if (field['_countryCodeController'] != null) {
+                  final codeText =
+                      (field['_countryCodeController'] as TextEditingController)
+                          .text;
+                  cloned['_countryCodeController'] = TextEditingController(
+                    text: codeText,
+                  );
+                }
+                if (field['_currentCountryCode'] != null) {
+                  final currentCode =
+                      (field['_currentCountryCode'] as Rx<String>).value;
+                  cloned['_currentCountryCode'] = Rx<String>(currentCode);
+                }
+                if (field['_selectedCountryCode'] != null) {
+                  cloned['_selectedCountryCode'] =
+                      field['_selectedCountryCode'];
+                }
+                if (field['_focusNode'] != null) {
+                  cloned['_focusNode'] = FocusNode();
+                }
+
+                // Clone controllers for text fields
+                if (field['_controller'] != null) {
+                  final text =
+                      (field['_controller'] as TextEditingController).text;
+                  cloned['_controller'] = TextEditingController(text: text);
+                  cloned['_focusNode'] = FocusNode();
+                }
+
+                return cloned;
+              })
+              .toList();
+
+          newController.customFieldsItems.addAll(clonedCategoryFields);
+          print(
+            "✅ Cloned ${clonedCategoryFields.length} category fields to new item",
+          );
+        }
+
         if (controller.project.isNotEmpty) {
           newController.selectedProject = controller.project.firstWhere(
             (p) => p.code == newItem.projectId,
@@ -326,17 +3835,15 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
           );
         }
 
-        debugPrint(
-          "Controller added with unit: ${newController.selectedunit?.name}",
-        );
+        // Add the new controller to the list
+        itemizeControllers.add(newController);
 
-        // Add to controllers list (new reference for rebuild)
-        itemizeControllers = List.from(itemizeControllers)..add(newController);
-
-        // Update counters
         _itemizeCount++;
         _selectedItemizeIndex = _itemizeCount - 1;
         showItemizeDetails = true;
+
+        // Refresh the custom fields
+        newController.customFieldsItems.refresh();
       });
     }
   }
@@ -350,11 +3857,49 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
       setState(() {
         widget.items!.expenseTrans.removeAt(index);
         itemizeControllers.removeAt(index);
+        controller.lineItemControllers = List<dynamic>.from(itemizeControllers);
         _itemizeCount--;
         if (_selectedItemizeIndex >= _itemizeCount) {
           _selectedItemizeIndex = _itemizeCount - 1;
         }
       });
+    }
+  }
+
+  Future<void> _initializeData() async {
+    await loadAndAppendCashAdvanceList();
+    initializeCashAdvanceSelection();
+  }
+
+  void initializeCashAdvanceSelection() {
+    String? backendSelectedIds = controller.cashAdvReqIds;
+    print("controller.cashAdvReqIds$backendSelectedIds");
+    controller.preloadCashAdvanceSelections(
+      controller.cashAdvanceListDropDown,
+      backendSelectedIds,
+    );
+  }
+
+  Future<void> loadAndAppendCashAdvanceList() async {
+    controller.cashAdvanceListDropDown.clear();
+    try {
+      final newItems = await controller.fetchExpenseCashAdvanceList();
+
+      final existingIds = controller.cashAdvanceListDropDown
+          .map((e) => e.cashAdvanceReqId)
+          .toSet();
+
+      final uniqueNewItems = newItems.where(
+        (item) => !existingIds.contains(item.cashAdvanceReqId),
+      );
+
+      controller.cashAdvanceListDropDown.addAll(uniqueNewItems);
+
+      print(
+        "✅ Updated cashAdvanceListDropDown: ${controller.cashAdvanceListDropDown.length}",
+      );
+    } catch (e) {
+      Get.snackbar('Error', e.toString());
     }
   }
 
@@ -391,7 +3936,7 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
-         allowedExtensions: controller.allowedExtensions,
+        allowedExtensions: controller.allowedExtensions,
       );
 
       if (result == null) return;
@@ -424,482 +3969,740 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
     }
   }
 
-  Future<void> _initializeData() async {
-    await loadAndAppendCashAdvanceList();
-    initializeCashAdvanceSelection();
-  }
-
-  void initializeCashAdvanceSelection() {
-    String? backendSelectedIds = controller.cashAdvReqIds;
-    print("controller.cashAdvReqIds$backendSelectedIds");
-    controller.preloadCashAdvanceSelections(
-      controller.cashAdvanceListDropDown,
-      backendSelectedIds,
-    );
-  }
-
   Future<void> _processSelectedFile(File file) async {
     // ✅ Check feature states
     final featureStates = await controller.getAllFeatureStates();
-
     setState(() {
       controller.imageFiles.add(file);
     });
   }
 
-  Future<void> loadAndAppendCashAdvanceList() async {
-    controller.cashAdvanceListDropDown.clear();
-    try {
-      final newItems = await controller.fetchExpenseCashAdvanceList();
-
-      final existingIds = controller.cashAdvanceListDropDown
-          .map((e) => e.cashAdvanceReqId)
-          .toSet();
-
-      final uniqueNewItems = newItems.where(
-        (item) => !existingIds.contains(item.cashAdvanceReqId),
-      );
-
-      controller.cashAdvanceListDropDown.addAll(uniqueNewItems);
-
-      print(
-        "✅ Updated cashAdvanceListDropDown: ${controller.cashAdvanceListDropDown.length}",
-      );
-    } catch (e) {
-      Get.snackbar('Error', e.toString());
+  Color getStatusColor(String? status) {
+    switch (status) {
+      case "Approved":
+        return Colors.green;
+      case "Rejected":
+        return Colors.red;
+      case "Pending":
+        return Colors.orange;
+      default:
+        return Colors.grey;
     }
+  }
+
+  Future<void> _loadSettings() async {
+    final settings = await controller.fetchGeneralSettings();
+    if (settings != null) {
+      setState(() {
+        allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
+        allowCashAd = settings.allowCashAdvAgainstExpenseReg;
+
+        //  // print("allowDocAttachments$allowMultSelect");
+      });
+    }
+  }
+
+  String _getIsoCodeFromDialCode(String dialCode) {
+    final Map<String, String> dialCodeToIso = {
+      '+93': 'AF',
+      '+355': 'AL',
+      '+213': 'DZ',
+      '+1': 'US',
+      '+376': 'AD',
+      '+244': 'AO',
+      '+54': 'AR',
+      '+374': 'AM',
+      '+61': 'AU',
+      '+43': 'AT',
+      '+994': 'AZ',
+      '+973': 'BH',
+      '+880': 'BD',
+      '+375': 'BY',
+      '+32': 'BE',
+      '+501': 'BZ',
+      '+229': 'BJ',
+      '+975': 'BT',
+      '+591': 'BO',
+      '+387': 'BA',
+      '+267': 'BW',
+      '+55': 'BR',
+      '+673': 'BN',
+      '+359': 'BG',
+      '+226': 'BF',
+      '+257': 'BI',
+      '+855': 'KH',
+      '+237': 'CM',
+      '+1': 'CA',
+      '+238': 'CV',
+      '+236': 'CF',
+      '+235': 'TD',
+      '+56': 'CL',
+      '+86': 'CN',
+      '+57': 'CO',
+      '+269': 'KM',
+      '+243': 'CD',
+      '+242': 'CG',
+      '+506': 'CR',
+      '+385': 'HR',
+      '+53': 'CU',
+      '+357': 'CY',
+      '+420': 'CZ',
+      '+45': 'DK',
+      '+253': 'DJ',
+      '+1': 'DO',
+      '+593': 'EC',
+      '+20': 'EG',
+      '+503': 'SV',
+      '+240': 'GQ',
+      '+291': 'ER',
+      '+372': 'EE',
+      '+251': 'ET',
+      '+679': 'FJ',
+      '+358': 'FI',
+      '+33': 'FR',
+      '+241': 'GA',
+      '+220': 'GM',
+      '+995': 'GE',
+      '+49': 'DE',
+      '+233': 'GH',
+      '+30': 'GR',
+      '+299': 'GL',
+      '+502': 'GT',
+      '+224': 'GN',
+      '+245': 'GW',
+      '+592': 'GY',
+      '+509': 'HT',
+      '+504': 'HN',
+      '+36': 'HU',
+      '+354': 'IS',
+      '+91': 'IN',
+      '+62': 'ID',
+      '+98': 'IR',
+      '+964': 'IQ',
+      '+353': 'IE',
+      '+972': 'IL',
+      '+39': 'IT',
+      '+1': 'JM',
+      '+81': 'JP',
+      '+962': 'JO',
+      '+7': 'KZ',
+      '+254': 'KE',
+      '+686': 'KI',
+      '+850': 'KP',
+      '+82': 'KR',
+      '+965': 'KW',
+      '+996': 'KG',
+      '+856': 'LA',
+      '+371': 'LV',
+      '+961': 'LB',
+      '+266': 'LS',
+      '+231': 'LR',
+      '+218': 'LY',
+      '+423': 'LI',
+      '+370': 'LT',
+      '+352': 'LU',
+      '+261': 'MG',
+      '+265': 'MW',
+      '+60': 'MY',
+      '+960': 'MV',
+      '+223': 'ML',
+      '+356': 'MT',
+      '+692': 'MH',
+      '+222': 'MR',
+      '+230': 'MU',
+      '+52': 'MX',
+      '+691': 'FM',
+      '+373': 'MD',
+      '+377': 'MC',
+      '+976': 'MN',
+      '+382': 'ME',
+      '+212': 'MA',
+      '+258': 'MZ',
+      '+95': 'MM',
+      '+264': 'NA',
+      '+674': 'NR',
+      '+977': 'NP',
+      '+31': 'NL',
+      '+64': 'NZ',
+      '+505': 'NI',
+      '+227': 'NE',
+      '+234': 'NG',
+      '+389': 'MK',
+      '+47': 'NO',
+      '+968': 'OM',
+      '+92': 'PK',
+      '+680': 'PW',
+      '+970': 'PS',
+      '+507': 'PA',
+      '+675': 'PG',
+      '+595': 'PY',
+      '+51': 'PE',
+      '+63': 'PH',
+      '+48': 'PL',
+      '+351': 'PT',
+      '+1': 'PR',
+      '+974': 'QA',
+      '+40': 'RO',
+      '+7': 'RU',
+      '+250': 'RW',
+      '+685': 'WS',
+      '+378': 'SM',
+      '+239': 'ST',
+      '+966': 'SA',
+      '+221': 'SN',
+      '+381': 'RS',
+      '+248': 'SC',
+      '+232': 'SL',
+      '+65': 'SG',
+      '+421': 'SK',
+      '+386': 'SI',
+      '+677': 'SB',
+      '+252': 'SO',
+      '+27': 'ZA',
+      '+211': 'SS',
+      '+34': 'ES',
+      '+94': 'LK',
+      '+249': 'SD',
+      '+597': 'SR',
+      '+46': 'SE',
+      '+41': 'CH',
+      '+963': 'SY',
+      '+886': 'TW',
+      '+992': 'TJ',
+      '+255': 'TZ',
+      '+66': 'TH',
+      '+670': 'TL',
+      '+228': 'TG',
+      '+676': 'TO',
+      '+216': 'TN',
+      '+90': 'TR',
+      '+993': 'TM',
+      '+688': 'TV',
+      '+256': 'UG',
+      '+380': 'UA',
+      '+971': 'AE',
+      '+44': 'GB',
+      '+1': 'US',
+      '+598': 'UY',
+      '+998': 'UZ',
+      '+678': 'VU',
+      '+58': 'VE',
+      '+84': 'VN',
+      '+967': 'YE',
+      '+260': 'ZM',
+      '+263': 'ZW',
+    };
+    return dialCodeToIso[dialCode] ?? 'IN';
   }
 
   @override
   Widget build(BuildContext context) {
+    Color buttonColor;
+    switch (statusApproval) {
+      case 'Approved':
+        buttonColor = Colors.green;
+        break;
+      case 'Rejected':
+        buttonColor = Colors.red;
+        break;
+      case 'Pending':
+        buttonColor = Colors.orange;
+        break;
+      case "Created":
+        buttonColor = Colors.blue;
+        break;
+      default:
+        buttonColor = Colors.grey;
+    }
     return WillPopScope(
       onWillPop: () async {
         controller.isEnable.value = false;
         controller.isLoadingGE1.value = false;
         controller.isApprovalEnable.value = false;
+        controller.clearFormFields();
+        controller.clearFormFieldsPerdiem();
         Navigator.pushNamed(context, AppRoutes.dashboard_Main);
         return true;
       },
       child: Scaffold(
-        body: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 10),
-                Obx(() {
-                  return GestureDetector(
-                    onTap: !controller.isEnable.value ? null : () => _pickFile,
-                    child: Container(
-                      width: MediaQuery.of(context).size.width * 0.9,
-                      height: MediaQuery.of(context).size.height * 0.3,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey, width: 2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-
-                      /// ✅ EMPTY VIEW
-                      child: controller.imageFiles.isEmpty
-                          ? Center(
-                              child: Text(
-                                AppLocalizations.of(context)!.tapToUploadDocs,
+        body: Obx(() {
+          return controller.isLoadingLogin.value
+              ? const SkeletonLoaderPage()
+              : Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                debugPrint("Status: $statusApproval");
+                              },
+                              icon: const Icon(
+                                Icons.donut_large,
+                                size: 16,
+                                color: Colors.white,
                               ),
-                            )
-                          /// ✅ FILE PREVIEW VIEW
-                          : Stack(
-                              children: [
-                                PageView.builder(
-                                  controller: _pageController,
-                                  itemCount: controller.imageFiles.length,
-                                  onPageChanged: (index) {
-                                    controller.currentIndex.value = index;
+                              label: Text(
+                                statusApproval ?? "",
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: getStatusColor(statusApproval),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                minimumSize: const Size(0, 32),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        Obx(() {
+                          return Stack(
+                            children: [
+                              Obx(() {
+                                return GestureDetector(
+                                  onTap: () {
+                                    if (controller.imageFiles.isEmpty &&
+                                        controller.isEnable.value &&
+                                        !controller.isLoadingviewImage.value) {
+                                      _pickFile();
+                                    }
                                   },
 
-                                  itemBuilder: (_, index) {
-                                    final file = controller.imageFiles[index];
-                                    final path = file.path;
-
-                                    return GestureDetector(
-                                      onTap: () => controller.openFile(
-                                        context,
-                                        file,
-                                        index,
+                                  child: Container(
+                                    width:
+                                        MediaQuery.of(context).size.width * 0.9,
+                                    height:
+                                        MediaQuery.of(context).size.height *
+                                        0.3,
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: Colors.grey,
+                                        width: 2,
                                       ),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
 
-                                      child: Container(
-                                        margin: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                            color: Colors.deepPurple,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
+                                    /// ✅ EMPTY VIEW
+                                    child: controller.imageFiles.isEmpty
+                                        ? Center(
+                                            child: Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              )!.tapToUploadDocs,
+                                            ),
+                                          )
+                                        /// ✅ FILE PREVIEW VIEW
+                                        : Stack(
+                                            children: [
+                                              PageView.builder(
+                                                controller: _pageController,
+                                                itemCount: controller
+                                                    .imageFiles
+                                                    .length,
+                                                onPageChanged: (index) {
+                                                  controller
+                                                          .currentIndex
+                                                          .value =
+                                                      index;
+                                                },
 
-                                        /// ✅ IMAGE
-                                        child: controller.isImage(path)
-                                            ? ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                child: Image.file(
-                                                  file,
-                                                  fit: BoxFit.cover,
-                                                  width: double.infinity,
-                                                ),
-                                              )
-                                            /// ✅ PDF
-                                            : controller.isPdf(path)
-                                            ? Column(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  const Icon(
-                                                    Icons.picture_as_pdf,
-                                                    size: 70,
-                                                    color: Colors.red,
-                                                  ),
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(8),
-                                                    child: Text(
-                                                      file.path.split('/').last,
-                                                      textAlign:
-                                                          TextAlign.center,
+                                                itemBuilder: (_, index) {
+                                                  final file = controller
+                                                      .imageFiles[index];
+                                                  final path = file.path;
+
+                                                  return GestureDetector(
+                                                    onTap: () =>
+                                                        controller.openFile(
+                                                          context,
+                                                          file,
+                                                          index,
+                                                        ),
+
+                                                    child: Container(
+                                                      margin:
+                                                          const EdgeInsets.all(
+                                                            8,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        border: Border.all(
+                                                          color:
+                                                              Colors.deepPurple,
+                                                        ),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              8,
+                                                            ),
+                                                      ),
+
+                                                      /// ✅ IMAGE
+                                                      child:
+                                                          controller.isImage(
+                                                            path,
+                                                          )
+                                                          ? ClipRRect(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    8,
+                                                                  ),
+                                                              child: Image.file(
+                                                                file,
+                                                                fit: BoxFit
+                                                                    .cover,
+                                                                width: double
+                                                                    .infinity,
+                                                              ),
+                                                            )
+                                                          /// ✅ PDF
+                                                          : controller.isPdf(
+                                                              path,
+                                                            )
+                                                          ? Column(
+                                                              mainAxisAlignment:
+                                                                  MainAxisAlignment
+                                                                      .center,
+                                                              children: [
+                                                                const Icon(
+                                                                  Icons
+                                                                      .picture_as_pdf,
+                                                                  size: 70,
+                                                                  color: Colors
+                                                                      .red,
+                                                                ),
+                                                                Padding(
+                                                                  padding:
+                                                                      const EdgeInsets.all(
+                                                                        8,
+                                                                      ),
+                                                                  child: Text(
+                                                                    file.path
+                                                                        .split(
+                                                                          '/',
+                                                                        )
+                                                                        .last,
+                                                                    textAlign:
+                                                                        TextAlign
+                                                                            .center,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            )
+                                                          /// ✅ EXCEL
+                                                          : controller.isExcel(
+                                                              path,
+                                                            )
+                                                          ? Column(
+                                                              mainAxisAlignment:
+                                                                  MainAxisAlignment
+                                                                      .center,
+                                                              children: [
+                                                                const Icon(
+                                                                  Icons
+                                                                      .table_chart,
+                                                                  size: 70,
+                                                                  color: Colors
+                                                                      .green,
+                                                                ),
+                                                                Text(
+                                                                  file.path
+                                                                      .split(
+                                                                        '/',
+                                                                      )
+                                                                      .last,
+                                                                  textAlign:
+                                                                      TextAlign
+                                                                          .center,
+                                                                ),
+                                                              ],
+                                                            )
+                                                          /// ✅ OTHER FILE
+                                                          : Column(
+                                                              mainAxisAlignment:
+                                                                  MainAxisAlignment
+                                                                      .center,
+                                                              children: [
+                                                                const Icon(
+                                                                  Icons
+                                                                      .insert_drive_file,
+                                                                  size: 70,
+                                                                ),
+                                                                Text(
+                                                                  file.path
+                                                                      .split(
+                                                                        '/',
+                                                                      )
+                                                                      .last,
+                                                                  textAlign:
+                                                                      TextAlign
+                                                                          .center,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+
+                                              /// ✅ PAGE COUNT
+                                              Positioned(
+                                                bottom: 40,
+                                                left: 0,
+                                                right: 0,
+                                                child: Center(
+                                                  child: Obx(
+                                                    () => Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            vertical: 8,
+                                                            horizontal: 16,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.black
+                                                            .withOpacity(0.5),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              20,
+                                                            ),
+                                                      ),
+                                                      child: Text(
+                                                        '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 18,
+                                                        ),
+                                                      ),
                                                     ),
                                                   ),
-                                                ],
-                                              )
-                                            /// ✅ EXCEL
-                                            : controller.isExcel(path)
-                                            ? Column(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  const Icon(
-                                                    Icons.table_chart,
-                                                    size: 70,
-                                                    color: Colors.green,
-                                                  ),
-                                                  Text(
-                                                    file.path.split('/').last,
-                                                    textAlign: TextAlign.center,
-                                                  ),
-                                                ],
-                                              )
-                                            /// ✅ OTHER FILE
-                                            : Column(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  const Icon(
-                                                    Icons.insert_drive_file,
-                                                    size: 70,
-                                                  ),
-                                                  Text(
-                                                    file.path.split('/').last,
-                                                    textAlign: TextAlign.center,
-                                                  ),
-                                                ],
+                                                ),
                                               ),
-                                      ),
-                                    );
-                                  },
-                                ),
 
-                                /// ✅ PAGE COUNT
-                                Positioned(
-                                  bottom: 40,
-                                  left: 0,
-                                  right: 0,
-                                  child: Center(
-                                    child: Obx(
-                                      () => Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 8,
-                                          horizontal: 16,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black.withOpacity(0.5),
-                                          borderRadius: BorderRadius.circular(
-                                            20,
+                                              /// ✅ ADD BUTTON
+                                              if (controller.isEnable.value)
+                                                Positioned(
+                                                  bottom: 16,
+                                                  right: 16,
+                                                  child: GestureDetector(
+                                                    onTap: _pickFile,
+                                                    child: Container(
+                                                      decoration: BoxDecoration(
+                                                        color:
+                                                            Colors.deepPurple,
+                                                        shape: BoxShape.circle,
+                                                        border: Border.all(
+                                                          color: Colors.white,
+                                                          width: 2,
+                                                        ),
+                                                      ),
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                            8,
+                                                          ),
+                                                      child: const Icon(
+                                                        Icons.add,
+                                                        color: Colors.white,
+                                                        size: 28,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
                                           ),
-                                        ),
-                                        child: Text(
-                                          '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 18,
-                                          ),
-                                        ),
+                                  ),
+                                );
+                              }),
+
+                              // 🔥 CIRCULAR LOADER OVERLAY
+                              if (controller.isLoadingviewImage.value)
+                                Positioned.fill(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.25),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 3,
+                                        color: Colors.white,
                                       ),
                                     ),
                                   ),
                                 ),
-
-                                /// ✅ ADD BUTTON
-                                if (controller.isEnable.value)
-                                  Positioned(
-                                    bottom: 16,
-                                    right: 16,
-                                    child: GestureDetector(
-                                      onTap: _pickFile,
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: Colors.deepPurple,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: Colors.white,
-                                            width: 2,
-                                          ),
-                                        ),
-                                        padding: const EdgeInsets.all(8),
-                                        child: const Icon(
-                                          Icons.add,
-                                          color: Colors.white,
-                                          size: 28,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                    ),
-                  );
-                }),
-
-                const SizedBox(height: 20),
-                Text(
-                  AppLocalizations.of(context)!.receiptDetails,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                _buildTextField(
-                  label: "${AppLocalizations.of(context)!.expenseId} *",
-                  controller: expenseIdController,
-                  isReadOnly: false,
-                ),
-                buildDateField(
-                  AppLocalizations.of(context)!.returnDate,
-                  receiptDateController,
-                  isReadOnly: !controller.isEnable.value, // pass manually
-                ),
-
-                const SizedBox(height: 12),
-                Obx(() {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: controller.configListAdvance
-                        .where(
-                          (field) =>
-                              field['FieldName'] == 'Location' &&
-                              field['IsEnabled'] == true,
-                        )
-                        .map((field) {
-                          final String label = field['FieldName'];
-                          final bool isMandatory =
-                              field['IsMandatory'] ?? false;
-
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              SearchableMultiColumnDropdownField<LocationModel>(
-                                labelText: '$label ${isMandatory ? "*" : ""}',
-                                columnHeaders: [
-                                  AppLocalizations.of(context)!.location,
-                                  AppLocalizations.of(context)!.country,
-                                ],
-                                enabled: controller.isEnable.value,
-                                controller: controller.locationController,
-                                items: controller.location,
-                                selectedValue: controller.selectedLocation,
-                                searchValue: (loc) => loc.location,
-                                displayText: (loc) => loc.location,
-                                validator: (loc) => isMandatory && loc == null
-                                    ? AppLocalizations.of(context)!.selectLocale
-                                    : null,
-                                onChanged: (loc) {
-                                  controller.selectedLocation = loc;
-                                  controller.fetchMaxAllowedPercentage();
-                                  if (_debounce?.isActive ?? false)
-                                    _debounce!.cancel();
-
-                                  // Start a new debounce timer
-                                  _debounce = Timer(
-                                    const Duration(milliseconds: 400),
-                                    () async {
-                                      final paidAmountText = controller
-                                          .paidAmountCA1
-                                          .text
-                                          .trim();
-                                      controller.unitAmount.text =
-                                          controller.paidAmountCA1.text;
-                                      final double paidAmounts =
-                                          double.tryParse(paidAmountText) ??
-                                          0.0;
-                                      final currency = controller
-                                          .currencyDropDowncontrollerCA3
-                                          .text;
-
-                                      // Only proceed if currency and amount are provided
-                                      if (currency.isNotEmpty &&
-                                          paidAmountText.isNotEmpty) {
-                                        // Fire API calls concurrently
-                                        final results = await Future.wait([
-                                          controller.fetchExchangeRateCA(
-                                            currency,
-                                            paidAmountText,
-                                          ),
-                                          controller
-                                              .fetchMaxAllowedPercentage(),
-                                        ]);
-
-                                        // Process the first exchange rate response
-                                        final exchangeResponse1 =
-                                            results[0] as ExchangeRateResponse?;
-                                        if (exchangeResponse1 != null) {
-                                          controller.unitRateCA1.text =
-                                              exchangeResponse1.exchangeRate
-                                                  .toString();
-                                          controller.amountINRCA1.text =
-                                              exchangeResponse1.totalAmount
-                                                  .toStringAsFixed(2);
-                                          controller.isVisible.value = true;
-                                        }
-
-                                        // Process max allowed percentage
-                                        final maxPercentage =
-                                            results[1] as double?;
-
-                                        if (maxPercentage != null &&
-                                            maxPercentage > 0) {
-                                          final double calculatedPercentage =
-                                              (paidAmounts * maxPercentage) /
-                                              100;
-
-                                          controller.totalRequestedAmount.text =
-                                              calculatedPercentage.toString();
-                                          controller
-                                                  .calculatedPercentage
-                                                  .value =
-                                              calculatedPercentage;
-
-                                          final percentageStr = maxPercentage
-                                              .toInt()
-                                              .toString();
-                                          controller.requestedPercentage.text =
-                                              '$percentageStr %';
-                                        }
-                                        final reqPaidAmount = controller
-                                            .totalRequestedAmount
-                                            .text
-                                            .trim();
-                                        final reqCurrency = controller
-                                            .currencyDropDowncontrollerCA2
-                                            .text;
-                                        if (reqCurrency.isNotEmpty &&
-                                            reqPaidAmount.isNotEmpty) {
-                                          final exchangeResponse =
-                                              await controller
-                                                  .fetchExchangeRateCA(
-                                                    reqCurrency,
-                                                    reqPaidAmount,
-                                                  );
-
-                                          if (exchangeResponse != null) {
-                                            controller.unitRateCA2.text =
-                                                exchangeResponse.exchangeRate
-                                                    .toString();
-                                            controller.amountINRCA2.text =
-                                                exchangeResponse.totalAmount
-                                                    .toStringAsFixed(2);
-                                            // controller.isVisible.value = true;
-                                          }
-                                        }
-                                      }
-                                    },
-                                  );
-                                  field['Error'] =
-                                      null; // Clear error when value selected
-                                },
-                                rowBuilder: (loc, searchQuery) {
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                      horizontal: 16,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(child: Text(loc.location)),
-                                        Expanded(child: Text(loc.country)),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-
-                              const SizedBox(height: 16),
                             ],
                           );
-                        })
-                        .toList(),
-                  );
-                }),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Obx(
-                      () => Container(
-                        // padding: const EdgeInsets.all(12),
-                        // margin: const EdgeInsets.only(bottom: 16),
-                        // decoration: BoxDecoration(
-                        //   color: Colors.white,
-                        //   border: Border.all(
-                        //     color: Colors.grey.shade400,
-                        //     width: 1,
-                        //   ),
-                        //   borderRadius: BorderRadius.circular(12),
-                        //   boxShadow: [
-                        //     BoxShadow(
-                        //       color: Colors.black.withOpacity(0.05),
-                        //       blurRadius: 6,
-                        //       offset: const Offset(0, 3),
-                        //     ),
-                        //   ],
-                        // ),
-                        child:
-                            MultiSelectMultiColumnDropdownField<
-                              CashAdvanceDropDownModel
+                        }),
+
+                        const SizedBox(height: 20),
+                        Text(
+                          AppLocalizations.of(context)!.receiptDetails,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        if (controller.justificationnotes.text.isNotEmpty)
+                          SizedBox(height: 10),
+                        if (controller.justificationnotes.text.isNotEmpty)
+                          _buildTextField(
+                            label:
+                                "${AppLocalizations.of(context)!.justification} *",
+                            controller: controller.justificationnotes,
+                            isReadOnly: false,
+                          ),
+                        const SizedBox(height: 8),
+                        _buildTextField(
+                          label: "${AppLocalizations.of(context)!.expenseId} *",
+                          controller: expenseIdController,
+                          isReadOnly: false,
+                        ),
+                        // const SizedBox(height: 8),
+                        _buildTextField(
+                          label:
+                              "${AppLocalizations.of(context)!.employeeId} *",
+                          controller: controller.employeeDropDownController,
+                          isReadOnly: false,
+                        ),
+                        //  const SizedBox(height: 8),
+                        _buildTextField(
+                          label:
+                              "${AppLocalizations.of(context)!.employeeName} *",
+                          controller: controller.employeeName,
+                          isReadOnly: false,
+                        ),
+                        // const SizedBox(height: 8),
+                        buildDateField(
+                          '${AppLocalizations.of(context)!.receiptDate} *',
+                          receiptDateController,
+                          isReadOnly: !controller.isEnable.value,
+                        ),
+                        const SizedBox(height: 8),
+
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Obx(
+                              () => Container(
+                                child:
+                                    MultiSelectMultiColumnDropdownField<
+                                      CashAdvanceDropDownModel
+                                    >(
+                                      labelText:
+                                          '${AppLocalizations.of(context)!.cashAdvanceRequest} * ',
+                                      items: controller.cashAdvanceListDropDown,
+                                      isMultiSelect: allowMultSelect ?? false,
+                                      dropdownMaxHeight: 300,
+                                      selectedValue:
+                                          controller.singleSelectedItem,
+                                      selectedValues:
+                                          controller.multiSelectedItems,
+                                      controller: controller.cashAdvanceIds,
+                                      enabled: controller.isEnable.value,
+                                      searchValue: (proj) =>
+                                          proj.cashAdvanceReqId,
+                                      displayText: (proj) =>
+                                          proj.cashAdvanceReqId,
+                                      onChanged: (item) {
+                                        controller.singleSelectedItem = item;
+                                      },
+                                      validator: (value) =>
+                                          _validateRequiredField(
+                                            controller.categoryController.text,
+                                            AppLocalizations.of(
+                                              context,
+                                            )!.cashAdvanceRequest,
+                                            true,
+                                          ),
+                                      onMultiChanged: (items) {
+                                        controller.multiSelectedItems.assignAll(
+                                          items,
+                                        );
+                                      },
+                                      columnHeaders: [
+                                        AppLocalizations.of(context)!.requestId,
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.requestDate,
+                                      ],
+                                      rowBuilder: (proj, searchQuery) {
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 12,
+                                            horizontal: 16,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  proj.cashAdvanceReqId,
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Text(
+                                                  controller.formattedDate(
+                                                    proj.requestDate,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            SearchableMultiColumnDropdownField<
+                              PaymentMethodModel
                             >(
-                              labelText: AppLocalizations.of(
-                                context,
-                              )!.cashAdvanceRequest,
-                              items: controller.cashAdvanceListDropDown,
-                              isMultiSelect: allowMultSelect ?? false,
-                              selectedValue: controller.singleSelectedItem,
-                              selectedValues: controller.multiSelectedItems,
                               enabled: controller.isEnable.value,
-                              searchValue: (proj) => proj.cashAdvanceReqId,
-                              displayText: (proj) => proj.cashAdvanceReqId,
-                              validator: (proj) => proj == null
-                                  ? 'Please select a CashAdvance Field'
-                                  : null,
-                              onChanged: (item) {
-                                controller.singleSelectedItem =
-                                    item; // ✅ update selected item
-                              },
-                              onMultiChanged: (items) {
-                                controller.multiSelectedItems.assignAll(
-                                  items,
-                                ); // ✅ update list
-                              },
+                              labelText: AppLocalizations.of(context)!.paidWith,
                               columnHeaders: [
-                                AppLocalizations.of(context)!.requestId,
-                                AppLocalizations.of(context)!.requestDate,
+                                AppLocalizations.of(context)!.paymentName,
+                                AppLocalizations.of(context)!.paymentId,
                               ],
-                              rowBuilder: (proj, searchQuery) {
+                              items: controller.paymentMethods,
+                              selectedValue: controller.selectedPaidWith,
+                              searchValue: (p) =>
+                                  '${p.paymentMethodName} ${p.paymentMethodId}',
+                              displayText: (p) => p.paymentMethodName,
+                              // validator: (value) => _validateRequiredField(
+                              //   controller.paidWithController.text,
+                              //   AppLocalizations.of(context)!.paidWith,
+                              //   false,
+                              // ),
+                              onChanged: (p) {
+                                loadAndAppendCashAdvanceList();
+                                setState(() {
+                                  controller.selectedPaidWith = p;
+                                  controller.paymentMethodID =
+                                      p!.paymentMethodId;
+                                  controller.paidWithController.text =
+                                      p.paymentMethodId;
+                                  controller.isReimbursableEnabled.value =
+                                      p.reimbursible;
+                                });
+                              },
+                              controller: controller.paidWithController,
+                              rowBuilder: (p, searchQuery) {
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 12,
@@ -908,13 +4711,3022 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
                                   child: Row(
                                     children: [
                                       Expanded(
-                                        child: Text(proj.cashAdvanceReqId),
+                                        child: Text(p.paymentMethodName),
                                       ),
-                                      Expanded(
-                                        child: Text(
-                                          controller.formattedDate(
-                                            proj.requestDate,
+                                      Expanded(child: Text(p.paymentMethodId)),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Add this in your State class or controller
+                        Obx(() {
+                          return Column(
+                            children: controller.customFields
+                                .where(
+                                  (field) =>
+                                      field['ObjectName'] == 'ExpenseHeader' &&
+                                      field['ExpenseType'] ==
+                                          'General Expenses',
+                                )
+                                .map((field) {
+                                  final String label =
+                                      field['FieldLabel'] ?? field['FieldName'];
+                                  final bool isMandatory =
+                                      field['IsMandatory'] ?? false;
+                                  final String fieldKey = field['FieldName'];
+                                  final String fieldType =
+                                      field['FieldType'] ?? 'Text';
+                                  final bool isDateTime =
+                                      fieldType == 'Date&Time';
+
+                                  // Create controller if it doesn't exist
+                                  if (!fieldControllers.containsKey(fieldKey)) {
+                                    fieldControllers[fieldKey] =
+                                        TextEditingController();
+                                  }
+
+                                  Widget inputField;
+
+                                  // List type fields - Make Reactive
+                                  if (fieldType == 'List' ||
+                                      fieldType == 'CustomList' ||
+                                      fieldType == 'SystemList') {
+                                    // Create Rx value if not exists
+                                    if (field['_rxSelectedValue'] == null) {
+                                      field['_rxSelectedValue'] =
+                                          Rx<CustomDropdownValue?>(
+                                            field['SelectedValue']
+                                                as CustomDropdownValue?,
+                                          );
+                                    }
+
+                                    inputField = Obx(() {
+                                      final rxValue =
+                                          field['_rxSelectedValue']
+                                              as Rx<CustomDropdownValue?>;
+                                      return SearchableMultiColumnDropdownField<
+                                        CustomDropdownValue
+                                      >(
+                                        labelText:
+                                            '$label${isMandatory ? " *" : ""}',
+                                        items:
+                                            (field['Options']
+                                                as List<
+                                                  CustomDropdownValue
+                                                >?) ??
+                                            [],
+                                        selectedValue: rxValue.value,
+                                        searchValue: (val) => val.valueName,
+                                        enabled: controller.isEnable.value,
+                                        displayText: (val) => val.valueName,
+                                        columnHeaders: const [
+                                          'Value ID',
+                                          'Value Name',
+                                        ],
+                                        rowBuilder: (val, searchQuery) =>
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 10,
+                                                    horizontal: 16,
+                                                  ),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(val.valueId),
+                                                  ),
+                                                  Expanded(
+                                                    child: Text(val.valueName),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                        onChanged: (val) {
+                                          rxValue.value = val;
+                                          field['SelectedValue'] = val;
+                                          field['Error'] = null;
+                                        },
+                                      );
+                                    });
+                                  }
+                                  // Checkbox type - Make Reactive
+                                  else if (fieldType == 'Checkbox') {
+                                    if (field['_rxCheckboxValue'] == null) {
+                                      field['_rxCheckboxValue'] = Rx<bool>(
+                                        field['EnteredValue'] ?? false,
+                                      );
+                                    }
+
+                                    inputField = Obx(() {
+                                      final rxValue =
+                                          field['_rxCheckboxValue'] as Rx<bool>;
+                                      return CheckboxListTile(
+                                        title: Text(
+                                          '$label${isMandatory ? " *" : ""}',
+                                        ),
+                                        value: rxValue.value,
+                                        enabled: controller.isEnable.value,
+                                        controlAffinity:
+                                            ListTileControlAffinity.leading,
+                                        contentPadding: EdgeInsets.zero,
+                                        onChanged: controller.isEnable.value
+                                            ? (bool? val) {
+                                                rxValue.value = val ?? false;
+                                                field['EnteredValue'] =
+                                                    val ?? false;
+                                              }
+                                            : null,
+                                      );
+                                    });
+                                  }
+                                  // Date and DateTime types - Make Reactive
+                                  else if (fieldType == 'Date' ||
+                                      fieldType == 'Date&Time') {
+                                    // Create Rx value if not exists
+                                    if (field['_rxDateValue'] == null) {
+                                      field['_rxDateValue'] = Rx<DateTime?>(
+                                        field['EnteredValue'] as DateTime?,
+                                      );
+                                    }
+
+                                    inputField = Obx(() {
+                                      final rxDateValue =
+                                          field['_rxDateValue']
+                                              as Rx<DateTime?>;
+                                      final currentDate = rxDateValue.value;
+
+                                      // Update controller text based on Rx value
+                                      if (currentDate != null) {
+                                        if (isDateTime) {
+                                          fieldControllers[fieldKey]!.text =
+                                              DateFormat(
+                                                'dd/MM/yyyy hh:mm a',
+                                              ).format(currentDate);
+                                        } else {
+                                          fieldControllers[fieldKey]!.text =
+                                              DateFormat(
+                                                'dd/MM/yyyy',
+                                              ).format(currentDate);
+                                        }
+                                      } else {
+                                        fieldControllers[fieldKey]!.text = '';
+                                      }
+
+                                      return TextFormField(
+                                        enabled: controller.isEnable.value,
+                                        readOnly: true,
+                                        controller: fieldControllers[fieldKey],
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              '$label${isMandatory ? " *" : ""}',
+                                          border: const OutlineInputBorder(),
+                                          errorText: field['Error'],
+                                          suffixIcon: const Icon(
+                                            Icons.calendar_today,
                                           ),
+                                        ),
+                                        onTap: controller.isEnable.value
+                                            ? () async {
+                                                DateTime? currentDate =
+                                                    rxDateValue.value ??
+                                                    DateTime.now();
+
+                                                final DateTime? pickedDate =
+                                                    await showDatePicker(
+                                                      context: context,
+                                                      initialDate: currentDate,
+                                                      firstDate: DateTime(2000),
+                                                      lastDate: DateTime(2100),
+                                                    );
+
+                                                if (pickedDate == null) return;
+
+                                                if (isDateTime) {
+                                                  TimeOfDay initialTime =
+                                                      TimeOfDay.now();
+                                                  if (rxDateValue.value !=
+                                                      null) {
+                                                    initialTime =
+                                                        TimeOfDay.fromDateTime(
+                                                          rxDateValue.value!,
+                                                        );
+                                                  }
+
+                                                  final TimeOfDay? pickedTime =
+                                                      await showTimePicker(
+                                                        context: context,
+                                                        initialTime:
+                                                            initialTime,
+                                                      );
+
+                                                  if (pickedTime == null)
+                                                    return;
+
+                                                  final fullDateTime = DateTime(
+                                                    pickedDate.year,
+                                                    pickedDate.month,
+                                                    pickedDate.day,
+                                                    pickedTime.hour,
+                                                    pickedTime.minute,
+                                                  );
+
+                                                  rxDateValue.value =
+                                                      fullDateTime;
+                                                  field['EnteredValue'] =
+                                                      fullDateTime;
+                                                } else {
+                                                  rxDateValue.value =
+                                                      pickedDate;
+                                                  field['EnteredValue'] =
+                                                      pickedDate;
+                                                }
+
+                                                field['Error'] = null;
+                                              }
+                                            : null,
+                                        validator: (value) {
+                                          if (isMandatory &&
+                                              rxDateValue.value == null) {
+                                            return '$label is required';
+                                          }
+                                          return null;
+                                        },
+                                      );
+                                    });
+                                  }
+                                  // LongInteger (Integer) type - Make Reactive
+                                  else if (fieldType == 'LongInteger') {
+                                    if (field['_rxIntValue'] == null) {
+                                      field['_rxIntValue'] = Rx<int?>(
+                                        field['EnteredValue'] as int?,
+                                      );
+                                    }
+
+                                    inputField = Obx(() {
+                                      final rxValue =
+                                          field['_rxIntValue'] as Rx<int?>;
+
+                                      // Update controller without triggering rebuild during build
+                                      final newText =
+                                          rxValue.value?.toString() ?? '';
+                                      if (fieldControllers[fieldKey]!.text !=
+                                          newText) {
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                              fieldControllers[fieldKey]!.text =
+                                                  newText;
+                                            });
+                                      }
+
+                                      return TextFormField(
+                                        enabled: controller.isEnable.value,
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter
+                                              .digitsOnly,
+                                        ],
+                                        controller: fieldControllers[fieldKey],
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              '$label${isMandatory ? " *" : ""}',
+                                          border: const OutlineInputBorder(),
+                                          errorText: field['Error'],
+                                        ),
+                                        onChanged: (value) {
+                                          final intValue = int.tryParse(value);
+                                          rxValue.value = intValue;
+                                          field['EnteredValue'] = intValue;
+                                          field['Error'] = null;
+                                        },
+                                        validator: (value) {
+                                          if (isMandatory &&
+                                              (value == null ||
+                                                  value.trim().isEmpty)) {
+                                            return '$label is required';
+                                          }
+                                          return null;
+                                        },
+                                      );
+                                    });
+                                  }
+                                  // Decimal type - Make Reactive
+                                  else if (fieldType == 'Decimal') {
+                                    if (field['_rxDoubleValue'] == null) {
+                                      field['_rxDoubleValue'] = Rx<double?>(
+                                        field['EnteredValue'] as double?,
+                                      );
+                                    }
+
+                                    inputField = Obx(() {
+                                      final rxValue =
+                                          field['_rxDoubleValue']
+                                              as Rx<double?>;
+
+                                      // Update controller without triggering rebuild during build
+                                      final newText =
+                                          rxValue.value?.toString() ?? '';
+                                      if (fieldControllers[fieldKey]!.text !=
+                                          newText) {
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                              fieldControllers[fieldKey]!.text =
+                                                  newText;
+                                            });
+                                      }
+
+                                      return TextFormField(
+                                        enabled: controller.isEnable.value,
+                                        keyboardType:
+                                            const TextInputType.numberWithOptions(
+                                              decimal: true,
+                                            ),
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(
+                                            RegExp(r'^\d+\.?\d*'),
+                                          ),
+                                        ],
+                                        controller: fieldControllers[fieldKey],
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              '$label${isMandatory ? " *" : ""}',
+                                          border: const OutlineInputBorder(),
+                                          errorText: field['Error'],
+                                        ),
+                                        onChanged: (value) {
+                                          final doubleValue = double.tryParse(
+                                            value,
+                                          );
+                                          rxValue.value = doubleValue;
+                                          field['EnteredValue'] = doubleValue;
+                                          field['Error'] = null;
+                                        },
+                                        validator: (value) {
+                                          if (isMandatory &&
+                                              (value == null ||
+                                                  value.trim().isEmpty)) {
+                                            return '$label is required';
+                                          }
+                                          return null;
+                                        },
+                                      );
+                                    });
+                                  }
+                                  // Email type - Make Reactive
+                                  else if (fieldType == 'Email') {
+                                    if (field['_rxStringValue'] == null) {
+                                      field['_rxStringValue'] = Rx<String?>(
+                                        field['EnteredValue'] as String?,
+                                      );
+                                    }
+
+                                    inputField = Obx(() {
+                                      final rxValue =
+                                          field['_rxStringValue']
+                                              as Rx<String?>;
+
+                                      // Update controller without triggering rebuild during build
+                                      final newText = rxValue.value ?? '';
+                                      if (fieldControllers[fieldKey]!.text !=
+                                          newText) {
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                              fieldControllers[fieldKey]!.text =
+                                                  newText;
+                                            });
+                                      }
+
+                                      return TextFormField(
+                                        enabled: controller.isEnable.value,
+                                        keyboardType:
+                                            TextInputType.emailAddress,
+                                        controller: fieldControllers[fieldKey],
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              '$label${isMandatory ? " *" : ""}',
+                                          border: const OutlineInputBorder(),
+                                          errorText: field['Error'],
+                                          suffixIcon: const Icon(
+                                            Icons.email_outlined,
+                                          ),
+                                        ),
+                                        onChanged: (value) {
+                                          rxValue.value = value;
+                                          field['EnteredValue'] = value;
+                                          field['Error'] = null;
+                                        },
+                                        validator: (value) {
+                                          if (isMandatory &&
+                                              (value == null ||
+                                                  value.trim().isEmpty)) {
+                                            return '$label is required';
+                                          }
+                                          if (value != null &&
+                                              value.isNotEmpty) {
+                                            final emailRegex = RegExp(
+                                              r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                            );
+                                            if (!emailRegex.hasMatch(value)) {
+                                              return 'Enter a valid email address';
+                                            }
+                                          }
+                                          return null;
+                                        },
+                                      );
+                                    });
+                                  }
+                                  // MobileNumber type - Make Reactive
+                                  else if (fieldType == 'MobileNumber') {
+                                    if (field['_rxStringValue'] == null) {
+                                      field['_rxStringValue'] = Rx<String?>(
+                                        field['EnteredValue'] as String?,
+                                      );
+                                    }
+
+                                    inputField = Obx(() {
+                                      final rxValue =
+                                          field['_rxStringValue']
+                                              as Rx<String?>;
+
+                                      // Update controller without triggering rebuild during build
+                                      final newText = rxValue.value ?? '';
+                                      if (fieldControllers[fieldKey]!.text !=
+                                          newText) {
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                              fieldControllers[fieldKey]!.text =
+                                                  newText;
+                                            });
+                                      }
+
+                                      return TextFormField(
+                                        enabled: controller.isEnable.value,
+                                        keyboardType: TextInputType.phone,
+                                        controller: fieldControllers[fieldKey],
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              '$label${isMandatory ? " *" : ""}',
+                                          border: const OutlineInputBorder(),
+                                          errorText: field['Error'],
+                                          suffixIcon: const Icon(
+                                            Icons.phone_outlined,
+                                          ),
+                                        ),
+                                        onChanged: (value) {
+                                          rxValue.value = value;
+                                          field['EnteredValue'] = value;
+                                          field['Error'] = null;
+                                        },
+                                        validator: (value) {
+                                          if (isMandatory &&
+                                              (value == null ||
+                                                  value.trim().isEmpty)) {
+                                            return '$label is required';
+                                          }
+                                          if (value != null &&
+                                              value.isNotEmpty) {
+                                            final phoneRegex = RegExp(
+                                              r'^\+?[\d\s\-]{7,15}$',
+                                            );
+                                            if (!phoneRegex.hasMatch(value)) {
+                                              return 'Enter a valid mobile number';
+                                            }
+                                          }
+                                          return null;
+                                        },
+                                      );
+                                    });
+                                  }
+                                  // Default Text type - Make Reactive
+                                  else {
+                                    if (field['_rxStringValue'] == null) {
+                                      field['_rxStringValue'] = Rx<String?>(
+                                        field['EnteredValue'] as String?,
+                                      );
+                                    }
+
+                                    inputField = Obx(() {
+                                      final rxValue =
+                                          field['_rxStringValue']
+                                              as Rx<String?>;
+
+                                      // Update controller without triggering rebuild during build
+                                      final newText = rxValue.value ?? '';
+                                      if (fieldControllers[fieldKey]!.text !=
+                                          newText) {
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                              fieldControllers[fieldKey]!.text =
+                                                  newText;
+                                            });
+                                      }
+
+                                      return TextFormField(
+                                        enabled: controller.isEnable.value,
+                                        keyboardType: TextInputType.text,
+                                        controller: fieldControllers[fieldKey],
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              '$label${isMandatory ? " *" : ""}',
+                                          border: const OutlineInputBorder(),
+                                          errorText: field['Error'],
+                                        ),
+                                        onChanged: (value) {
+                                          rxValue.value = value;
+                                          field['EnteredValue'] = value;
+                                          field['Error'] = null;
+                                        },
+                                        validator: (value) {
+                                          if (isMandatory &&
+                                              (value == null ||
+                                                  value.trim().isEmpty)) {
+                                            return '$label is required';
+                                          }
+                                          return null;
+                                        },
+                                      );
+                                    });
+                                  }
+
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                    child: inputField,
+                                  );
+                                })
+                                .toList(),
+                          );
+                        }),
+                        const SizedBox(height: 6),
+                        ...controller.configList
+                            .where(
+                              (field) =>
+                                  field['IsEnabled'] == true &&
+                                  field['FieldName'] == 'Refrence Id',
+                            )
+                            .map((field) {
+                              final String label = field['FieldName'];
+                              final bool isMandatory =
+                                  field['IsMandatory'] ?? false;
+
+                              late Widget inputFields;
+
+                              if (label == 'Refrence Id') {
+                                inputFields = _buildTextField(
+                                  label:
+                                      "${AppLocalizations.of(context)!.referenceId}${isMandatory ? " *" : ""}",
+                                  controller: controller.referenceID,
+                                  isReadOnly: controller.isEnable.value,
+                                  validator: (value) =>
+                                      isRefrenceIDConfig.isMandatory
+                                      ? _validateRequiredField(
+                                          controller.referenceID.text,
+                                          AppLocalizations.of(
+                                            context,
+                                          )!.referenceId,
+                                          true,
+                                        )
+                                      : null,
+                                );
+                              } else {
+                                inputFields = TextField(
+                                  decoration: InputDecoration(
+                                    labelText:
+                                        '$label${isMandatory ? " *" : ""}',
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                );
+                              }
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // const SizedBox(height: 8),
+                                  inputFields,
+                                  const SizedBox(height: 16),
+                                ],
+                              );
+                            })
+                            .toList(),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                enabled: false,
+                                controller: controller.paidAmount,
+                                onChanged: (_) {
+                                  final paid =
+                                      double.tryParse(
+                                        controller.paidAmount.text,
+                                      ) ??
+                                      0.0;
+                                  final rate =
+                                      double.tryParse(
+                                        controller.unitRate.text,
+                                      ) ??
+                                      1.0;
+
+                                  final result = paid * rate;
+
+                                  controller.amountINR.text = result
+                                      .toStringAsFixed(2);
+                                },
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'^\d*\.?\d*'),
+                                  ),
+                                ],
+                                decoration: InputDecoration(
+                                  labelText:
+                                      '${AppLocalizations.of(context)!.paidAmount} *',
+                                  border: const OutlineInputBorder(
+                                    borderRadius: BorderRadius.only(
+                                      topRight: Radius.circular(0),
+                                      bottomRight: Radius.circular(0),
+                                      topLeft: Radius.circular(10),
+                                      bottomLeft: Radius.circular(10),
+                                    ),
+                                  ),
+                                ),
+                                onEditingComplete: () {
+                                  String text = controller.paidAmount.text;
+                                  double? value = double.tryParse(text);
+                                  if (value != null) {
+                                    controller.paidAmount.text = value
+                                        .toStringAsFixed(2);
+                                  }
+                                },
+                              ),
+                            ),
+                            Expanded(
+                              child: Obx(
+                                () =>
+                                    SearchableMultiColumnDropdownField<
+                                      Currency
+                                    >(
+                                      enabled: controller.isEnable.value,
+                                      alignLeft: -90,
+                                      dropdownWidth: 280,
+                                      labelText: "",
+                                      columnHeaders: [
+                                        AppLocalizations.of(context)!.code,
+                                        AppLocalizations.of(context)!.name,
+                                        AppLocalizations.of(context)!.symbol,
+                                      ],
+                                      items: controller.currencies,
+                                      selectedValue:
+                                          controller.selectedCurrency.value,
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        22,
+                                        2,
+                                        92,
+                                      ),
+                                      searchValue: (c) =>
+                                          '${c.code} ${c.name} ${c.symbol}',
+                                      displayText: (c) => c.code,
+                                      inputDecoration: const InputDecoration(
+                                        suffixIcon: Icon(
+                                          Icons.arrow_drop_down_outlined,
+                                        ),
+                                        filled: true,
+                                        fillColor: Color.fromARGB(
+                                          55,
+                                          5,
+                                          23,
+                                          128,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.only(
+                                            topLeft: Radius.circular(0),
+                                            bottomLeft: Radius.circular(0),
+                                            topRight: Radius.circular(10),
+                                            bottomRight: Radius.circular(10),
+                                          ),
+                                        ),
+                                      ),
+                                      validator: (value) =>
+                                          _validateRequiredField(
+                                            controller
+                                                .currencyDropDowncontroller
+                                                .text,
+                                            AppLocalizations.of(
+                                              context,
+                                            )!.currency,
+                                            true,
+                                          ),
+                                      onChanged: (c) async {
+                                        controller.selectedCurrency.value = c;
+                                        controller.fetchExchangeRate().then((
+                                          _,
+                                        ) {
+                                          _updateAllLineItems();
+                                        });
+                                      },
+                                      controller:
+                                          controller.currencyDropDowncontroller,
+                                      rowBuilder: (c, searchQuery) {
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 12,
+                                            horizontal: 16,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(child: Text(c.code)),
+                                              Expanded(child: Text(c.name)),
+                                              Expanded(child: Text(c.symbol)),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextFormField(
+                                enabled: controller.isEnable.value,
+                                controller: controller.unitRate,
+                                decoration: InputDecoration(
+                                  labelText:
+                                      '${AppLocalizations.of(context)!.rate}*',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                validator: (value) => _validateNumericField(
+                                  value.toString(),
+                                  AppLocalizations.of(context)!.rate,
+                                  true,
+                                ),
+                                onChanged: (val) {
+                                  final paid =
+                                      double.tryParse(
+                                        controller.paidAmount.text,
+                                      ) ??
+                                      0.0;
+                                  final rate = double.tryParse(val) ?? 1.0;
+
+                                  final result = paid * rate;
+
+                                  controller.amountINR.text = result
+                                      .toStringAsFixed(2);
+                                  controller.isVisible.value = true;
+                                  for (
+                                    int i = 0;
+                                    i < itemizeControllers.length;
+                                    i++
+                                  ) {
+                                    final itemController =
+                                        itemizeControllers[i];
+                                    final unitPrice =
+                                        double.tryParse(
+                                          itemController.unitPriceTrans.text,
+                                        ) ??
+                                        0.0;
+
+                                    final lineAmountInINR = unitPrice * rate;
+                                    itemController.lineAmountINR.text =
+                                        lineAmountInINR.toStringAsFixed(2);
+
+                                    widget.items!.expenseTrans[i] =
+                                        itemController
+                                            .toExpenseItemUpdateModel();
+                                  }
+
+                                  setState(() {});
+                                  // print("Paid Amount: $paid");
+                                  // print("Rate: $rate");
+                                  // print(
+                                  //         "Calculated INR Amount: ${controller.amountINR.text}",
+                                  // );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        TextFormField(
+                          controller: controller.amountINR,
+                          enabled: false,
+                          decoration: InputDecoration(
+                            labelText:
+                                '${AppLocalizations.of(context)!.totalAmountIN} '
+                                '${controller.organizationCurrency} *',
+                            filled: true,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "${AppLocalizations.of(context)!.itemize} ${AppLocalizations.of(context)!.expense}",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: widget.items!.expenseTrans.length,
+                              itemBuilder: (context, index) {
+                                final item = widget.items!.expenseTrans[index];
+                                final itemController =
+                                    itemizeControllers[index];
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.all(12),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              "${AppLocalizations.of(context)!.item} ${index + 1}",
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.end,
+                                              children: [
+                                                if (controller.isEnable.value &&
+                                                    widget
+                                                            .items!
+                                                            .expenseTrans
+                                                            .length >
+                                                        1)
+                                                  IconButton(
+                                                    icon: const Icon(
+                                                      Icons.delete,
+                                                      color: Colors.red,
+                                                    ),
+                                                    onPressed: () =>
+                                                        _removeItemize(index),
+                                                    tooltip: 'Remove this item',
+                                                  ),
+                                                if (controller.isEnable.value)
+                                                  AnimatedOpacity(
+                                                    opacity: _isTyping
+                                                        ? 0.0
+                                                        : 1.0,
+                                                    duration: const Duration(
+                                                      milliseconds: 250,
+                                                    ),
+                                                    curve: Curves.easeInOut,
+                                                    child: FutureBuilder<Map<String, bool>>(
+                                                      future: _featureFuture,
+                                                      builder: (context, snapshot) {
+                                                        if (snapshot
+                                                                .connectionState ==
+                                                            ConnectionState
+                                                                .waiting) {
+                                                          return const SizedBox.shrink();
+                                                        }
+
+                                                        if (!snapshot.hasData) {
+                                                          return const SizedBox.shrink();
+                                                        }
+
+                                                        final featureStates =
+                                                            snapshot.data!;
+                                                        final isEnabled =
+                                                            featureStates['EnableItemization'] ??
+                                                            false;
+
+                                                        if (!isEnabled)
+                                                          return const SizedBox.shrink();
+
+                                                        return IconButton(
+                                                          icon: const Icon(
+                                                            Icons.add,
+                                                            color: Colors.green,
+                                                          ),
+                                                          onPressed:
+                                                              _addItemize,
+                                                          tooltip:
+                                                              'Add new item',
+                                                        );
+                                                      },
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            ...controller.configList
+                                                .where(
+                                                  (field) =>
+                                                      field['IsEnabled'] ==
+                                                          true &&
+                                                      field['FieldName'] !=
+                                                          'Location' &&
+                                                      field['FieldName'] !=
+                                                          'Refrence Id' &&
+                                                      field['FieldName'] !=
+                                                          'Is Billable' &&
+                                                      field['FieldName'] !=
+                                                          'Is Reimbursible',
+                                                )
+                                                .map((field) {
+                                                  final String label =
+                                                      field['FieldName'];
+                                                  final bool isMandatory =
+                                                      field['IsMandatory'] ??
+                                                      false;
+
+                                                  Widget inputField;
+
+                                                  if (label == 'Project Id') {
+                                                    inputField = SearchableMultiColumnDropdownField<Project>(
+                                                      enabled: controller
+                                                          .isEnable
+                                                          .value,
+                                                      labelText:
+                                                          "${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""}",
+                                                      columnHeaders: const [
+                                                        'Project Name',
+                                                        'Project ID',
+                                                      ],
+                                                      items: controller.project,
+                                                      selectedValue:
+                                                          itemController
+                                                              .selectedProject,
+                                                      searchValue: (p) =>
+                                                          '${p.name} ${p.code}',
+                                                      displayText: (p) =>
+                                                          p.code,
+                                                      validator: (value) =>
+                                                          projectConfig
+                                                                  .isEnabled &&
+                                                              projectConfig
+                                                                  .isMandatory
+                                                          ? _validateRequiredField(
+                                                              itemController
+                                                                  .taxGroupController
+                                                                  .text,
+                                                              AppLocalizations.of(
+                                                                context,
+                                                              )!.projectId,
+                                                              true,
+                                                            )
+                                                          : null,
+                                                      onChanged: (p) {
+                                                        setState(() {
+                                                          controller
+                                                                  .selectedProject =
+                                                              p;
+                                                          itemController
+                                                                  .selectedProject =
+                                                              p;
+                                                          controller
+                                                              .projectDropDowncontroller
+                                                              .text = p!
+                                                              .code;
+                                                          widget
+                                                                  .items!
+                                                                  .expenseTrans[index] =
+                                                              itemController
+                                                                  .toExpenseItemUpdateModel();
+                                                        });
+                                                        controller
+                                                            .fetchExpenseCategory();
+                                                      },
+                                                      controller: itemController
+                                                          .projectDropDowncontroller,
+                                                      rowBuilder: (p, searchQuery) {
+                                                        return Padding(
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                vertical: 12,
+                                                                horizontal: 16,
+                                                              ),
+                                                          child: Row(
+                                                            children: [
+                                                              Expanded(
+                                                                child: Text(
+                                                                  p.name,
+                                                                ),
+                                                              ),
+                                                              Expanded(
+                                                                child: Text(
+                                                                  p.code,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        );
+                                                      },
+                                                    );
+                                                  } else if (label ==
+                                                      'Tax Group') {
+                                                    inputField = SearchableMultiColumnDropdownField<TaxGroupModel>(
+                                                      enabled: controller
+                                                          .isEnable
+                                                          .value,
+                                                      labelText:
+                                                          "${AppLocalizations.of(context)!.taxGroup}${isMandatory ? "*" : ""}",
+                                                      columnHeaders: [
+                                                        AppLocalizations.of(
+                                                          context,
+                                                        )!.taxGroup,
+                                                        AppLocalizations.of(
+                                                          context,
+                                                        )!.taxId,
+                                                      ],
+                                                      items:
+                                                          controller.taxGroup,
+                                                      selectedValue:
+                                                          itemController
+                                                              .selectedTax,
+                                                      searchValue: (tax) =>
+                                                          '${tax.taxGroup} ${tax.taxGroupId}',
+                                                      displayText: (tax) =>
+                                                          tax.taxGroupId,
+                                                      validator: (value) =>
+                                                          taxGroupConfig
+                                                                  .isEnabled &&
+                                                              taxGroupConfig
+                                                                  .isMandatory
+                                                          ? _validateRequiredField(
+                                                              itemController
+                                                                  .taxGroupController
+                                                                  .text,
+                                                              AppLocalizations.of(
+                                                                context,
+                                                              )!.taxGroup,
+                                                              true,
+                                                            )
+                                                          : null,
+                                                      onChanged: (tax) {
+                                                        setState(() {
+                                                          itemController
+                                                                  .selectedTax =
+                                                              tax;
+                                                          widget
+                                                                  .items!
+                                                                  .expenseTrans[index] =
+                                                              itemController
+                                                                  .toExpenseItemUpdateModel();
+                                                          itemController
+                                                              .taxGroupController
+                                                              .text = tax!
+                                                              .taxGroupId;
+                                                        });
+                                                      },
+                                                      controller: itemController
+                                                          .taxGroupController,
+                                                      rowBuilder: (tax, searchQuery) {
+                                                        return Container(
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                vertical: 12,
+                                                                horizontal: 16,
+                                                              ),
+                                                          child: Row(
+                                                            children: [
+                                                              Expanded(
+                                                                child: Text(
+                                                                  tax.taxGroup,
+                                                                ),
+                                                              ),
+                                                              Expanded(
+                                                                child: Text(
+                                                                  tax.taxGroupId,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        );
+                                                      },
+                                                    );
+                                                  } else if (label ==
+                                                      'Tax Amount') {
+                                                    inputField = _buildTextField(
+                                                      keyboardType:
+                                                          TextInputType.number,
+                                                      inputFormatters: [
+                                                        FilteringTextInputFormatter.allow(
+                                                          RegExp(
+                                                            r'^\d*\.?\d{0,2}',
+                                                          ),
+                                                        ),
+                                                      ],
+                                                      label:
+                                                          "${AppLocalizations.of(context)!.taxAmount}${isMandatory ? "*" : ""}",
+                                                      controller: itemController
+                                                          .taxAmount,
+                                                      isReadOnly: controller
+                                                          .isEnable
+                                                          .value,
+                                                      validator: (value) =>
+                                                          taxAmountConfig
+                                                                  .isEnabled &&
+                                                              taxAmountConfig
+                                                                  .isMandatory
+                                                          ? _validateNumericField(
+                                                              value!,
+                                                              AppLocalizations.of(
+                                                                context,
+                                                              )!.taxAmount,
+                                                              true,
+                                                            )
+                                                          : null,
+                                                      onChanged: (value) {
+                                                        setState(() {
+                                                          widget
+                                                                  .items!
+                                                                  .expenseTrans[index] =
+                                                              itemController
+                                                                  .toExpenseItemUpdateModel();
+                                                        });
+                                                      },
+                                                    );
+                                                  } else {
+                                                    inputField = TextField(
+                                                      decoration: InputDecoration(
+                                                        labelText:
+                                                            '$label${isMandatory ? " *" : ""}',
+                                                        border:
+                                                            const OutlineInputBorder(),
+                                                      ),
+                                                    );
+                                                  }
+
+                                                  return Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      // const SizedBox(height: 8),
+                                                      inputField,
+                                                      const SizedBox(height: 8),
+                                                    ],
+                                                  );
+                                                })
+                                                .toList(),
+                                            Obx(() {
+                                              // Use itemController.customFieldsItems instead of controller.customFieldsItems
+                                              final customFieldsList = itemController
+                                                  .customFieldsItems
+                                                  .where(
+                                                    (field) =>
+                                                        field['ObjectName'] ==
+                                                            'ExpenseTrans' ||
+                                                        field['ObjectName'] ==
+                                                            'ExpenseCategories',
+                                                  )
+                                                  .toList();
+
+                                              if (customFieldsList.isEmpty) {
+                                                return const SizedBox.shrink();
+                                              }
+
+                                              return Column(
+                                                children: customFieldsList.map((
+                                                  field,
+                                                ) {
+                                                  final String label =
+                                                      field['FieldLabel'] ??
+                                                      field['FieldName'];
+                                                  final bool isMandatory =
+                                                      field['IsMandatory'] ??
+                                                      false;
+                                                  final String fieldType =
+                                                      field['FieldType'] ??
+                                                      'Text';
+                                                  final bool isDateTime =
+                                                      fieldType == 'Date&Time';
+
+                                                  Widget inputField;
+
+                                                  // List type fields - Make Reactive
+                                                  if (field['FieldType'] ==
+                                                          'List' ||
+                                                      field['FieldType'] ==
+                                                          'CustomList' ||
+                                                      field['FieldType'] ==
+                                                          'SystemList') {
+                                                    List<CustomDropdownValue>
+                                                    options = [];
+                                                    if (field['Options'] !=
+                                                            null &&
+                                                        field['Options']
+                                                            is List) {
+                                                      options =
+                                                          List<
+                                                            CustomDropdownValue
+                                                          >.from(
+                                                            field['Options'],
+                                                          );
+                                                    }
+
+                                                    field['_controller'] ??=
+                                                        TextEditingController();
+                                                    final TextEditingController
+                                                    fieldController =
+                                                        field['_controller'];
+
+                                                    CustomDropdownValue?
+                                                    selectedValue =
+                                                        field['SelectedValue'];
+
+                                                    if (selectedValue == null &&
+                                                        field['DefaultValue'] !=
+                                                            null) {
+                                                      final matches = options.where(
+                                                        (opt) =>
+                                                            opt.valueId ==
+                                                                field['DefaultValue'] ||
+                                                            opt.valueName ==
+                                                                field['DefaultValue'],
+                                                      );
+                                                      selectedValue =
+                                                          matches.isNotEmpty
+                                                          ? matches.first
+                                                          : null;
+
+                                                      if (selectedValue !=
+                                                          null) {
+                                                        field['SelectedValue'] =
+                                                            selectedValue;
+                                                        field['EnteredValue'] =
+                                                            selectedValue
+                                                                .valueId;
+                                                      }
+                                                    }
+
+                                                    fieldController.text =
+                                                        selectedValue
+                                                            ?.valueName ??
+                                                        field['DefaultValue']
+                                                            ?.toString() ??
+                                                        '';
+
+                                                    if (selectedValue == null &&
+                                                        field['DefaultValue'] !=
+                                                            null) {
+                                                      selectedValue =
+                                                          CustomDropdownValue(
+                                                            valueId:
+                                                                field['DefaultValue']
+                                                                    .toString(),
+                                                            valueName:
+                                                                field['DefaultValue']
+                                                                    .toString(),
+                                                          );
+                                                      final alreadyExists =
+                                                          options.any(
+                                                            (opt) =>
+                                                                opt.valueId ==
+                                                                selectedValue!
+                                                                    .valueId,
+                                                          );
+                                                      if (!alreadyExists) {
+                                                        options = [
+                                                          selectedValue,
+                                                          ...options,
+                                                        ];
+                                                      }
+                                                      field['SelectedValue'] =
+                                                          selectedValue;
+                                                      field['EnteredValue'] =
+                                                          selectedValue.valueId;
+                                                    }
+
+                                                    inputField = SearchableMultiColumnDropdownField<CustomDropdownValue>(
+                                                      labelText:
+                                                          '$label${isMandatory ? " *" : ""}',
+                                                      items: options,
+                                                      selectedValue:
+                                                          selectedValue,
+                                                      searchValue: (val) =>
+                                                          val.valueName,
+                                                      enabled: controller
+                                                          .isEnable
+                                                          .value,
+                                                      displayText: (val) =>
+                                                          val.valueName,
+                                                      controller:
+                                                          fieldController,
+                                                      columnHeaders: const [
+                                                        'Value ID',
+                                                        'Value Name',
+                                                      ],
+                                                      rowBuilder:
+                                                          (
+                                                            val,
+                                                            searchQuery,
+                                                          ) => Padding(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  vertical: 10,
+                                                                  horizontal:
+                                                                      16,
+                                                                ),
+                                                            child: Row(
+                                                              children: [
+                                                                Expanded(
+                                                                  child: Text(
+                                                                    val.valueId,
+                                                                  ),
+                                                                ),
+                                                                Expanded(
+                                                                  child: Text(
+                                                                    val.valueName,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                      onChanged: (val) {
+                                                        field['SelectedValue'] =
+                                                            val;
+                                                        field['EnteredValue'] =
+                                                            val?.valueId;
+                                                        field['Error'] = null;
+                                                        fieldController.text =
+                                                            val?.valueName ??
+                                                            '';
+                                                        itemController
+                                                            .customFieldsItems
+                                                            .refresh();
+                                                      },
+                                                    );
+                                                  }
+                                                  // Date and DateTime types - Make Reactive
+                                                  else if (fieldType ==
+                                                          'Date' ||
+                                                      fieldType ==
+                                                          'Date&Time') {
+                                                    if (field['_rxDateValue'] ==
+                                                        null) {
+                                                      field['_rxDateValue'] =
+                                                          Rx<DateTime?>(
+                                                            field['EnteredValue']
+                                                                as DateTime?,
+                                                          );
+                                                    }
+
+                                                    inputField = Obx(() {
+                                                      final rxDateValue =
+                                                          field['_rxDateValue']
+                                                              as Rx<DateTime?>;
+                                                      final currentDate =
+                                                          rxDateValue.value;
+
+                                                      final textEditingController =
+                                                          TextEditingController();
+                                                      if (currentDate != null) {
+                                                        textEditingController
+                                                            .text = isDateTime
+                                                            ? DateFormat(
+                                                                'dd/MM/yyyy hh:mm a',
+                                                              ).format(
+                                                                currentDate,
+                                                              )
+                                                            : DateFormat(
+                                                                'dd/MM/yyyy',
+                                                              ).format(
+                                                                currentDate,
+                                                              );
+                                                      }
+
+                                                      return TextFormField(
+                                                        enabled: controller
+                                                            .isEnable
+                                                            .value,
+                                                        readOnly: true,
+                                                        controller:
+                                                            textEditingController,
+                                                        decoration: InputDecoration(
+                                                          labelText:
+                                                              '$label${isMandatory ? " *" : ""}',
+                                                          border:
+                                                              const OutlineInputBorder(),
+                                                          errorText:
+                                                              field['Error'],
+                                                          suffixIcon: const Icon(
+                                                            Icons
+                                                                .calendar_today,
+                                                          ),
+                                                        ),
+                                                        onTap:
+                                                            controller
+                                                                .isEnable
+                                                                .value
+                                                            ? () async {
+                                                                DateTime?
+                                                                currentDate =
+                                                                    rxDateValue
+                                                                        .value ??
+                                                                    DateTime.now();
+                                                                final DateTime?
+                                                                pickedDate = await showDatePicker(
+                                                                  context:
+                                                                      context,
+                                                                  initialDate:
+                                                                      currentDate,
+                                                                  firstDate:
+                                                                      DateTime(
+                                                                        2000,
+                                                                      ),
+                                                                  lastDate:
+                                                                      DateTime(
+                                                                        2100,
+                                                                      ),
+                                                                );
+                                                                if (pickedDate ==
+                                                                    null)
+                                                                  return;
+
+                                                                if (isDateTime) {
+                                                                  TimeOfDay
+                                                                  initialTime =
+                                                                      TimeOfDay.now();
+                                                                  if (rxDateValue
+                                                                          .value !=
+                                                                      null) {
+                                                                    initialTime =
+                                                                        TimeOfDay.fromDateTime(
+                                                                          rxDateValue
+                                                                              .value!,
+                                                                        );
+                                                                  }
+                                                                  final TimeOfDay?
+                                                                  pickedTime = await showTimePicker(
+                                                                    context:
+                                                                        context,
+                                                                    initialTime:
+                                                                        initialTime,
+                                                                  );
+                                                                  if (pickedTime ==
+                                                                      null)
+                                                                    return;
+
+                                                                  final fullDateTime = DateTime(
+                                                                    pickedDate
+                                                                        .year,
+                                                                    pickedDate
+                                                                        .month,
+                                                                    pickedDate
+                                                                        .day,
+                                                                    pickedTime
+                                                                        .hour,
+                                                                    pickedTime
+                                                                        .minute,
+                                                                  );
+                                                                  rxDateValue
+                                                                          .value =
+                                                                      fullDateTime;
+                                                                  field['EnteredValue'] =
+                                                                      fullDateTime;
+                                                                } else {
+                                                                  rxDateValue
+                                                                          .value =
+                                                                      pickedDate;
+                                                                  field['EnteredValue'] =
+                                                                      pickedDate;
+                                                                }
+                                                                field['Error'] =
+                                                                    null;
+                                                              }
+                                                            : null,
+                                                        validator: (value) {
+                                                          if (isMandatory &&
+                                                              rxDateValue
+                                                                      .value ==
+                                                                  null) {
+                                                            return '$label is required';
+                                                          }
+                                                          return null;
+                                                        },
+                                                      );
+                                                    });
+                                                  }
+                                                  // LongInteger (Integer) type - Make Reactive
+                                                  else if (fieldType ==
+                                                      'LongInteger') {
+                                                    if (field['_rxIntValue'] ==
+                                                        null) {
+                                                      field['_rxIntValue'] =
+                                                          Rx<int?>(
+                                                            field['EnteredValue']
+                                                                as int?,
+                                                          );
+                                                    }
+
+                                                    inputField = Obx(() {
+                                                      final rxValue =
+                                                          field['_rxIntValue']
+                                                              as Rx<int?>;
+                                                      final textEditingController =
+                                                          TextEditingController(
+                                                            text:
+                                                                rxValue.value
+                                                                    ?.toString() ??
+                                                                '',
+                                                          );
+                                                      textEditingController.addListener(() {
+                                                        final value =
+                                                            textEditingController
+                                                                .text;
+                                                        if (value.isEmpty) {
+                                                          if (rxValue.value !=
+                                                              null) {
+                                                            rxValue.value =
+                                                                null;
+                                                            field['EnteredValue'] =
+                                                                null;
+                                                          }
+                                                        } else {
+                                                          final intValue =
+                                                              int.tryParse(
+                                                                value,
+                                                              );
+                                                          if (intValue !=
+                                                              rxValue.value) {
+                                                            rxValue.value =
+                                                                intValue;
+                                                            field['EnteredValue'] =
+                                                                intValue;
+                                                          }
+                                                        }
+                                                        field['Error'] = null;
+                                                      });
+
+                                                      return TextFormField(
+                                                        enabled: controller
+                                                            .isEnable
+                                                            .value,
+                                                        controller:
+                                                            textEditingController,
+                                                        keyboardType:
+                                                            TextInputType
+                                                                .number,
+                                                        inputFormatters: [
+                                                          FilteringTextInputFormatter
+                                                              .digitsOnly,
+                                                        ],
+                                                        decoration: InputDecoration(
+                                                          labelText:
+                                                              '$label${isMandatory ? " *" : ""}',
+                                                          border:
+                                                              const OutlineInputBorder(),
+                                                          errorText:
+                                                              field['Error'],
+                                                        ),
+                                                        validator: (value) {
+                                                          if (isMandatory &&
+                                                              (value == null ||
+                                                                  value
+                                                                      .trim()
+                                                                      .isEmpty)) {
+                                                            return '$label is required';
+                                                          }
+                                                          return null;
+                                                        },
+                                                      );
+                                                    });
+                                                  }
+                                                  // Decimal type - Make Reactive
+                                                  else if (fieldType ==
+                                                      'Decimal') {
+                                                    if (field['_rxDoubleValue'] ==
+                                                        null) {
+                                                      field['_rxDoubleValue'] =
+                                                          Rx<double?>(
+                                                            field['EnteredValue']
+                                                                as double?,
+                                                          );
+                                                    }
+
+                                                    inputField = Obx(() {
+                                                      final rxValue =
+                                                          field['_rxDoubleValue']
+                                                              as Rx<double?>;
+                                                      final textEditingController =
+                                                          TextEditingController(
+                                                            text:
+                                                                rxValue.value
+                                                                    ?.toString() ??
+                                                                '',
+                                                          );
+                                                      textEditingController.addListener(() {
+                                                        final value =
+                                                            textEditingController
+                                                                .text;
+                                                        if (value.isEmpty) {
+                                                          if (rxValue.value !=
+                                                              null) {
+                                                            rxValue.value =
+                                                                null;
+                                                            field['EnteredValue'] =
+                                                                null;
+                                                          }
+                                                        } else {
+                                                          final doubleValue =
+                                                              double.tryParse(
+                                                                value,
+                                                              );
+                                                          if (doubleValue !=
+                                                              rxValue.value) {
+                                                            rxValue.value =
+                                                                doubleValue;
+                                                            field['EnteredValue'] =
+                                                                doubleValue;
+                                                          }
+                                                        }
+                                                        field['Error'] = null;
+                                                      });
+
+                                                      return TextFormField(
+                                                        enabled: controller
+                                                            .isEnable
+                                                            .value,
+                                                        controller:
+                                                            textEditingController,
+                                                        keyboardType:
+                                                            const TextInputType.numberWithOptions(
+                                                              decimal: true,
+                                                            ),
+                                                        inputFormatters: [
+                                                          FilteringTextInputFormatter.allow(
+                                                            RegExp(
+                                                              r'^\d+\.?\d*',
+                                                            ),
+                                                          ),
+                                                        ],
+                                                        decoration: InputDecoration(
+                                                          labelText:
+                                                              '$label${isMandatory ? " *" : ""}',
+                                                          border:
+                                                              const OutlineInputBorder(),
+                                                          errorText:
+                                                              field['Error'],
+                                                        ),
+                                                        validator: (value) {
+                                                          if (isMandatory &&
+                                                              (value == null ||
+                                                                  value
+                                                                      .trim()
+                                                                      .isEmpty)) {
+                                                            return '$label is required';
+                                                          }
+                                                          return null;
+                                                        },
+                                                      );
+                                                    });
+                                                  }
+                                                  // Email type - Make Reactive
+                                                  else if (fieldType ==
+                                                      'Email') {
+                                                    if (field['_controller'] ==
+                                                        null) {
+                                                      final defaultValue =
+                                                          field['DefaultValue']
+                                                              ?.toString() ??
+                                                          '';
+                                                      final existingValue =
+                                                          field['EnteredValue']
+                                                              as String?;
+                                                      final initialValue =
+                                                          existingValue ??
+                                                          defaultValue;
+
+                                                      field['_controller'] =
+                                                          TextEditingController(
+                                                            text: initialValue,
+                                                          );
+                                                      field['_rxStringValue'] =
+                                                          Rx<String?>(
+                                                            initialValue,
+                                                          );
+                                                      field['_focusNode'] =
+                                                          FocusNode();
+                                                      field['EnteredValue'] =
+                                                          initialValue;
+
+                                                      field['_controller'].addListener(() {
+                                                        final value =
+                                                            field['_controller']
+                                                                .text;
+                                                        if (value !=
+                                                            field['_rxStringValue']
+                                                                .value) {
+                                                          field['_rxStringValue']
+                                                                  .value =
+                                                              value;
+                                                          field['EnteredValue'] =
+                                                              value;
+                                                        }
+                                                        field['Error'] = null;
+                                                      });
+                                                    }
+
+                                                    inputField = Obx(() {
+                                                      final textEditingController =
+                                                          field['_controller']
+                                                              as TextEditingController;
+                                                      final focusNode =
+                                                          field['_focusNode']
+                                                              as FocusNode;
+
+                                                      return TextFormField(
+                                                        controller:
+                                                            textEditingController,
+                                                        focusNode: focusNode,
+                                                        enabled: controller
+                                                            .isEnable
+                                                            .value,
+                                                        keyboardType:
+                                                            TextInputType
+                                                                .emailAddress,
+                                                        decoration: InputDecoration(
+                                                          labelText:
+                                                              '$label${isMandatory ? " *" : ""}',
+                                                          border:
+                                                              const OutlineInputBorder(),
+                                                          errorText:
+                                                              field['Error'],
+                                                          suffixIcon: const Icon(
+                                                            Icons
+                                                                .email_outlined,
+                                                          ),
+                                                        ),
+                                                        validator: (value) {
+                                                          if (isMandatory &&
+                                                              (value == null ||
+                                                                  value
+                                                                      .trim()
+                                                                      .isEmpty)) {
+                                                            return '$label is required';
+                                                          }
+                                                          if (value != null &&
+                                                              value
+                                                                  .isNotEmpty) {
+                                                            final emailRegex =
+                                                                RegExp(
+                                                                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                                                );
+                                                            if (!emailRegex
+                                                                .hasMatch(
+                                                                  value,
+                                                                )) {
+                                                              return 'Enter a valid email address';
+                                                            }
+                                                          }
+                                                          return null;
+                                                        },
+                                                      );
+                                                    });
+                                                  }
+                                                  // MobileNumber type - Make Reactive
+                                                  else if (fieldType ==
+                                                      'MobileNumber') {
+                                                    // Initialize MobileNumber field if not already done
+                                                    if (field['_phoneController'] ==
+                                                        null) {
+                                                      // Initialize with existing value
+                                                      final defaultValue =
+                                                          field['DefaultValue']
+                                                              ?.toString() ??
+                                                          '';
+                                                      final existingValue =
+                                                          field['EnteredValue']
+                                                              as String?;
+                                                      final initialValue =
+                                                          existingValue ??
+                                                          defaultValue;
+
+                                                      String countryCode =
+                                                          '+91';
+                                                      String phoneNumber = '';
+                                                      String isoCode = 'IN';
+
+                                                      if (initialValue
+                                                          .isNotEmpty) {
+                                                        String cleanedValue =
+                                                            initialValue.trim();
+                                                        while (cleanedValue
+                                                            .startsWith('++')) {
+                                                          cleanedValue =
+                                                              '+' +
+                                                              cleanedValue
+                                                                  .substring(2);
+                                                        }
+
+                                                        if (cleanedValue
+                                                            .startsWith('+')) {
+                                                          final RegExp
+                                                          regex = RegExp(
+                                                            r'^\+(\d+)\s*(.*)$',
+                                                          );
+                                                          final match = regex
+                                                              .firstMatch(
+                                                                cleanedValue,
+                                                              );
+                                                          if (match != null) {
+                                                            countryCode =
+                                                                '+${match.group(1)}';
+                                                            phoneNumber =
+                                                                match
+                                                                    .group(2)
+                                                                    ?.trim() ??
+                                                                '';
+                                                          } else {
+                                                            final String
+                                                            afterPlus =
+                                                                cleanedValue
+                                                                    .substring(
+                                                                      1,
+                                                                    );
+                                                            final RegExp
+                                                            digitsOnly = RegExp(
+                                                              r'^\d+',
+                                                            );
+                                                            final matchDigits =
+                                                                digitsOnly
+                                                                    .firstMatch(
+                                                                      afterPlus,
+                                                                    );
+                                                            if (matchDigits !=
+                                                                null) {
+                                                              countryCode =
+                                                                  '+${matchDigits.group(0)}';
+                                                              phoneNumber = afterPlus
+                                                                  .substring(
+                                                                    matchDigits
+                                                                        .group(
+                                                                          0,
+                                                                        )!
+                                                                        .length,
+                                                                  )
+                                                                  .trim();
+                                                            } else {
+                                                              phoneNumber =
+                                                                  cleanedValue;
+                                                            }
+                                                          }
+                                                        } else {
+                                                          phoneNumber =
+                                                              cleanedValue;
+                                                        }
+                                                        isoCode =
+                                                            _getIsoCodeFromDialCode(
+                                                              countryCode,
+                                                            );
+                                                      }
+
+                                                      field['_phoneController'] =
+                                                          TextEditingController(
+                                                            text: phoneNumber,
+                                                          );
+                                                      field['_countryCodeController'] =
+                                                          TextEditingController(
+                                                            text: countryCode,
+                                                          );
+                                                      field['_rxStringValue'] =
+                                                          Rx<String?>(
+                                                            initialValue,
+                                                          );
+                                                      field['_focusNode'] =
+                                                          FocusNode();
+                                                      field['_selectedCountryCode'] =
+                                                          isoCode;
+                                                      field['_currentCountryCode'] =
+                                                          Rx<String>(isoCode);
+                                                      field['EnteredValue'] =
+                                                          initialValue;
+
+                                                      (field['_phoneController']
+                                                              as TextEditingController)
+                                                          .addListener(() {
+                                                            final phoneVal =
+                                                                (field['_phoneController']
+                                                                        as TextEditingController)
+                                                                    .text;
+                                                            final codeVal =
+                                                                (field['_countryCodeController']
+                                                                        as TextEditingController)
+                                                                    .text;
+                                                            String fullNumber =
+                                                                '';
+
+                                                            if (phoneVal
+                                                                .isNotEmpty) {
+                                                              fullNumber =
+                                                                  '$codeVal $phoneVal';
+                                                            } else if (codeVal
+                                                                .isNotEmpty) {
+                                                              fullNumber =
+                                                                  codeVal;
+                                                            }
+
+                                                            if (fullNumber !=
+                                                                (field['_rxStringValue']
+                                                                        as Rx<
+                                                                          String?
+                                                                        >)
+                                                                    .value) {
+                                                              (field['_rxStringValue']
+                                                                          as Rx<
+                                                                            String?
+                                                                          >)
+                                                                      .value =
+                                                                  fullNumber;
+                                                              field['EnteredValue'] =
+                                                                  fullNumber;
+                                                            }
+                                                            field['Error'] =
+                                                                null;
+                                                          });
+
+                                                      (field['_countryCodeController']
+                                                              as TextEditingController)
+                                                          .addListener(() {
+                                                            final phoneVal =
+                                                                (field['_phoneController']
+                                                                        as TextEditingController)
+                                                                    .text;
+                                                            final codeVal =
+                                                                (field['_countryCodeController']
+                                                                        as TextEditingController)
+                                                                    .text;
+                                                            String fullNumber =
+                                                                '';
+
+                                                            if (phoneVal
+                                                                .isNotEmpty) {
+                                                              fullNumber =
+                                                                  '$codeVal $phoneVal';
+                                                            } else if (codeVal
+                                                                .isNotEmpty) {
+                                                              fullNumber =
+                                                                  codeVal;
+                                                            }
+
+                                                            if (fullNumber !=
+                                                                (field['_rxStringValue']
+                                                                        as Rx<
+                                                                          String?
+                                                                        >)
+                                                                    .value) {
+                                                              (field['_rxStringValue']
+                                                                          as Rx<
+                                                                            String?
+                                                                          >)
+                                                                      .value =
+                                                                  fullNumber;
+                                                              field['EnteredValue'] =
+                                                                  fullNumber;
+                                                            }
+                                                            field['Error'] =
+                                                                null;
+                                                          });
+                                                    }
+
+                                                    inputField = Obx(() {
+                                                      final phoneController =
+                                                          field['_phoneController']
+                                                              as TextEditingController;
+                                                      final countryCodeController =
+                                                          field['_countryCodeController']
+                                                              as TextEditingController;
+                                                      final focusNode =
+                                                          field['_focusNode']
+                                                              as FocusNode;
+                                                      final currentCountryCode =
+                                                          field['_currentCountryCode']
+                                                              as Rx<String>;
+
+                                                      // Get the current country code and clean it
+                                                      String currentDialCode =
+                                                          countryCodeController
+                                                              .text;
+                                                      if (currentDialCode
+                                                              .isNotEmpty &&
+                                                          !currentDialCode
+                                                              .startsWith(
+                                                                '+',
+                                                              )) {
+                                                        currentDialCode =
+                                                            '+$currentDialCode';
+                                                      }
+                                                      currentDialCode =
+                                                          currentDialCode
+                                                              .trim();
+
+                                                      // Extract just the digits for ISO lookup
+                                                      String cleanDialCode =
+                                                          currentDialCode;
+                                                      final dialCodeMatch =
+                                                          RegExp(
+                                                            r'^\+(\d+)',
+                                                          ).firstMatch(
+                                                            currentDialCode,
+                                                          );
+                                                      if (dialCodeMatch !=
+                                                          null) {
+                                                        cleanDialCode =
+                                                            '+${dialCodeMatch.group(1)}';
+                                                      }
+
+                                                      // Get the ISO code for the current dial code
+                                                      final isoCode =
+                                                          _getIsoCodeFromDialCode(
+                                                            cleanDialCode,
+                                                          );
+
+                                                      // Update the stored country code if changed
+                                                      if (currentCountryCode
+                                                              .value !=
+                                                          isoCode) {
+                                                        currentCountryCode
+                                                                .value =
+                                                            isoCode;
+                                                      }
+
+                                                      // Create a unique key that changes when country changes to force rebuild
+                                                      final String fieldKey =
+                                                          '${field['FieldId']}_${currentCountryCode.value}';
+
+                                                      return SizedBox(
+                                                        child: IntlPhoneField(
+                                                          key: ValueKey(
+                                                            fieldKey,
+                                                          ),
+                                                          controller:
+                                                              phoneController,
+                                                          focusNode: focusNode,
+                                                          keyboardType:
+                                                              TextInputType
+                                                                  .phone,
+                                                          enabled: controller
+                                                              .isEnable
+                                                              .value,
+                                                          decoration: InputDecoration(
+                                                            labelText:
+                                                                '$label${isMandatory ? " *" : ""}',
+                                                            border: OutlineInputBorder(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    10,
+                                                                  ),
+                                                            ),
+                                                            errorText:
+                                                                field['Error'],
+                                                            counterText: "",
+                                                          ),
+                                                          initialCountryCode:
+                                                              currentCountryCode
+                                                                  .value,
+                                                          onChanged: (phone) {
+                                                            countryCodeController
+                                                                    .text =
+                                                                '+${phone.countryCode}';
+                                                            phoneController
+                                                                    .text =
+                                                                phone.number;
+
+                                                            final fullNumber =
+                                                                phone
+                                                                    .number
+                                                                    .isNotEmpty
+                                                                ? '+${phone.countryCode} ${phone.number}'
+                                                                : '+${phone.countryCode}';
+
+                                                            if (fullNumber !=
+                                                                (field['_rxStringValue']
+                                                                        as Rx<
+                                                                          String?
+                                                                        >)
+                                                                    .value) {
+                                                              (field['_rxStringValue']
+                                                                          as Rx<
+                                                                            String?
+                                                                          >)
+                                                                      .value =
+                                                                  fullNumber;
+                                                              field['EnteredValue'] =
+                                                                  fullNumber;
+                                                            }
+
+                                                            field['Error'] =
+                                                                null;
+                                                          },
+                                                          onCountryChanged: (country) {
+                                                            countryCodeController
+                                                                    .text =
+                                                                '+${country.dialCode}';
+
+                                                            final newIsoCode =
+                                                                _getIsoCodeFromDialCode(
+                                                                  '+${country.dialCode}',
+                                                                );
+                                                            if (currentCountryCode
+                                                                    .value !=
+                                                                newIsoCode) {
+                                                              currentCountryCode
+                                                                      .value =
+                                                                  newIsoCode;
+                                                            }
+
+                                                            final currentNumber =
+                                                                phoneController
+                                                                    .text;
+                                                            final fullNumber =
+                                                                currentNumber
+                                                                    .isNotEmpty
+                                                                ? '+${country.dialCode} $currentNumber'
+                                                                : '+${country.dialCode}';
+
+                                                            if (fullNumber !=
+                                                                (field['_rxStringValue']
+                                                                        as Rx<
+                                                                          String?
+                                                                        >)
+                                                                    .value) {
+                                                              (field['_rxStringValue']
+                                                                          as Rx<
+                                                                            String?
+                                                                          >)
+                                                                      .value =
+                                                                  fullNumber;
+                                                              field['EnteredValue'] =
+                                                                  fullNumber;
+                                                            }
+
+                                                            field['Error'] =
+                                                                null;
+                                                          },
+                                                          inputFormatters: [
+                                                            FilteringTextInputFormatter.allow(
+                                                              RegExp(
+                                                                r'[0-9\s\-]+',
+                                                              ),
+                                                            ),
+                                                          ],
+                                                          validator: (phone) {
+                                                            if (isMandatory) {
+                                                              if (phone ==
+                                                                      null ||
+                                                                  phone.number
+                                                                      .trim()
+                                                                      .isEmpty) {
+                                                                return '$label is required';
+                                                              }
+                                                              final cleanNumber = phone
+                                                                  .number
+                                                                  .replaceAll(
+                                                                    RegExp(
+                                                                      r'[\s\-]',
+                                                                    ),
+                                                                    '',
+                                                                  );
+                                                              if (cleanNumber
+                                                                          .length <
+                                                                      6 ||
+                                                                  cleanNumber
+                                                                          .length >
+                                                                      15) {
+                                                                return 'Enter a valid mobile number (6-15 digits)';
+                                                              }
+                                                            }
+                                                            return null;
+                                                          },
+                                                        ),
+                                                      );
+                                                    });
+                                                  }
+                                                  // Default Text type - Make Reactive
+                                                  else {
+                                                    if (field['_controller'] ==
+                                                        null) {
+                                                      final defaultValue =
+                                                          field['DefaultValue']
+                                                              ?.toString() ??
+                                                          '';
+                                                      final existingValue =
+                                                          field['EnteredValue']
+                                                              as String?;
+                                                      final initialValue =
+                                                          existingValue ??
+                                                          defaultValue;
+
+                                                      field['_controller'] =
+                                                          TextEditingController(
+                                                            text: initialValue,
+                                                          );
+                                                      field['_rxStringValue'] =
+                                                          Rx<String?>(
+                                                            initialValue,
+                                                          );
+                                                      field['_focusNode'] =
+                                                          FocusNode();
+                                                      field['EnteredValue'] =
+                                                          initialValue;
+
+                                                      field['_controller'].addListener(() {
+                                                        final value =
+                                                            field['_controller']
+                                                                .text;
+                                                        if (value !=
+                                                            field['_rxStringValue']
+                                                                .value) {
+                                                          field['_rxStringValue']
+                                                                  .value =
+                                                              value;
+                                                          field['EnteredValue'] =
+                                                              value;
+                                                        }
+                                                        field['Error'] = null;
+                                                      });
+                                                    }
+
+                                                    inputField = Obx(() {
+                                                      final textEditingController =
+                                                          field['_controller']
+                                                              as TextEditingController;
+                                                      final focusNode =
+                                                          field['_focusNode']
+                                                              as FocusNode;
+
+                                                      return TextFormField(
+                                                        controller:
+                                                            textEditingController,
+                                                        focusNode: focusNode,
+                                                        enabled: controller
+                                                            .isEnable
+                                                            .value,
+                                                        keyboardType:
+                                                            TextInputType.text,
+                                                        decoration: InputDecoration(
+                                                          labelText:
+                                                              '$label${isMandatory ? " *" : ""}',
+                                                          border:
+                                                              const OutlineInputBorder(),
+                                                          errorText:
+                                                              field['Error'],
+                                                        ),
+                                                        validator: (value) {
+                                                          if (isMandatory &&
+                                                              (value == null ||
+                                                                  value
+                                                                      .trim()
+                                                                      .isEmpty)) {
+                                                            return '$label is required';
+                                                          }
+                                                          return null;
+                                                        },
+                                                      );
+                                                    });
+                                                  }
+
+                                                  return Padding(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 6,
+                                                        ),
+                                                    child: inputField,
+                                                  );
+                                                }).toList(),
+                                              );
+                                            }),
+                                            SizedBox(height: 8),
+                                            SearchableMultiColumnDropdownField<
+                                              ExpenseCategory
+                                            >(
+                                              labelText: AppLocalizations.of(
+                                                context,
+                                              )!.paidFor,
+                                              enabled:
+                                                  controller.isEnable.value,
+                                              columnHeaders: [
+                                                AppLocalizations.of(
+                                                  context,
+                                                )!.categoryName,
+                                                AppLocalizations.of(
+                                                  context,
+                                                )!.categoryId,
+                                              ],
+                                              items: controller.expenseCategory,
+                                              selectedValue: itemController
+                                                  .selectedCategory,
+                                              searchValue: (p) =>
+                                                  '${p.categoryName} ${p.categoryId}',
+                                              displayText: (p) => p.categoryId,
+
+                                              onChanged: (p) {
+                                                if (p == null) return;
+
+                                                setState(() {
+                                                  // Update basic category info
+                                                  itemController
+                                                          .selectedCategory =
+                                                      p;
+                                                  itemController
+                                                          .selectedCategoryId =
+                                                      p.categoryId;
+                                                  widget
+                                                          .items!
+                                                          .expenseTrans[index] =
+                                                      itemController
+                                                          .toExpenseItemUpdateModel();
+                                                  itemController
+                                                          .categoryController
+                                                          .text =
+                                                      p.categoryId;
+                                                  itemController
+                                                          .itemisationMandatory
+                                                          .value =
+                                                      p.itemisationMandatory;
+                                                  itemController
+                                                          .minExpenseAmount
+                                                          .value =
+                                                      (p.minExpensesAmount ?? 0)
+                                                          .toDouble();
+                                                  itemController
+                                                          .receiptRequiredLimit
+                                                          .value =
+                                                      (p.receiptRequiredLimit ??
+                                                              0)
+                                                          .toDouble();
+                                                  itemController
+                                                          .maxExpenseAmount
+                                                          .value =
+                                                      (p.maxExpenseAmount ?? 0)
+                                                          .toDouble();
+
+                                                  // ✅ CRITICAL: Load custom fields from the selected category
+                                                  // Remove existing ExpenseCategories custom fields
+                                                  itemController
+                                                      .customFieldsItems
+                                                      .removeWhere(
+                                                        (field) =>
+                                                            field['ObjectName'] ==
+                                                            'ExpenseCategories',
+                                                      );
+
+                                                  // Add new custom fields from the selected category
+                                                  if (p.customFields != null &&
+                                                      p
+                                                          .customFields!
+                                                          .isNotEmpty) {
+                                                    print(
+                                                      "Loading ${p.customFields!.length} custom fields for category: ${p.categoryId}",
+                                                    );
+
+                                                    for (var categoryField
+                                                        in p.customFields!) {
+                                                      final Map<String, dynamic>
+                                                      field =
+                                                          Map<
+                                                            String,
+                                                            dynamic
+                                                          >.from(categoryField);
+
+                                                      // Set required properties
+                                                      field['ObjectName'] =
+                                                          'ExpenseCategories';
+                                                      field['ExpenseType'] =
+                                                          'General Expenses';
+
+                                                      // Get default value
+                                                      final defaultVal =
+                                                          field['DefaultValue']
+                                                              ?.toString() ??
+                                                          '';
+                                                      print(
+                                                        "  Field: ${field['FieldName']}, DefaultValue: '$defaultVal', Type: ${field['FieldType']}",
+                                                      );
+
+                                                      // Store entered value
+                                                      field['EnteredValue'] =
+                                                          defaultVal;
+
+                                                      // Initialize Rx based on field type
+                                                      final fieldType =
+                                                          field['FieldType'];
+
+                                                      if (fieldType == 'List' ||
+                                                          fieldType ==
+                                                              'CustomList' ||
+                                                          fieldType ==
+                                                              'SystemList') {
+                                                        final options =
+                                                            field['Options']
+                                                                as List<
+                                                                  CustomDropdownValue
+                                                                >?;
+                                                        CustomDropdownValue?
+                                                        matchedOption;
+                                                        if (options != null &&
+                                                            defaultVal
+                                                                .isNotEmpty) {
+                                                          matchedOption = options
+                                                              .firstWhereOrNull(
+                                                                (opt) =>
+                                                                    opt.valueName ==
+                                                                        defaultVal ||
+                                                                    opt.valueId ==
+                                                                        defaultVal,
+                                                              );
+                                                        }
+                                                        field['SelectedValue'] =
+                                                            matchedOption;
+                                                        field['_rxSelectedValue'] =
+                                                            Rx<
+                                                              CustomDropdownValue?
+                                                            >(matchedOption);
+                                                      } else if (fieldType ==
+                                                          'Checkbox') {
+                                                        final boolValue =
+                                                            defaultVal
+                                                                .toLowerCase() ==
+                                                            'true';
+                                                        field['_rxCheckboxValue'] =
+                                                            Rx<bool>(boolValue);
+                                                      } else if (fieldType ==
+                                                              'Date' ||
+                                                          fieldType ==
+                                                              'Date&Time') {
+                                                        DateTime? dateValue;
+                                                        if (defaultVal
+                                                            .isNotEmpty) {
+                                                          try {
+                                                            dateValue =
+                                                                DateTime.parse(
+                                                                  defaultVal,
+                                                                );
+                                                          } catch (e) {
+                                                            print(
+                                                              "Error parsing date: $e",
+                                                            );
+                                                          }
+                                                        }
+                                                        field['_rxDateValue'] =
+                                                            Rx<DateTime?>(
+                                                              dateValue,
+                                                            );
+                                                      } else if (fieldType ==
+                                                          'LongInteger') {
+                                                        field['_rxIntValue'] =
+                                                            Rx<int?>(
+                                                              int.tryParse(
+                                                                defaultVal,
+                                                              ),
+                                                            );
+                                                      } else if (fieldType ==
+                                                          'Decimal') {
+                                                        field['_rxDoubleValue'] =
+                                                            Rx<double?>(
+                                                              double.tryParse(
+                                                                defaultVal,
+                                                              ),
+                                                            );
+                                                      } else if (fieldType ==
+                                                          'Email') {
+                                                        field['_rxStringValue'] =
+                                                            Rx<String?>(
+                                                              defaultVal,
+                                                            );
+                                                        // Also create controller for better focus handling
+                                                        field['_controller'] =
+                                                            TextEditingController(
+                                                              text: defaultVal,
+                                                            );
+                                                        field['_focusNode'] =
+                                                            FocusNode();
+                                                      } else if (fieldType ==
+                                                          'MobileNumber') {
+                                                        field['_rxStringValue'] =
+                                                            Rx<String?>(
+                                                              defaultVal,
+                                                            );
+                                                        field['_controller'] =
+                                                            TextEditingController(
+                                                              text: defaultVal,
+                                                            );
+                                                        field['_focusNode'] =
+                                                            FocusNode();
+                                                      } else {
+                                                        // Default Text type
+                                                        field['_rxStringValue'] =
+                                                            Rx<String?>(
+                                                              defaultVal,
+                                                            );
+                                                        field['_controller'] =
+                                                            TextEditingController(
+                                                              text: defaultVal,
+                                                            );
+                                                        field['_focusNode'] =
+                                                            FocusNode();
+                                                      }
+
+                                                      field['Error'] = null;
+                                                      itemController
+                                                          .customFieldsItems
+                                                          .add(field);
+                                                    }
+                                                  } else {
+                                                    print(
+                                                      "No custom fields for category: ${p.categoryId}",
+                                                    );
+                                                  }
+
+                                                  // Refresh to update UI
+                                                  itemController
+                                                      .customFieldsItems
+                                                      .refresh();
+                                                });
+                                              },
+                                              controller: itemController
+                                                  .categoryController,
+                                              rowBuilder: (p, searchQuery) {
+                                                return Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 12,
+                                                        horizontal: 16,
+                                                      ),
+                                                  child: Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          p.categoryName,
+                                                        ),
+                                                      ),
+                                                      Expanded(
+                                                        child: Text(
+                                                          p.categoryId,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                            const SizedBox(height: 14),
+                                            SearchableMultiColumnDropdownField<
+                                              Unit
+                                            >(
+                                              labelText:
+                                                  '${AppLocalizations.of(context)!.unit} *',
+                                              enabled:
+                                                  controller.isEnable.value,
+                                              columnHeaders: [
+                                                AppLocalizations.of(
+                                                  context,
+                                                )!.uomId,
+                                                AppLocalizations.of(
+                                                  context,
+                                                )!.uomName,
+                                              ],
+                                              items: controller.unit,
+                                              selectedValue:
+                                                  itemController.selectedunit,
+                                              searchValue: (tax) =>
+                                                  '${tax.code} ${tax.name}',
+                                              displayText: (tax) => tax.code,
+                                              validator: (value) =>
+                                                  _validateRequiredField(
+                                                    itemController.uomId.text,
+                                                    AppLocalizations.of(
+                                                      context,
+                                                    )!.unit,
+                                                    true,
+                                                  ),
+                                              onChanged: (tax) {
+                                                setState(() {
+                                                  itemController.selectedunit =
+                                                      tax;
+                                                  itemController.uomId.text =
+                                                      tax!.code;
+                                                  widget
+                                                          .items
+                                                          ?.expenseTrans[index] =
+                                                      itemController
+                                                          .toExpenseItemUpdateModel();
+                                                });
+                                              },
+                                              controller: itemController.uomId,
+                                              rowBuilder: (tax, searchQuery) {
+                                                return Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 12,
+                                                        horizontal: 16,
+                                                      ),
+                                                  child: Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(tax.code),
+                                                      ),
+                                                      Expanded(
+                                                        child: Text(tax.name),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                            const SizedBox(height: 8),
+                                            _buildTextField(
+                                              keyboardType:
+                                                  TextInputType.number,
+                                              inputFormatters: [
+                                                FilteringTextInputFormatter.allow(
+                                                  RegExp(r'^\d*\.?\d{0,2}'),
+                                                ),
+                                              ],
+                                              label:
+                                                  "${AppLocalizations.of(context)!.quantity} *",
+                                              controller:
+                                                  itemController.quantity,
+                                              isReadOnly:
+                                                  controller.isEnable.value,
+                                              validator: (value) =>
+                                                  _validateNumericField(
+                                                    value!,
+                                                    AppLocalizations.of(
+                                                      context,
+                                                    )!.quantity,
+                                                    true,
+                                                  ),
+                                              onChanged: (value) {
+                                                controller
+                                                    .fetchExchangeRate()
+                                                    .then((_) {
+                                                      _updateAllLineItems();
+                                                    });
+                                                itemController
+                                                    .calculateLineAmounts(
+                                                      itemController,
+                                                      widget
+                                                          .items!
+                                                          .expenseTrans[index],
+                                                    );
+                                                _calculateTotalLineAmount(
+                                                  itemController,
+                                                ).toStringAsFixed(2);
+                                                setState(() {
+                                                  widget
+                                                          .items!
+                                                          .expenseTrans[index] =
+                                                      itemController
+                                                          .toExpenseItemUpdateModel();
+                                                });
+                                              },
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Obx(() {
+                                              final error = itemController
+                                                  .paidAmountError
+                                                  .value;
+
+                                              return Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize
+                                                    .min, // 🔥 IMPORTANT (removes extra space)
+                                                children: [
+                                                  _buildTextFieldUnitAmount(
+                                                    keyboardType:
+                                                        TextInputType.number,
+                                                    inputFormatters: [
+                                                      FilteringTextInputFormatter.allow(
+                                                        RegExp(
+                                                          r'^\d*\.?\d{0,2}',
+                                                        ),
+                                                      ),
+                                                    ],
+                                                    label:
+                                                        "${AppLocalizations.of(context)!.unitAmount} *",
+                                                    controller: itemController
+                                                        .unitPriceTrans,
+                                                    isReadOnly: controller
+                                                        .isEnable
+                                                        .value,
+
+                                                    // ❌ DO NOT USE errorText here
+                                                    validator: (value) {
+                                                      final basicValidation =
+                                                          _validateNumericField(
+                                                            value!,
+                                                            AppLocalizations.of(
+                                                              context,
+                                                            )!.unitAmount,
+                                                            true,
+                                                          );
+
+                                                      if (basicValidation !=
+                                                          null)
+                                                        return basicValidation;
+
+                                                      final parsed =
+                                                          double.tryParse(
+                                                            itemController
+                                                                .lineAmountINR
+                                                                .text,
+                                                          ) ??
+                                                          0.0;
+
+                                                      final min = itemController
+                                                          .minExpenseAmount
+                                                          .value;
+                                                      final max = itemController
+                                                          .maxExpenseAmount
+                                                          .value;
+                                                      final receiptLimit =
+                                                          itemController
+                                                              .receiptRequiredLimit
+                                                              .value;
+
+                                                      if (parsed < min &&
+                                                          itemController
+                                                                  .finalItems
+                                                                  .length <=
+                                                              1) {
+                                                        itemController
+                                                                .paidAmountError
+                                                                .value =
+                                                            AppLocalizations.of(
+                                                              context,
+                                                            )!.reportedAmountNotWithinRange;
+                                                        return '';
+                                                      }
+
+                                                      if (parsed > max &&
+                                                          itemController
+                                                                  .finalItems
+                                                                  .length <=
+                                                              1 &&
+                                                          max != 0.0) {
+                                                        itemController
+                                                                .paidAmountError
+                                                                .value =
+                                                            AppLocalizations.of(
+                                                              context,
+                                                            )!.reportedAmountNotWithinRange;
+                                                        return '';
+                                                      }
+
+                                                      if (receiptLimit > 0 &&
+                                                          parsed >=
+                                                              receiptLimit) {
+                                                        itemController
+                                                                .isReceiptRequired
+                                                                .value =
+                                                            true;
+                                                      } else {
+                                                        itemController
+                                                                .isReceiptRequired
+                                                                .value =
+                                                            false;
+                                                      }
+
+                                                      itemController
+                                                              .paidAmountError
+                                                              .value =
+                                                          ''; // ✅ clear error
+                                                      return null;
+                                                    },
+                                                    onChanged: (value) async {
+                                                      controller
+                                                          .fetchExchangeRate()
+                                                          .then((_) {
+                                                            _updateAllLineItems();
+                                                          });
+
+                                                      itemController
+                                                          .calculateLineAmounts(
+                                                            itemController,
+                                                          );
+
+                                                      setState(() {
+                                                        widget
+                                                                .items!
+                                                                .expenseTrans[index] =
+                                                            itemController
+                                                                .toExpenseItemUpdateModel();
+                                                      });
+                                                    },
+                                                  ),
+
+                                                  /// ✅ ONLY SHOW ERROR WHEN EXISTS (no extra space)
+                                                  if (error.isNotEmpty)
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                            top: 2,
+                                                          ),
+                                                      child: Text(
+                                                        error,
+                                                        style: const TextStyle(
+                                                          color: Colors.red,
+                                                          fontSize: 10,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                ],
+                                              );
+                                            }),
+                                            const SizedBox(height: 8),
+                                            // const SizedBox(height: 8),
+                                            _buildTextField(
+                                              label: AppLocalizations.of(
+                                                context,
+                                              )!.lineAmount,
+                                              controller:
+                                                  itemController.lineAmount,
+                                              isReadOnly: false,
+                                              onChanged: (value) {
+                                                itemController
+                                                    .calculateLineAmounts(
+                                                      itemController,
+                                                      widget
+                                                          .items!
+                                                          .expenseTrans[index],
+                                                    );
+                                              },
+                                            ),
+                                            const SizedBox(height: 8),
+                                            _buildTextField(
+                                              label:
+                                                  '${AppLocalizations.of(context)!.lineAmountInInr} '
+                                                  '${controller.organizationCurrency}',
+                                              controller:
+                                                  itemController.lineAmountINR,
+                                              isReadOnly: false,
+                                              onChanged: (value) {
+                                                setState(() {
+                                                  widget
+                                                          .items!
+                                                          .expenseTrans[index] =
+                                                      itemController
+                                                          .toExpenseItemUpdateModel();
+                                                });
+                                              },
+                                            ),
+                                            const SizedBox(height: 8),
+
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.end,
+                                              children: [
+                                                TextButton(
+                                                  onPressed: () {
+                                                    final double lineAmount =
+                                                        double.tryParse(
+                                                          itemController
+                                                              .lineAmount
+                                                              .text,
+                                                        ) ??
+                                                        0.0;
+                                                    if (itemController
+                                                            .split
+                                                            .isEmpty &&
+                                                        item
+                                                            .accountingDistributions
+                                                            .isNotEmpty) {
+                                                      itemController.split.assignAll(
+                                                        item.accountingDistributions.map((
+                                                          e,
+                                                        ) {
+                                                          return AccountingSplit(
+                                                            paidFor: e
+                                                                .dimensionValueId,
+                                                            percentage: e
+                                                                .allocationFactor,
+                                                            amount:
+                                                                e.transAmount,
+                                                          );
+                                                        }).toList(),
+                                                      );
+                                                    } else if (itemController
+                                                        .split
+                                                        .isEmpty) {
+                                                      itemController.split.add(
+                                                        AccountingSplit(
+                                                          percentage: 100.0,
+                                                        ),
+                                                      );
+                                                    }
+
+                                                    showModalBottomSheet(
+                                                      context: context,
+                                                      isScrollControlled: true,
+                                                      shape: const RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.vertical(
+                                                              top:
+                                                                  Radius.circular(
+                                                                    16,
+                                                                  ),
+                                                            ),
+                                                      ),
+                                                      builder: (context) => Padding(
+                                                        padding: EdgeInsets.only(
+                                                          bottom: MediaQuery.of(
+                                                            context,
+                                                          ).viewInsets.bottom,
+                                                          left: 16,
+                                                          right: 16,
+                                                          top: 24,
+                                                        ),
+                                                        child: SingleChildScrollView(
+                                                          child: AccountingDistributionWidget(
+                                                            splits:
+                                                                itemController
+                                                                    .split,
+                                                            isEnable: controller
+                                                                .isEnable
+                                                                .value,
+                                                            lineAmount:
+                                                                lineAmount,
+                                                            onChanged:
+                                                                (
+                                                                  i,
+                                                                  updatedSplit,
+                                                                ) {
+                                                                  if (!mounted)
+                                                                    return;
+
+                                                                  itemController
+                                                                          .split[i] =
+                                                                      updatedSplit;
+                                                                },
+                                                            onDistributionChanged: (newList) {
+                                                              if (!mounted)
+                                                                return;
+                                                              item.accountingDistributions
+                                                                  .clear();
+                                                              item.accountingDistributions
+                                                                  .addAll(
+                                                                    newList,
+                                                                  );
+                                                              itemController
+                                                                  .toExpenseItemUpdateModel();
+                                                            },
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                  child: Text(
+                                                    AppLocalizations.of(
+                                                      context,
+                                                    )!.accountDistribution,
+                                                    style: const TextStyle(
+                                                      color: Colors.blue,
+                                                      decoration: TextDecoration
+                                                          .underline,
+                                                      decorationColor:
+                                                          Colors.blue,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ],
@@ -922,1201 +7734,505 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
                                 );
                               },
                             ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 4),
-                    SearchableMultiColumnDropdownField<PaymentMethodModel>(
-                      enabled: controller.isEnable.value,
-                      labelText: AppLocalizations.of(context)!.paidWith,
-                      columnHeaders: [
-                        AppLocalizations.of(context)!.paymentName,
-                        AppLocalizations.of(context)!.paymentId,
-                      ],
-                      items: controller.paymentMethods,
-                      selectedValue: controller.selectedPaidWith,
-                      searchValue: (p) =>
-                          '${p.paymentMethodName} ${p.paymentMethodId}',
-                      displayText: (p) => p.paymentMethodName,
-                      validator: (_) => null,
-                      onChanged: (p) {
-                        setState(() {
-                          controller.selectedPaidWith = p;
-                          controller.paymentMethodID = p!.paymentMethodId;
-                          controller.paidWithController.text =
-                              p.paymentMethodId;
-                        });
-                        // loadAndAppendCashAdvanceList();
-                      },
-                      controller: controller.paidWithController,
-                      rowBuilder: (p, searchQuery) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 16,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(child: Text(p.paymentMethodName)),
-                              Expanded(child: Text(p.paymentMethodId)),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _buildTextField(
-                  label: AppLocalizations.of(context)!.referenceId,
-                  controller: controller.referenceID,
-                  isReadOnly: controller.isEnable.value,
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        enabled: false,
-                        controller: controller.paidAmount,
-                        onChanged: (_) {
-                          // controller.fetchExchangeRate();
-
-                          final paid =
-                              double.tryParse(controller.paidAmount.text) ??
-                              0.0;
-                          final rate =
-                              double.tryParse(controller.unitRate.text) ?? 1.0;
-
-                          final result = paid * rate;
-
-                          controller.amountINR.text = result.toStringAsFixed(2);
-                        },
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'^\d*\.?\d*'),
-                          ), // Only digits and dots allowed
-                        ],
-                        decoration: InputDecoration(
-                          labelText:
-                              '${AppLocalizations.of(context)!.paidAmount}*',
-                          // ignore: prefer_const_constructors
-                          border: OutlineInputBorder(
-                            borderRadius: const BorderRadius.only(
-                              topRight: Radius.circular(0),
-                              bottomRight: Radius.circular(0),
-                              topLeft: Radius.circular(10),
-                              bottomLeft: Radius.circular(10),
-                            ),
-                          ),
-                        ),
-                        onEditingComplete: () {
-                          String text = controller.paidAmount.text;
-                          double? value = double.tryParse(text);
-                          if (value != null) {
-                            controller.paidAmount.text = value.toStringAsFixed(
-                              2,
-                            );
-                          }
-                        },
-                      ),
-                    ),
-                    Expanded(
-                      child: Obx(
-                        () => SearchableMultiColumnDropdownField<Currency>(
-                          enabled: controller.isEnable.value,
-                          alignLeft: -90,
-                          dropdownWidth: 280,
-                          labelText: "",
-                          columnHeaders: [
-                            AppLocalizations.of(context)!.code,
-                            AppLocalizations.of(context)!.name,
-                            AppLocalizations.of(context)!.symbol,
                           ],
-                          items: controller.currencies,
-                          selectedValue: controller.selectedCurrency.value,
-                          backgroundColor: const Color.fromARGB(255, 22, 2, 92),
-                          searchValue: (c) => '${c.code} ${c.name} ${c.symbol}',
-                          displayText: (c) => c.code,
-                          inputDecoration: const InputDecoration(
-                            suffixIcon: Icon(Icons.arrow_drop_down_outlined),
-                            filled: true,
-                            fillColor: Color.fromARGB(55, 5, 23, 128),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.only(
-                                topLeft: Radius.circular(0),
-                                bottomLeft: Radius.circular(0),
-                                topRight: Radius.circular(10),
-                                bottomRight: Radius.circular(10),
-                              ),
+                        ),
+                        _buildSection(
+                          title: AppLocalizations.of(context)!.trackingHistory,
+                          children: [
+                            const SizedBox(height: 12),
+                            FutureBuilder<List<ExpenseHistory>>(
+                              future: historyFuture,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const Center(
+                                    child: CircularProgressIndicator(),
+                                  );
+                                }
+
+                                if (snapshot.hasError) {
+                                  return Center(
+                                    child: Text("No Data Available"),
+                                  );
+                                }
+
+                                final historyList = snapshot.data!;
+                                if (historyList.isEmpty) {
+                                  return Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Text(
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.noHistoryMessage,
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: historyList.length,
+                                  itemBuilder: (context, index) {
+                                    final item = historyList[index];
+                                    // print("Trackingitem: $item");
+                                    return _buildTimelineItem(
+                                      item,
+                                      index == historyList.length - 1,
+                                    );
+                                  },
+                                );
+                              },
                             ),
-                          ),
-                          validator: (c) =>
-                              controller.currencyDropDowncontroller.text.isEmpty
-                              ? AppLocalizations.of(
-                                  context,
-                                )!.pleaseSelectCurrency
-                              : null,
-                          onChanged: (c) async {
-                            controller.selectedCurrency.value = c;
-                            controller.fetchExchangeRate().then((_) {
-                              _updateAllLineItems();
-                            });
-                          },
-                          controller: controller.currencyDropDowncontroller,
-                          rowBuilder: (c, searchQuery) {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 12,
-                                horizontal: 16,
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(child: Text(c.code)),
-                                  Expanded(child: Text(c.name)),
-                                  Expanded(child: Text(c.symbol)),
-                                ],
-                              ),
-                            );
-                          },
+                          ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextFormField(
-                        enabled: controller.isEnable.value,
-                        controller: controller.unitRate,
-                        decoration: InputDecoration(
-                          labelText: '${AppLocalizations.of(context)!.rate} *',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        onChanged: (val) {
-                          // Fetch exchange rate if needed
-                          // controller.fetchExchangeRate();
 
-                          final paid =
-                              double.tryParse(controller.paidAmount.text) ??
-                              0.0;
-                          final rate = double.tryParse(val) ?? 1.0;
-
-                          // ✅ Perform calculation
-                          final result = paid * rate;
-
-                          controller.amountINR.text = result.toStringAsFixed(2);
-                          controller.isVisible.value = true;
-                          for (int i = 0; i < itemizeControllers.length; i++) {
-                            final itemController = itemizeControllers[i];
-                            // controller
-                            // .calculateLineAmounts(itemController);
-                            final unitPrice =
-                                double.tryParse(
-                                  itemController.unitPriceTrans.text,
-                                ) ??
-                                0.0;
-
-                            final lineAmountInINR = unitPrice * rate;
-                            itemController.lineAmountINR.text = lineAmountInINR
-                                .toStringAsFixed(2);
-
-                            // Sync with the model
-                            widget.items!.expenseTrans[i] = itemController
-                                .toExpenseItemUpdateModel();
-                          }
-
-                          // ✅ Trigger UI update
-                          setState(() {});
-                          print("Paid Amount: $paid");
-                          print("Rate: $rate");
-                          print(
-                            "Calculated INR Amount: ${controller.amountINR.text}",
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: controller.amountINR,
-                  enabled: false,
-                  decoration: InputDecoration(
-                    labelText:
-                        '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency} *',
-                    filled: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Modified Itemized Expenses Section
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        Text(
-                          "${AppLocalizations.of(context)!.itemize} ${AppLocalizations.of(context)!.expense}",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: widget.items!.expenseTrans.length,
-                      itemBuilder: (context, index) {
-                        final item = widget.items!.expenseTrans[index];
-                        final itemController = itemizeControllers[index];
-                        // _calculateTotalLineAmount(itemController);
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        const SizedBox(height: 28),
+                        if (widget.items!.stepType == "Review")
+                          Row(
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      "${AppLocalizations.of(context)!.item} ${index + 1}",
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
+                              // 🔵 Update Button
+                              Obx(() {
+                                final isUpdateLoading =
+                                    controller.buttonLoaders['update'] ?? false;
+                                final isUpdateAcceptLoading =
+                                    controller.buttonLoaders['update_accept'] ??
+                                    false;
+                                final isRejectLoading =
+                                    controller.buttonLoaders['reject'] ?? false;
+                                final isAnyLoading = controller
+                                    .buttonLoaders
+                                    .values
+                                    .any((loading) => loading);
+
+                                return Expanded(
+                                  child: ElevatedButton(
+                                    onPressed:
+                                        (isUpdateLoading ||
+                                            isUpdateAcceptLoading ||
+                                            isRejectLoading ||
+                                            isAnyLoading)
+                                        ? null
+                                        : () async {
+                                            if (!(_formKey.currentState
+                                                    ?.validate() ??
+                                                false))
+                                              return;
+                                            controller.setButtonLoading(
+                                              'update',
+                                              true,
+                                            );
+                                            controller.addToFinalItems(
+                                              widget.items!,
+                                            );
+                                            await controller
+                                                .cashadvanceregistrationsHub(
+                                                  context,
+                                                  true,
+                                                  widget.items!.recId!,
+                                                  widget.items!.expenseId,
+                                                  workitemrecid!,
+                                                );
+
+                                            controller.setButtonLoading(
+                                              'update',
+                                              false,
+                                            );
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        3,
+                                        20,
+                                        117,
                                       ),
                                     ),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        if (controller.isEnable.value &&
-                                            widget.items!.expenseTrans.length >
-                                                1)
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.delete,
-                                              color: Colors.red,
+                                    child: isUpdateLoading
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
                                             ),
-                                            onPressed: () =>
-                                                _removeItemize(index),
-                                            tooltip: 'Remove this item',
-                                          ),
-                                        if (controller.isEnable.value)
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.add,
-                                              color: Colors.green,
-                                            ),
-                                            onPressed: _addItemize,
-                                            tooltip: 'Add new item',
-                                          ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Obx(() {
-                                      return Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: controller.configListAdvance
-                                            .where(
-                                              (field) =>
-                                                  field['FieldName'] ==
-                                                      'Project Id' &&
-                                                  field['IsEnabled'] == true,
-                                            )
-                                            .map((field) {
-                                              final String label =
-                                                  field['FieldName'];
-                                              final bool isMandatory =
-                                                  field['IsMandatory'] ?? false;
-
-                                              return Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  SearchableMultiColumnDropdownField<
-                                                    Project
-                                                  >(
-                                                    labelText:
-                                                        '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""}',
-                                                    columnHeaders: [
-                                                      AppLocalizations.of(
-                                                        context,
-                                                      )!.projectName,
-                                                      AppLocalizations.of(
-                                                        context,
-                                                      )!.projectId,
-                                                    ],
-                                                    // enabled: controller.isEditModePerdiem,
-                                                    controller: controller
-                                                        .projectIdController,
-                                                    items: controller.project,
-                                                    selectedValue: controller
-                                                        .selectedProject,
-                                                    searchValue: (proj) =>
-                                                        '${proj.name} ${proj.code}',
-                                                    displayText: (proj) =>
-                                                        proj.code,
-                                                    onChanged: (proj) {
-                                                      setState(() {
-                                                        controller
-                                                                .selectedProject =
-                                                            proj;
-                                                        if (proj != null) {
-                                                          controller
-                                                                  .showProjectError
-                                                                  .value =
-                                                              false;
-                                                        }
-                                                      });
-                                                      // Optional: Fetch categories after selecting project
-                                                      // controller.fetchExpenseCategory();
-                                                    },
-                                                    rowBuilder:
-                                                        (proj, searchQuery) {
-                                                          return Padding(
-                                                            padding:
-                                                                const EdgeInsets.symmetric(
-                                                                  vertical: 12,
-                                                                  horizontal:
-                                                                      16,
-                                                                ),
-                                                            child: Row(
-                                                              children: [
-                                                                SizedBox(
-                                                                  width: 10,
-                                                                ),
-                                                                Expanded(
-                                                                  child: Text(
-                                                                    proj.name,
-                                                                  ),
-                                                                ),
-                                                                Expanded(
-                                                                  child: Text(
-                                                                    proj.code,
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          );
-                                                        },
-                                                  ),
-                                                  if (controller
-                                                      .showProjectError
-                                                      .value)
-                                                    const Padding(
-                                                      padding: EdgeInsets.only(
-                                                        top: 4,
-                                                      ),
-                                                      child: Text(
-                                                        'Please select a Project',
-                                                        style: TextStyle(
-                                                          color: Colors.red,
-                                                          fontSize: 12,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  const SizedBox(height: 16),
-                                                ],
-                                              );
-                                            })
-                                            .toList(),
-                                      );
-                                    }),
-                                    const SizedBox(height: 12),
-                                    SearchableMultiColumnDropdownField<
-                                      ExpenseCategory
-                                    >(
-                                      labelText: AppLocalizations.of(
-                                        context,
-                                      )!.projectId,
-                                      enabled: controller.isEnable.value,
-                                      columnHeaders: [
-                                        AppLocalizations.of(
-                                          context,
-                                        )!.categoryName,
-                                        AppLocalizations.of(
-                                          context,
-                                        )!.categoryName,
-                                      ],
-                                      items: controller.expenseCategory,
-                                      selectedValue:
-                                          itemController.selectedCategory,
-                                      searchValue: (p) =>
-                                          '${p.categoryName} ${p.categoryId}',
-                                      displayText: (p) => p.categoryId,
-                                      validator: (_) => null,
-                                      onChanged: (p) {
-                                        setState(() {
-                                          itemController.selectedCategory = p;
-                                          itemController.selectedCategoryId =
-                                              p!.categoryId;
-                                          widget.items!.expenseTrans[index] =
-                                              itemController
-                                                  .toExpenseItemUpdateModel();
-                                          itemController
-                                                  .categoryController
-                                                  .text =
-                                              p.categoryId;
-                                        });
-                                      },
-                                      controller:
-                                          itemController.categoryController,
-                                      rowBuilder: (p, searchQuery) {
-                                        return Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 12,
-                                            horizontal: 16,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(p.categoryName),
-                                              ),
-                                              Expanded(
-                                                child: Text(p.categoryId),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                    const SizedBox(height: 12),
-                                    _buildTextField(
-                                      label: AppLocalizations.of(
-                                        context,
-                                      )!.comments,
-                                      controller:
-                                          itemController.descriptionController,
-                                      isReadOnly: controller.isEnable.value,
-                                      onChanged: (value) {
-                                        setState(() {
-                                          widget.items!.expenseTrans[index] =
-                                              itemController
-                                                  .toExpenseItemUpdateModel();
-                                        });
-                                      },
-                                    ),
-                                    SearchableMultiColumnDropdownField<Unit>(
-                                      labelText:
-                                          '${AppLocalizations.of(context)!.unit} *',
-                                      enabled: controller.isEnable.value,
-                                      columnHeaders: [
-                                        AppLocalizations.of(context)!.uomId,
-                                        AppLocalizations.of(context)!.uomName,
-                                      ],
-                                      items: controller.unit,
-
-                                      selectedValue:
-                                          itemController.selectedunit,
-                                      searchValue: (tax) =>
-                                          '${tax.code} ${tax.name}',
-                                      displayText: (tax) => tax.name,
-                                      validator: (tax) =>
-                                          itemController.uomId.text.isEmpty
-                                          ? 'Please select a Unit'
-                                          : null,
-                                      onChanged: (tax) {
-                                        setState(() {
-                                          itemController.selectedunit = tax;
-                                          itemController.uomId.text = tax!.code;
-                                          widget.items!.expenseTrans[index] =
-                                              itemController
-                                                  .toExpenseItemUpdateModel();
-                                        });
-                                      },
-                                      controller: itemController.uomId,
-                                      rowBuilder: (tax, searchQuery) {
-                                        return Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 12,
-                                            horizontal: 16,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Expanded(child: Text(tax.code)),
-                                              Expanded(child: Text(tax.name)),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                    const SizedBox(height: 12),
-                                    _buildTextField(
-                                      label:
-                                          "${AppLocalizations.of(context)!.quantity} *",
-                                      controller: itemController.quantity,
-                                      isReadOnly: controller.isEnable.value,
-                                      validator: (value) =>
-                                          _validateNumericField(
-                                            value!,
+                                          )
+                                        : Text(
                                             AppLocalizations.of(
                                               context,
-                                            )!.quantity,
-                                            true,
-                                          ),
-                                      onChanged: (value) {
-                                        WidgetsBinding.instance
-                                            .addPostFrameCallback((_) {
-                                              controller
-                                                  .fetchExchangeRate()
-                                                  .then((_) {
-                                                    _updateAllLineItems();
-                                                  });
-                                            });
-
-                                        setState(() {
-                                          widget.items!.expenseTrans[index] =
-                                              itemController
-                                                  .toExpenseItemUpdateModel();
-                                        });
-                                      },
-                                    ),
-                                    _buildTextField(
-                                      label:
-                                          "${AppLocalizations.of(context)!.unitAmount} *",
-                                      controller: itemController.unitPriceTrans,
-                                      isReadOnly: controller.isEnable.value,
-                                      validator: (value) =>
-                                          _validateNumericField(
-                                            value!,
-                                            AppLocalizations.of(
-                                              context,
-                                            )!.unitAmount,
-                                            true,
-                                          ),
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly,
-                                        LengthLimitingTextInputFormatter(
-                                          10,
-                                        ), // Max 10 digits
-                                      ],
-                                      onChanged: (value) {
-                                        WidgetsBinding.instance
-                                            .addPostFrameCallback((_) {
-                                              controller
-                                                  .fetchExchangeRate()
-                                                  .then((_) {
-                                                    _updateAllLineItems();
-                                                  });
-                                            });
-
-                                        setState(() {
-                                          widget.items!.expenseTrans[index] =
-                                              itemController
-                                                  .toExpenseItemUpdateModel();
-                                        });
-                                      },
-                                    ),
-                                    _buildTextField(
-                                      label: AppLocalizations.of(
-                                        context,
-                                      )!.lineAmount,
-                                      controller: itemController.lineAmount,
-                                      isReadOnly: false,
-                                      onChanged: (value) {
-                                        setState(() {
-                                          widget.items!.expenseTrans[index] =
-                                              itemController
-                                                  .toExpenseItemUpdateModel();
-                                        });
-                                      },
-                                    ),
-                                    _buildTextField(
-                                      label:
-                                          '${AppLocalizations.of(context)!.lineAmountInInr} ${controller.organizationCurrency}',
-                                      controller: itemController.lineAmountINR,
-                                      isReadOnly: false,
-                                      onChanged: (value) {
-                                        setState(() {
-                                          widget.items!.expenseTrans[index] =
-                                              itemController
-                                                  .toExpenseItemUpdateModel();
-                                        });
-                                      },
-                                    ),
-                                    if (controller.isEnable.value)
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.end,
-                                        children: [
-                                          TextButton(
-                                            onPressed: () {
-                                              final double lineAmount =
-                                                  double.tryParse(
-                                                    itemController
-                                                        .lineAmount
-                                                        .text,
-                                                  ) ??
-                                                  0.0;
-                                              if (itemController
-                                                      .split
-                                                      .isEmpty &&
-                                                  item
-                                                      .accountingDistributions
-                                                      .isNotEmpty) {
-                                                itemController.split.assignAll(
-                                                  item.accountingDistributions
-                                                      .map((e) {
-                                                        return AccountingSplit(
-                                                          paidFor: e
-                                                              .dimensionValueId,
-                                                          percentage: e
-                                                              .allocationFactor,
-                                                          amount: e.transAmount,
-                                                        );
-                                                      })
-                                                      .toList(),
-                                                );
-                                              } else if (itemController
-                                                  .split
-                                                  .isEmpty) {
-                                                itemController.split.add(
-                                                  AccountingSplit(
-                                                    percentage: 100.0,
-                                                  ),
-                                                );
-                                              }
-
-                                              showModalBottomSheet(
-                                                context: context,
-                                                isScrollControlled: true,
-                                                shape:
-                                                    const RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.vertical(
-                                                            top:
-                                                                Radius.circular(
-                                                                  16,
-                                                                ),
-                                                          ),
-                                                    ),
-                                                builder: (context) => Padding(
-                                                  padding: EdgeInsets.only(
-                                                    bottom: MediaQuery.of(
-                                                      context,
-                                                    ).viewInsets.bottom,
-                                                    left: 16,
-                                                    right: 16,
-                                                    top: 24,
-                                                  ),
-                                                  child: SingleChildScrollView(
-                                                    child: AccountingDistributionWidget(
-                                                      splits:
-                                                          itemController.split,
-                                                      lineAmount: lineAmount,
-                                                      onChanged:
-                                                          (i, updatedSplit) {
-                                                            if (!mounted)
-                                                              return;
-                                                            itemController
-                                                                    .split[i] =
-                                                                updatedSplit;
-                                                          },
-                                                      onDistributionChanged: (newList) {
-                                                        if (!mounted) return;
-                                                        item.accountingDistributions
-                                                            .clear();
-                                                        item.accountingDistributions
-                                                            .addAll(newList);
-                                                      },
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                            child: Text(
-                                              AppLocalizations.of(
-                                                context,
-                                              )!.accountDistribution,
-                                              style: const TextStyle(
-                                                color: Colors.blue,
-                                                decoration:
-                                                    TextDecoration.underline,
-                                                decorationColor: Colors.blue,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w500,
-                                              ),
+                                            )!.update,
+                                            style: const TextStyle(
+                                              color: Colors.white,
                                             ),
                                           ),
-                                        ],
+                                  ),
+                                );
+                              }),
+
+                              const SizedBox(width: 12),
+
+                              // 🟢 Update & Accept Button
+                              Obx(() {
+                                final isUpdateLoading =
+                                    controller.buttonLoaders['update'] ?? false;
+                                final isUpdateAcceptLoading =
+                                    controller.buttonLoaders['update_accept'] ??
+                                    false;
+                                final isRejectLoading =
+                                    controller.buttonLoaders['reject'] ?? false;
+                                final isAnyLoading = controller
+                                    .buttonLoaders
+                                    .values
+                                    .any((loading) => loading);
+
+                                return Expanded(
+                                  child: ElevatedButton(
+                                    onPressed:
+                                        (isUpdateAcceptLoading ||
+                                            isUpdateLoading ||
+                                            isRejectLoading ||
+                                            isAnyLoading)
+                                        ? null
+                                        : () async {
+                                            if (!(_formKey.currentState
+                                                    ?.validate() ??
+                                                false))
+                                              return;
+                                            controller.setButtonLoading(
+                                              'update_accept',
+                                              true,
+                                            );
+
+                                            controller.addToFinalItems(
+                                              widget.items!,
+                                            );
+                                            await controller
+                                                .cashadvanceregistrationsHub(
+                                                  context,
+                                                  true,
+                                                  widget.items!.recId!,
+                                                  widget.items!.expenseId,
+                                                  workitemrecid!,
+                                                );
+
+                                            controller.setButtonLoading(
+                                              'update_accept',
+                                              false,
+                                            );
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        3,
+                                        20,
+                                        117,
                                       ),
-                                  ],
+                                    ),
+                                    child: isUpdateAcceptLoading
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            )!.updateAndAccept,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                  ),
+                                );
+                              }),
+                            ],
+                          ),
+                        if (widget.items!.stepType == "Review")
+                          const SizedBox(height: 12), // space between rows
+                        //  if (controller.isEnable.value &&
+                        //       widget.items!.stepType == "Review")
+                        if (widget.items!.stepType == "Review")
+                          Row(
+                            children: [
+                              Obx(() {
+                                final isUpdateLoading =
+                                    controller.buttonLoaders['update'] ?? false;
+                                final isUpdateAcceptLoading =
+                                    controller.buttonLoaders['update_accept'] ??
+                                    false;
+                                final isRejectLoading =
+                                    controller.buttonLoaders['reject'] ?? false;
+                                final isAnyLoading = controller
+                                    .buttonLoaders
+                                    .values
+                                    .any((loading) => loading);
+
+                                return Expanded(
+                                  child: ElevatedButton(
+                                    onPressed:
+                                        (isRejectLoading ||
+                                            isUpdateLoading ||
+                                            isUpdateAcceptLoading ||
+                                            isAnyLoading)
+                                        ? null
+                                        : () {
+                                            controller.setButtonLoading(
+                                              'reject',
+                                              true,
+                                            );
+                                            controller.lineItemControllers
+                                              ..clear()
+                                              ..addAll(itemizeControllers);
+                                            controller.addToFinalItems(
+                                              widget.items!,
+                                            );
+                                            showActionPopup(context, "Reject");
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        238,
+                                        20,
+                                        20,
+                                      ),
+                                    ),
+                                    child: isRejectLoading
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            )!.reject,
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                  ),
+                                );
+                              }),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    controller.skipCurrentItem(
+                                      widget.items!.workitemrecid!,
+                                      context,
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.grey,
+                                  ),
+                                  child: Text(
+                                    AppLocalizations.of(context)!.skip,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                _buildSection(
-                  title: AppLocalizations.of(context)!.trackingHistory,
-                  children: [
-                    const SizedBox(height: 12),
-                    FutureBuilder<List<ExpenseHistory>>(
-                      future: historyFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
 
-                        if (snapshot.hasError) {
-                          return Center(
-                            child: Text("No Data Available Please Skip Next"),
-                          );
-                        }
+                        if (widget.items!.stepType == "Approval")
+                          Row(
+                            children: [
+                              // ✅ Approve Button
+                              Obx(() {
+                                final isLoading =
+                                    controller.buttonLoaders['approve'] ??
+                                    false;
+                                return Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: isLoading
+                                        ? null
+                                        : () {
+                                            controller.setButtonLoading(
+                                              'approve',
+                                              true,
+                                            );
+                                            showActionPopup(context, "Approve");
 
-                        final historyList = snapshot.data!;
-                        if (historyList.isEmpty) {
-                          return Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Text(
-                                AppLocalizations.of(context)!.noHistoryMessage,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(color: Colors.grey),
-                              ),
-                            ),
-                          );
-                        }
-                        return ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: historyList.length,
-                          itemBuilder: (context, index) {
-                            final item = historyList[index];
-                            print("Trackingitem: $item");
-                            return _buildTimelineItem(
-                              item,
-                              index == historyList.length - 1,
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                if (widget.items!.stepType == "Review")
-                  Row(
-                    children: [
-                      // 🔵 Update Button
-                      Obx(() {
-                        final isUpdateLoading =
-                            controller.buttonLoaders['update'] ?? false;
-                        final isUpdateAcceptLoading =
-                            controller.buttonLoaders['update_accept'] ?? false;
-                        final isRejectLoading =
-                            controller.buttonLoaders['reject'] ?? false;
-                        final isAnyLoading = controller.buttonLoaders.values
-                            .any((loading) => loading);
-
-                        return Expanded(
-                          child: ElevatedButton(
-                            onPressed:
-                                (isUpdateLoading ||
-                                    isUpdateAcceptLoading ||
-                                    isRejectLoading ||
-                                    isAnyLoading)
-                                ? null
-                                : () async {
-                                    if (!(_formKey.currentState?.validate() ??
-                                        false))
-                                      return;
-                                    controller.setButtonLoading('update', true);
-                                    controller.addToFinalItems(widget.items!);
-                                    await controller
-                                        .cashadvanceregistrationsHub(
-                                          context,
-                                          true,
-                                          widget.items!.recId!,
-                                          widget.items!.expenseId,
-                                          workitemrecid,
-                                        );
-
-                                    controller.setButtonLoading(
-                                      'update',
-                                      false,
-                                    );
-                                  },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color.fromARGB(
-                                255,
-                                3,
-                                20,
-                                117,
-                              ),
-                            ),
-                            child: isUpdateLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Text(
-                                    AppLocalizations.of(context)!.update,
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                          ),
-                        );
-                      }),
-
-                      const SizedBox(width: 12),
-
-                      // 🟢 Update & Accept Button
-                      Obx(() {
-                        final isUpdateLoading =
-                            controller.buttonLoaders['update'] ?? false;
-                        final isUpdateAcceptLoading =
-                            controller.buttonLoaders['update_accept'] ?? false;
-                        final isRejectLoading =
-                            controller.buttonLoaders['reject'] ?? false;
-                        final isAnyLoading = controller.buttonLoaders.values
-                            .any((loading) => loading);
-
-                        return Expanded(
-                          child: ElevatedButton(
-                            onPressed:
-                                (isUpdateAcceptLoading ||
-                                    isUpdateLoading ||
-                                    isRejectLoading ||
-                                    isAnyLoading)
-                                ? null
-                                : () async {
-                                    if (!(_formKey.currentState?.validate() ??
-                                        false))
-                                      return;
-                                    controller.setButtonLoading(
-                                      'update_accept',
-                                      true,
-                                    );
-
-                                    controller.addToFinalItems(widget.items!);
-                                    await controller
-                                        .cashadvanceregistrationsHub(
-                                          context,
-                                          true,
-                                          widget.items!.recId!,
-                                          widget.items!.expenseId,
-                                          workitemrecid,
-                                        );
-
-                                    controller.setButtonLoading(
-                                      'update_accept',
-                                      false,
-                                    );
-                                  },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color.fromARGB(
-                                255,
-                                3,
-                                20,
-                                117,
-                              ),
-                            ),
-                            child: isUpdateAcceptLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Flexible(
-                                    child: Text(
-                                      AppLocalizations.of(
-                                        context,
-                                      )!.updateAndAccept,
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 1,
-                                      softWrap: false,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
+                                            controller.setButtonLoading(
+                                              'approve',
+                                              false,
+                                            );
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        30,
+                                        117,
+                                        3,
                                       ),
                                     ),
+                                    child: isLoading
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            )!.approve,
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
                                   ),
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-                if (widget.items!.stepType == "Review")
-                  const SizedBox(height: 12), // space between rows
-                //  if (controller.isEnable.value &&
-                //       widget.items!.stepType == "Review")
-                if (widget.items!.stepType == "Review")
-                  Row(
-                    children: [
-                      Obx(() {
-                        final isUpdateLoading =
-                            controller.buttonLoaders['update'] ?? false;
-                        final isUpdateAcceptLoading =
-                            controller.buttonLoaders['update_accept'] ?? false;
-                        final isRejectLoading =
-                            controller.buttonLoaders['reject'] ?? false;
-                        final isAnyLoading = controller.buttonLoaders.values
-                            .any((loading) => loading);
+                                );
+                              }),
 
-                        return Expanded(
-                          child: ElevatedButton(
-                            onPressed:
-                                (isRejectLoading ||
-                                    isUpdateLoading ||
-                                    isUpdateAcceptLoading ||
-                                    isAnyLoading)
-                                ? null
-                                : () {
-                                    controller.setButtonLoading('reject', true);
-                                    controller.addToFinalItems(widget.items!);
-                                    showActionPopup(context, "Reject");
-                                  },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color.fromARGB(
-                                255,
-                                238,
-                                20,
-                                20,
-                              ),
-                            ),
-                            child: isRejectLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
+                              const SizedBox(width: 12),
+
+                              // 🔴 Reject Button
+                              Obx(() {
+                                final isLoading =
+                                    controller
+                                        .buttonLoaders['reject_approval'] ??
+                                    false;
+                                return Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: isLoading
+                                        ? null
+                                        : () {
+                                            controller.setButtonLoading(
+                                              'reject_approval',
+                                              true,
+                                            );
+                                            showActionPopup(context, "Reject");
+
+                                            controller.setButtonLoading(
+                                              'reject_approval',
+                                              false,
+                                            );
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        238,
+                                        20,
+                                        20,
+                                      ),
                                     ),
-                                  )
-                                : Text(
-                                    AppLocalizations.of(context)!.reject,
-                                    style: TextStyle(color: Colors.white),
+                                    child: isLoading
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            )!.reject,
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
                                   ),
+                                );
+                              }),
+                            ],
                           ),
-                        );
-                      }),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            controller.skipCurrentItem(
-                              widget.items!.workitemrecid!,
-                              context,
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey,
-                          ),
-                          child: Text(AppLocalizations.of(context)!.skip),
-                        ),
-                      ),
-                    ],
-                  ),
 
-                if (widget.items!.stepType == "Approval")
-                  Row(
-                    children: [
-                      // ✅ Approve Button
-                      Obx(() {
-                        final isLoading =
-                            controller.buttonLoaders['approve'] ?? false;
-                        return Expanded(
-                          child: ElevatedButton(
-                            onPressed: isLoading
-                                ? null
-                                : () {
-                                    controller.setButtonLoading(
-                                      'approve',
-                                      true,
-                                    );
-                                    showActionPopup(context, "Approve");
+                        if (widget.items!.stepType == "Approval")
+                          Row(
+                            children: [
+                              // 🔵 Escalate Button
+                              Obx(() {
+                                final isLoading =
+                                    controller.buttonLoaders['escalate'] ??
+                                    false;
+                                return Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: isLoading
+                                        ? null
+                                        : () {
+                                            controller.setButtonLoading(
+                                              'escalate',
+                                              true,
+                                            );
+                                            showActionPopup(
+                                              context,
+                                              "Escalate",
+                                            );
 
-                                    controller.setButtonLoading(
-                                      'approve',
-                                      false,
-                                    );
-                                  },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color.fromARGB(
-                                255,
-                                30,
-                                117,
-                                3,
-                              ),
-                            ),
-                            child: isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
+                                            controller.setButtonLoading(
+                                              'escalate',
+                                              false,
+                                            );
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        3,
+                                        20,
+                                        117,
+                                      ),
                                     ),
-                                  )
-                                : Text(
-                                    AppLocalizations.of(context)!.approve,
-                                    style: TextStyle(color: Colors.white),
+                                    child: isLoading
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            )!.escalate,
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
                                   ),
-                          ),
-                        );
-                      }),
+                                );
+                              }),
 
-                      const SizedBox(width: 12),
+                              const SizedBox(width: 12),
 
-                      // 🔴 Reject Button
-                      Obx(() {
-                        final isLoading =
-                            controller.buttonLoaders['reject_approval'] ??
-                            false;
-                        return Expanded(
-                          child: ElevatedButton(
-                            onPressed: isLoading
-                                ? null
-                                : () {
-                                    controller.setButtonLoading(
-                                      'reject_approval',
-                                      true,
-                                    );
-                                    showActionPopup(context, "Reject");
-
-                                    controller.setButtonLoading(
-                                      'reject_approval',
-                                      false,
+                              // ⚪ Close Button
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    controller.skipCurrentItem(
+                                      widget.items!.workitemrecid!,
+                                      context,
                                     );
                                   },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color.fromARGB(
-                                255,
-                                238,
-                                20,
-                                20,
-                              ),
-                            ),
-                            child: isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Text(
-                                    AppLocalizations.of(context)!.reject,
-                                    style: TextStyle(color: Colors.white),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.grey,
                                   ),
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-
-                if (widget.items!.stepType == "Approval")
-                  Row(
-                    children: [
-                      // 🔵 Escalate Button
-                      Obx(() {
-                        final isLoading =
-                            controller.buttonLoaders['escalate'] ?? false;
-                        return Expanded(
-                          child: ElevatedButton(
-                            onPressed: isLoading
-                                ? null
-                                : () {
-                                    controller.setButtonLoading(
-                                      'escalate',
-                                      true,
-                                    );
-                                    showActionPopup(context, "Escalate");
-
-                                    controller.setButtonLoading(
-                                      'escalate',
-                                      false,
-                                    );
-                                  },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color.fromARGB(
-                                255,
-                                3,
-                                20,
-                                117,
-                              ),
-                            ),
-                            child: isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Text(
-                                    AppLocalizations.of(context)!.escalate,
-                                    style: TextStyle(color: Colors.white),
+                                  child: Text(
+                                    AppLocalizations.of(context)!.skip,
                                   ),
+                                ),
+                              ),
+                            ],
                           ),
-                        );
-                      }),
-
-                      const SizedBox(width: 12),
-
-                      // ⚪ Close Button
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            controller.skipCurrentItem(
-                              widget.items!.workitemrecid!,
-                              context,
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey,
-                          ),
-                          child: Text(AppLocalizations.of(context)!.skip),
-                        ),
-                      ),
-                    ],
+                        const SizedBox(height: 30),
+                      ],
+                    ),
                   ),
-                const SizedBox(height: 30),
-              ],
-            ),
-          ),
-        ),
+                );
+        }),
       ),
     );
   }
@@ -2125,28 +8241,29 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
     String label,
     TextEditingController controllers, {
     required bool isReadOnly,
+    String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controllers,
-      readOnly: true, // Always readonly because we use the calendar
-      enabled: !isReadOnly, // Disable editing if readonly
+      readOnly: true,
+      enabled: !isReadOnly,
+      validator: validator,
       decoration: InputDecoration(
         labelText: label,
         suffixIcon: IconButton(
           icon: const Icon(Icons.calendar_today),
           onPressed: isReadOnly
-              ? null // Disable button if readonly
+              ? null
               : () async {
-                  // 🟢 Use controllers.text for initialDate or fallback
                   DateTime initialDate = DateTime.now();
                   if (controllers.text.isNotEmpty) {
                     try {
-                      initialDate =
-                          DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy') // Adjust your format
-                              .parseStrict(controllers.text.trim());
+                      initialDate = DateFormat(
+                        controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                      ).parseStrict(controllers.text.trim());
                     } catch (e) {
                       print("Invalid date format: ${controllers.text}");
-                      initialDate = DateTime.now(); // fallback
+                      initialDate = DateTime.now();
                     }
                   }
 
@@ -2154,25 +8271,28 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
                     context: context,
                     initialDate: initialDate,
                     firstDate: DateTime(2000),
-                     lastDate: DateTime.now(),
+                    lastDate: DateTime.now(),
                   );
 
                   if (picked != null) {
-                    controllers.text = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(picked);
+                    controllers.text = DateFormat(
+                      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                    ).format(picked);
                     setState(() {
                       controller.selectedDate = picked;
 
                       controller.selectedProject = null;
                       for (var c in itemizeControllers) {
                         c.expenseCategory.value = [];
-                        c.categoryController.clear();
-                        c.projectDropDowncontroller.clear();
+                        // c.categoryController.clear();
+                        // c.projectDropDowncontroller.clear();
                       }
                     });
                     loadAndAppendCashAdvanceList();
-                    controller.fetchCashAdvanceExpenseCategory();
+                    controller.fetchExpenseCategory();
                     controller.fetchProjectName();
                     controller.selectedDate = picked;
+                    controller.fetchProjectName();
                   }
                 },
         ),
@@ -2181,11 +8301,10 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
     );
   }
 
-  // ... (keep all your existing helper methods below)
   Future<File?> _cropImage(File file) async {
     final croppedFile = await ImageCropper().cropImage(
       sourcePath: file.path,
-      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1), // optional
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
       uiSettings: [
         AndroidUiSettings(
           toolbarTitle: 'Crop Image',
@@ -2200,41 +8319,22 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
     if (croppedFile != null) {
       final croppedImage = File(croppedFile.path);
       return croppedImage;
-      // ignore: use_build_context_synchronously
-      // await controller.sendUploadedFileToServer(context, croppedImage);
     }
 
     return null;
   }
 
-  void _zoomIn() {
-    _photoViewController.scale = _photoViewController.scale! * 1.2;
-  }
-
-  void _zoomOut() {
-    _photoViewController.scale = _photoViewController.scale! / 1.2;
-  }
-
-  void _deleteImage() {
-    setState(() {
-      controller.imageFile = null;
-    });
-  }
-
   void _showFullImage(File file, int index) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(
-        0.9,
-      ), // darker transparent background
+      barrierColor: Colors.black.withOpacity(0.9),
       builder: (context) {
         return Dialog(
-          backgroundColor: Colors.transparent, // remove white box background
+          backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.all(8),
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Full image view
               PhotoView.customChild(
                 minScale: PhotoViewComputedScale.contained,
                 maxScale: PhotoViewComputedScale.covered * 9.0,
@@ -2244,20 +8344,18 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
                 child: Image.file(file, fit: BoxFit.contain),
               ),
 
-              // Close button (top-left)
               Positioned(
                 top: 30,
                 right: 20,
                 child: IconButton(
                   icon: const Icon(Icons.close, color: Colors.white, size: 30),
                   onPressed: () {
-                    controller.closeField();
+                    // controller.closeField();
                     Navigator.pop(context);
                   },
                 ),
               ),
 
-              // Floating edit & delete buttons (top-right)
               Positioned(
                 top: 80,
                 right: 20,
@@ -2345,7 +8443,7 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
   void showActionPopup(BuildContext context, String status) {
     final TextEditingController commentController = TextEditingController();
     bool isCommentError = false;
-    final loc = AppLocalizations.of(context)!;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -2375,7 +8473,7 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      loc.action,
+                      AppLocalizations.of(context)!.action,
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -2383,14 +8481,17 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
                     ),
                     if (status == "Escalate") ...[
                       Text(
-                        '${loc.selectUser}*',
+                        '${AppLocalizations.of(context)!.selectUser}*',
                         style: const TextStyle(fontSize: 16),
                       ),
                       const SizedBox(height: 8),
                       Obx(
                         () => SearchableMultiColumnDropdownField<User>(
-                          labelText: '${loc.user} *',
-                          columnHeaders: [loc.userName, loc.userId],
+                          labelText: '${AppLocalizations.of(context)!.user} *',
+                          columnHeaders: [
+                            AppLocalizations.of(context)!.userName,
+                            AppLocalizations.of(context)!.userId,
+                          ],
                           items: controller.userList,
                           selectedValue: controller.selectedUser.value,
                           searchValue: (user) =>
@@ -2430,7 +8531,9 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
                       controller: commentController,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        hintText: loc.enterCommentHere,
+                        hintText: AppLocalizations.of(
+                          context,
+                        )!.enterCommentHere,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide(
@@ -2464,7 +8567,7 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
                             controller.closeField();
                             Navigator.pop(context);
                           },
-                          child: Text(loc.close),
+                          child: Text(AppLocalizations.of(context)!.close),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton(
@@ -2475,7 +8578,6 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
                               return;
                             }
 
-                            // Show full-page loading indicator
                             showDialog(
                               context: context,
                               barrierDismissible: false,
@@ -2483,15 +8585,13 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
                                   const Center(child: SkeletonLoaderPage()),
                             );
 
-                            final success = await controller
-                                .approvalHubpostApprovalAction(
-                                  context,
-                                  workitemrecid: [workitemrecid!],
-                                  decision: status,
-                                  comment: commentController.text,
-                                );
+                            final success = await controller.postApprovalAction(
+                              context,
+                              workitemrecid: [workitemrecid!],
+                              decision: status,
+                              comment: commentController.text,
+                            );
 
-                            // Hide the loading indicator
                             if (Navigator.of(
                               context,
                               rootNavigator: true,
@@ -2504,7 +8604,7 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
                             if (success) {
                               Navigator.pushNamed(
                                 context,
-                                AppRoutes.approvalHubMain,
+                                AppRoutes.approvalDashboard,
                               );
                               controller.isApprovalEnable.value = false;
                             } else {
@@ -2534,38 +8634,37 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
     );
   }
 
-  String? _validateNumericField(
-    String value,
-    String fieldName,
-    bool isMandatory,
-  ) {
-    if (isMandatory && value.isEmpty) {
-      return '$fieldName ${AppLocalizations.of(context)!.fieldRequired}';
-    }
-    if (value.isNotEmpty) {
-      final numericValue = double.tryParse(value);
-      if (numericValue == null) {
-        return '$fieldName ${AppLocalizations.of(context)!.somethingWentWrong}';
-      }
-      if (numericValue < 0) {
-        return '$fieldName ${AppLocalizations.of(context)!.somethingWentWrong}';
-      }
-    }
-    return null;
-  }
-
-  String? _validateDateField(String value, String fieldName, bool isMandatory) {
-    if (isMandatory && value.isEmpty) {
-      return '$fieldName ${AppLocalizations.of(context)!.fieldRequired}';
-    }
-    if (value.isNotEmpty) {
-      try {
-        DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').parseStrict(value);
-      } catch (e) {
-        return '$fieldName ${AppLocalizations.of(context)!.somethingWentWrong}';
-      }
-    }
-    return null;
+  Widget _buildTextFieldUnitAmount({
+    required String label,
+    required TextEditingController controller,
+    required bool isReadOnly,
+    void Function(String)? onChanged,
+    List<TextInputFormatter>? inputFormatters,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 4),
+        TextFormField(
+          controller: controller,
+          enabled: isReadOnly,
+          onChanged: onChanged,
+          inputFormatters: inputFormatters,
+          keyboardType: keyboardType,
+          validator: validator,
+          decoration: InputDecoration(
+            labelText: label,
+            // contentPadding: const EdgeInsets.symmetric(
+            //   vertical: 20,
+            //   horizontal: 16,
+            // ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildTextField({
@@ -2598,71 +8697,6 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
           ),
         ),
         const SizedBox(height: 12),
-      ],
-    );
-  }
-
-  Widget _buildDropdownField({
-    required String label,
-    required List<String> items,
-    required String? selectedValue,
-    required bool isReadOnly,
-    required void Function(String?) onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-        ),
-        const SizedBox(height: 4),
-        DropdownButtonFormField<String>(
-          value: selectedValue,
-          decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 10,
-            ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-          ),
-          onChanged: isReadOnly ? null : onChanged,
-          items: items
-              .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
-              .toList(),
-        ),
-        const SizedBox(height: 12),
-      ],
-    );
-  }
-
-  Widget _buildCollapsibleItem(
-    String title,
-    bool expanded,
-    VoidCallback toggle,
-    Widget child,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: toggle,
-          child: Row(
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.blue,
-                  decoration: TextDecoration.underline,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Icon(expanded ? Icons.expand_less : Icons.expand_more),
-            ],
-          ),
-        ),
-        if (expanded)
-          Padding(padding: const EdgeInsets.only(top: 10), child: child),
       ],
     );
   }

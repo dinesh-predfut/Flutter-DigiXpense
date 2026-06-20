@@ -174,7 +174,11 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
       } else {
         controller.paidWithController.text = '';
       }
-
+      if (widget.items!.stepType == "Approval") {
+        controller.isEnable.value = false;
+        controller.isApprovalEnable.value = true;
+        
+      }
       selectedPaidTo = paidToOptions.first;
       selectedPaidWith = paidWithOptions.first;
       controller.locationController.text = widget.items!.location ?? '';
@@ -1344,7 +1348,7 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
             maxLines: 2,
           ),
           actions: [
-            if (widget.isReadOnly &&
+            if (widget.isReadOnly && 
                     widget.items != null &&
                     widget.items!.approvalStatus != "Cancelled" &&
                     widget.items!.approvalStatus != "Approved" &&
@@ -1364,23 +1368,23 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
                   },
                 ),
               ),
-            if (widget.items != null &&
-                widget.items!.stepType == "Approval" &&
-                PermissionHelper.canUpdate("Cash Advance Requisition"))
-              Obx(
-                () => IconButton(
-                  icon: Icon(
-                    controller.isApprovalEnable.value
-                        ? Icons.remove_red_eye
-                        : Icons.edit_document,
-                  ),
-                  onPressed: () {
-                    controller.isApprovalEnable.value =
-                        !controller.isApprovalEnable.value;
-                  },
-                ),
-              ),
-            const SizedBox.shrink(),
+            // if (widget.items != null &&
+            //     widget.items!.stepType == "Approval" &&
+            //     PermissionHelper.canUpdate("Cash Advance Requisition"))
+            //   Obx(
+            //     () => IconButton(
+            //       icon: Icon(
+            //         controller.isApprovalEnable.value
+            //             ? Icons.remove_red_eye
+            //             : Icons.edit_document,
+            //       ),
+            //       onPressed: () {
+            //         controller.isApprovalEnable.value =
+            //             !controller.isApprovalEnable.value;
+            //       },
+            //     ),
+            //   ),
+            // const SizedBox.shrink(),
           ],
         ),
         body: Obx(() {

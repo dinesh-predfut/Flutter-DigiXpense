@@ -738,6 +738,7 @@ class Controller extends GetxController {
     }
   }
 
+  Map<String, dynamic>? dynamicValues;
   Future<bool> updateTask({
     required int recId,
     required String taskName,
@@ -762,27 +763,20 @@ class Controller extends GetxController {
     String? bordeId,
     List<ChecklistItem>? checkLists,
     bool? main,
-    required Map<String, String?> taskData,
+
     DateTime? plannedStartDate,
     DateTime? plannedEndDate,
     required String riskLevel,
+    required List<Map<String, dynamic>> customFieldValues,
+    Map<String, dynamic>? taskData,
   }) async {
     try {
+      // 🆕 Configure Fields (Budget, LocationUrl, etc.)
+      // List<Map<String, dynamic>>? customFieldValues;
       // Prepare payload
       // / Prepare payload - fix for dependencies
       final payload = {
         "TaskName": taskName,
-
-        "TaskData": {
-          "Actual Hours": actualHours ?? 0,
-          "Parent Task": parentTask?.taskId ?? "",
-          "Estimated Hours": estimatedHours ?? 0,
-          "Card Types": selectedCardType?.boardCardId ?? "",
-          "Risk Level": riskLevel ?? "",
-          "Dependency": selectedDependencies.isNotEmpty
-              ? selectedDependencies.map((d) => d.taskId).join(',')
-              : "",
-        },
 
         "Notes": notes ?? "",
         "ShowNotes": showNotes,
@@ -832,8 +826,8 @@ class Controller extends GetxController {
               };
             }).toList() ??
             [],
-
-        "CustomFieldValues": [],
+        "TaskData": taskData,
+        "CustomFieldValues": customFieldValues,
       };
 
       // Remove null or empty TaskData if both fields are empty
@@ -889,7 +883,7 @@ class Controller extends GetxController {
 
         return false;
       }
-    } catch (e) {
+    } catch (e, struck) {
       Fluttertoast.showToast(
         msg: "Failed  to Update task ",
         toastLength: Toast.LENGTH_SHORT,
@@ -898,7 +892,7 @@ class Controller extends GetxController {
         textColor: Colors.white,
         fontSize: 16.0,
       );
-      // print('Error updating task: $e');
+      print('Error updating task: $struck');
       return false;
     }
   }
@@ -952,13 +946,14 @@ class Controller extends GetxController {
   RxBool isExporting = false.obs;
   RxList<WidgetDataResponse> currentDashboardWidgets =
       <WidgetDataResponse>[].obs;
-
+  RxList<VehicleType> vehicleTypes =
+      <VehicleType>[].obs;
   final wizardConfigs = <WizardConfig>[].obs;
   final widgetDataCache = <String, WidgetDataResponse>{}.obs;
   // final isLoadingWidgets = false.obs;
   // var currentRole = 'Spender'.obs;
   var showCashAdvance = false.obs;
-  List<VehicleType> vehicleTypes = []; // Dropdown values from API
+  // List<VehicleType> vehicleTypes = [].obs; // Dropdown values from API
   VehicleType? selectedVehicleType; // Currently selected type
   MileageRateResponse? mileageRateResponse;
   List<Map<String, dynamic>> mileageRateLines = [];
@@ -3082,6 +3077,50 @@ class Controller extends GetxController {
     return selectedFormat?.value ?? 'dd/MM/yyyy';
   }
 
+  RxList<CustomFieldModel> customFieldsBoards = <CustomFieldModel>[].obs;
+  // RxBool isLoadingCustomFields = false.obs;
+  RxMap<String, dynamic> customFieldValues = <String, dynamic>{}.obs;
+  Future<void> fetchCustomFieldsBoards({
+    required int taskRecId,
+    required String cardId,
+  }) async {
+    try {
+      isLoadingCustomFields.value = true;
+
+      final response = await ApiService.get(
+        Uri.parse(
+          "${Urls.baseURL}/api/v1/kanban/tasks/tasks/customfields?TaskRecId=$taskRecId&CardId=$cardId",
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+
+        List<dynamic> fields = [];
+
+        if (decoded is Map<String, dynamic>) {
+          fields = decoded["CustomFieldValues"] ?? [];
+        } else if (decoded is List) {
+          fields = decoded;
+        }
+
+        customFieldsBoards.value = fields
+            .map((item) => CustomFieldModel.fromJson(item))
+            .toList();
+
+        for (var field in customFieldsBoards) {
+          customFieldValues[field.fieldName] = field.defaultValue ?? '';
+        }
+      }
+    } catch (e, stackTrace) {
+      print("Error fetching custom fields: $e");
+
+      customFieldsBoards.clear();
+    } finally {
+      isLoadingCustomFields.value = false;
+    }
+  }
+
   // Then in your widge
   Future signIn(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
@@ -3376,7 +3415,7 @@ class Controller extends GetxController {
       isLoadingTemplates.value = true;
 
       final url = Uri.parse(
-        '${Urls.baseURL}/api/v1/kanban/template/customtemplate/template',
+        '${Urls.baseURL}/api/v1/kanban/template/customtemplate/template?CustomTemplate=true',
       );
 
       final response = await ApiService.get(url);
@@ -3565,6 +3604,7 @@ class Controller extends GetxController {
         textColor: Colors.red[800],
         fontSize: 16.0,
       );
+      print("stack$stack");
       return null;
     } finally {
       isLoadingGE1.value = false;
@@ -3882,7 +3922,7 @@ class Controller extends GetxController {
     selectedTax = null;
     selectedProject = null;
     selectedCategory = null;
-    selectedDate = DateTime.now();
+    // selectedDate = DateTime.now();
     imageFiles.clear();
     finalItems.clear();
     finalItemsSpecific.clear();
@@ -6680,7 +6720,7 @@ class Controller extends GetxController {
     isLoadingGE1.value = true;
     isLoadingGE2.value = true;
     final url = Uri.parse(
-      '${Urls.getProjectDropdown}?EmployeeId=$employeeId&TransactionDate=$fromDate',
+      '${Urls.getProjectDropdown}?EmployeeId=${employeeDropDownController.text}&TransactionDate=$fromDate',
     );
 
     try {
@@ -13708,7 +13748,7 @@ class Controller extends GetxController {
       // Guard against empty location
       print("fromDate111$fromDate");
       final url = Uri.parse(
-        '${Urls.perDiemFetchRate}$fromDate&Todate=$toDate&Location=$location&EmployeeId=$employeeId',
+        '${Urls.perDiemFetchRate}$fromDate&Todate=$toDate&Location=$location&EmployeeId=${employeeDropDownController.text}',
       );
       final response = await ApiService.get(url);
 
@@ -15324,7 +15364,7 @@ class Controller extends GetxController {
     try {
       final response = await ApiService.get(
         Uri.parse(
-          '${Urls.empmileagevehicledetails}${Params.employeeId}&ReceiptDate=$fromDate',
+          '${Urls.empmileagevehicledetails}${employeeDropDownController.text}&ReceiptDate=$fromDate',
         ),
       );
 
@@ -15333,7 +15373,7 @@ class Controller extends GetxController {
 
         final data = jsonDecode(response.body);
 
-        vehicleTypes = (data as List)
+        vehicleTypes.value = (data as List)
             .map((item) => VehicleType.fromJson(item))
             .toList();
         if (vehicleTypes.isNotEmpty) {
@@ -17555,7 +17595,7 @@ class Controller extends GetxController {
     viewCashAdvanceLoader.value = true;
     int receiptDateMillis = toStartOfDayUtc(selectedDate ?? DateTime.now());
     final url = Uri.parse(
-      '${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvreqids?EmployeeId=${Params.employeeId}&ProjectId=${selectedProject?.code ?? ''}&Location=${selectedLocation?.city ?? ''}&ExpenseCategoryId=&PaymentMethod=${paymentMethodeID ?? ''}&Currency=${currencyDropDowncontroller2.text ?? ""}&ReceiptDate=${receiptDateMillis ?? ''}',
+      '${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvreqids?EmployeeId=${employeeDropDownController.text}&ProjectId=${selectedProject?.code ?? ''}&Location=${selectedLocation?.city ?? ''}&ExpenseCategoryId=&PaymentMethod=${paymentMethodeID ?? ''}&Currency=${currencyDropDowncontroller2.text ?? ""}&ReceiptDate=${receiptDateMillis ?? ''}',
     );
 
     final response = await ApiService.get(url);
@@ -23219,6 +23259,7 @@ class Controller extends GetxController {
     return DateFormat('hh:mm a').format(time);
   }
 
+  final Rx<TaskConfigModel?> taskConfig = Rx<TaskConfigModel?>(null);
   Future<bool> updateChecklistStatus({
     required int recId,
     required bool status,
@@ -23259,8 +23300,6 @@ class Controller extends GetxController {
   }
 
   RxList<TaskFieldConfig> taskFields = <TaskFieldConfig>[].obs;
-
-  Map<String, dynamic> dynamicValues = {};
 
   Future<void> fetchTaskConfig(int taskRecId) async {
     final url = Uri.parse(
