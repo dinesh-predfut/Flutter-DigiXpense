@@ -53,10 +53,13 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _initializeDataCashAdvance();
       _loadSettings();
-      controller.fetchEmployeesID();
+      controller.fetchEmployeesID();  
       await controller.loadSequenceModules();
       controller.loadAllCustomFieldValues(
         savedValues: widget.item?.expenseHeaderCustomFieldValues,
+      );
+      controller.loadAllCategotyCustomFieldValues(
+        savedValues: widget.item?.expenseHeaderExpensecategorycustomfieldvalues,
       );
       controller.fetchLocation();
       controller.fetchUsers();
@@ -1042,6 +1045,390 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
 
                             Obx(() {
                               return Column(
+                                children: controller.categoryCustomFields
+                                    .where(
+                                      (field) =>
+                                          field['IsActive'] == true,
+                                    ) // Add this filter
+                                    .map((field) {
+                                      final String label =
+                                          field['FieldLabel'] ??
+                                          field['FieldName'];
+                                      final bool isMandatory =
+                                          field['IsMandatory'] ?? false;
+                                      final String fieldKey =
+                                          field['FieldName'];
+
+                                      // ✅ Create controller once, sync value from customFields
+                                      if (!fieldControllers.containsKey(
+                                        fieldKey,
+                                      )) {
+                                        fieldControllers[fieldKey] =
+                                            TextEditingController(
+                                              text:
+                                                  field['EnteredValue']
+                                                      ?.toString() ??
+                                                  '',
+                                            );
+                                      } else {
+                                        // ✅ Sync latest value into existing controller
+                                        final newText =
+                                            field['EnteredValue']?.toString() ??
+                                            '';
+                                        if (fieldControllers[fieldKey]!.text !=
+                                            newText) {
+                                          fieldControllers[fieldKey]!.text =
+                                              newText;
+                                        }
+                                      }
+
+                                      Widget inputField;
+
+                                      if (field['FieldType'] == 'List' ||
+                                          field['FieldType'] == 'CustomList' ||
+                                          field['FieldType'] == 'SystemList') {
+                                        inputField =
+                                            SearchableMultiColumnDropdownField<
+                                              CustomDropdownValue
+                                            >(
+                                              labelText:
+                                                  '$label${isMandatory ? " *" : ""}',
+                                              items:
+                                                  (field['Options']
+                                                      as List<
+                                                        CustomDropdownValue
+                                                      >?) ??
+                                                  [],
+                                              selectedValue:
+                                                  field['SelectedValue'],
+                                              searchValue: (val) =>
+                                                  val.valueName,
+                                              enabled:
+                                                  controller.isEditModePerdiem,
+                                              displayText: (val) =>
+                                                  val.valueName,
+                                              columnHeaders: const [
+                                                'Value ID',
+                                                'Value Name',
+                                              ],
+                                              rowBuilder: (val, searchQuery) =>
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 10,
+                                                          horizontal: 16,
+                                                        ),
+                                                    child: Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: Text(
+                                                            val.valueId,
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          child: Text(
+                                                            val.valueName,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                              onChanged: (val) {
+                                                field['SelectedValue'] = val;
+                                                field['EnteredValue'] = val?.valueId;
+                                                field['Error'] = null;
+                                                controller.categoryCustomFields
+                                                    .refresh();
+                                              },
+                                            );
+                                      } else if (field['FieldType'] ==
+                                          'Checkbox') {
+                                        inputField = CheckboxListTile(
+                                          title: Text(
+                                            '$label${isMandatory ? " *" : ""}',
+                                          ),
+                                          value:
+                                              field['EnteredValue'] ??
+                                              false, // ✅ reads live from map
+                                          enabled: controller.isEditModePerdiem,
+                                          controlAffinity:
+                                              ListTileControlAffinity.leading,
+                                          contentPadding: EdgeInsets.zero,
+                                          onChanged:
+                                              controller.isEditModePerdiem
+                                              ? (bool? val) {
+                                                  field['EnteredValue'] =
+                                                      val ?? false;
+                                                  controller.categoryCustomFields
+                                                      .refresh();
+                                                }
+                                              : null,
+                                        );
+                                      } else if (field['FieldType'] == 'Date' ||
+                                          field['FieldType'] == 'Date&Time') {
+                                        final bool isDateTime =
+                                            field['FieldType'] == 'Date&Time';
+
+                                        // ✅ Sync date text into controller
+                                        fieldControllers[fieldKey]!.text =
+                                            field['EnteredValue'] != null
+                                            ? isDateTime
+                                                  ? DateFormat(
+                                                      'dd/MM/yyyy hh:mm a',
+                                                    ).format(
+                                                      field['EnteredValue'],
+                                                    )
+                                                  : DateFormat(
+                                                      'dd/MM/yyyy',
+                                                    ).format(
+                                                      field['EnteredValue'],
+                                                    )
+                                            : '';
+
+                                        inputField = TextFormField(
+                                          enabled: controller.isEditModePerdiem,
+                                          readOnly: true,
+                                          controller:
+                                              fieldControllers[fieldKey], // ✅ use controller
+                                          decoration: InputDecoration(
+                                            labelText:
+                                                '$label${isMandatory ? " *" : ""}',
+                                            border: const OutlineInputBorder(),
+                                            errorText: field['Error'],
+                                            suffixIcon: const Icon(
+                                              Icons.calendar_today,
+                                            ),
+                                          ),
+                                          onTap: controller.isEditModePerdiem
+                                              ? () async {
+                                                  final DateTime?
+                                                  pickedDate = await showDatePicker(
+                                                    context: context,
+                                                    initialDate:
+                                                        field['EnteredValue'] ??
+                                                        DateTime.now(),
+                                                    firstDate: DateTime(2000),
+                                                    lastDate: DateTime(2100),
+                                                  );
+                                                  if (pickedDate == null)
+                                                    return;
+
+                                                  if (isDateTime) {
+                                                    final TimeOfDay?
+                                                    pickedTime = await showTimePicker(
+                                                      context: context,
+                                                      initialTime:
+                                                          field['EnteredValue'] !=
+                                                              null
+                                                          ? TimeOfDay.fromDateTime(
+                                                              field['EnteredValue'],
+                                                            )
+                                                          : TimeOfDay.now(),
+                                                    );
+                                                    if (pickedTime == null)
+                                                      return;
+                                                    field['EnteredValue'] =
+                                                        DateTime(
+                                                          pickedDate.year,
+                                                          pickedDate.month,
+                                                          pickedDate.day,
+                                                          pickedTime.hour,
+                                                          pickedTime.minute,
+                                                        );
+                                                  } else {
+                                                    field['EnteredValue'] =
+                                                        pickedDate;
+                                                  }
+                                                  controller.categoryCustomFields
+                                                      .refresh();
+                                                }
+                                              : null,
+                                          validator: (value) {
+                                            if (isMandatory &&
+                                                field['EnteredValue'] == null) {
+                                              return '$label is required';
+                                            }
+                                            return null;
+                                          },
+                                        );
+                                      } else if (field['FieldType'] ==
+                                          'LongInteger') {
+                                        inputField = TextFormField(
+                                          enabled: controller.isEditModePerdiem,
+                                          keyboardType: TextInputType.number,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                          ],
+                                          controller:
+                                              fieldControllers[fieldKey], // ✅ use controller
+                                          decoration: InputDecoration(
+                                            labelText:
+                                                '$label${isMandatory ? " *" : ""}',
+                                            border: const OutlineInputBorder(),
+                                            errorText: field['Error'],
+                                          ),
+                                          onChanged: (value) {
+                                            field['EnteredValue'] =
+                                                int.tryParse(value);
+                                          },
+                                          validator: (value) {
+                                            if (isMandatory &&
+                                                (value == null ||
+                                                    value.trim().isEmpty)) {
+                                              return '$label is required';
+                                            }
+                                            return null;
+                                          },
+                                        );
+                                      } else if (field['FieldType'] ==
+                                          'Decimal') {
+                                        inputField = TextFormField(
+                                          enabled: controller.isEditModePerdiem,
+                                          keyboardType:
+                                              const TextInputType.numberWithOptions(
+                                                decimal: true,
+                                              ),
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.allow(
+                                              RegExp(r'^\d+\.?\d*'),
+                                            ),
+                                          ],
+                                          controller:
+                                              fieldControllers[fieldKey], // ✅ use controller
+                                          decoration: InputDecoration(
+                                            labelText:
+                                                '$label${isMandatory ? " *" : ""}',
+                                            border: const OutlineInputBorder(),
+                                            errorText: field['Error'],
+                                          ),
+                                          onChanged: (value) {
+                                            field['EnteredValue'] =
+                                                double.tryParse(value);
+                                          },
+                                          validator: (value) {
+                                            if (isMandatory &&
+                                                (value == null ||
+                                                    value.trim().isEmpty)) {
+                                              return '$label is required';
+                                            }
+                                            return null;
+                                          },
+                                        );
+                                      } else if (field['FieldType'] ==
+                                          'Email') {
+                                        inputField = TextFormField(
+                                          enabled: controller.isEditModePerdiem,
+                                          keyboardType:
+                                              TextInputType.emailAddress,
+                                          controller:
+                                              fieldControllers[fieldKey], // ✅ use controller
+                                          decoration: InputDecoration(
+                                            labelText:
+                                                '$label${isMandatory ? " *" : ""}',
+                                            border: const OutlineInputBorder(),
+                                            errorText: field['Error'],
+                                            suffixIcon: const Icon(
+                                              Icons.email_outlined,
+                                            ),
+                                          ),
+                                          onChanged: (value) {
+                                            field['EnteredValue'] = value;
+                                          },
+                                          validator: (value) {
+                                            if (isMandatory &&
+                                                (value == null ||
+                                                    value.trim().isEmpty)) {
+                                              return '$label is required';
+                                            }
+                                            if (value != null &&
+                                                value.isNotEmpty) {
+                                              final emailRegex = RegExp(
+                                                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                              );
+                                              if (!emailRegex.hasMatch(value)) {
+                                                return 'Enter a valid email address';
+                                              }
+                                            }
+                                            return null;
+                                          },
+                                        );
+                                      } else if (field['FieldType'] ==
+                                          'MobileNumber') {
+                                        inputField = TextFormField(
+                                          enabled: controller.isEditModePerdiem,
+                                          keyboardType: TextInputType.phone,
+                                          controller:
+                                              fieldControllers[fieldKey], // ✅ use controller
+                                          decoration: InputDecoration(
+                                            labelText:
+                                                '$label${isMandatory ? " *" : ""}',
+                                            border: const OutlineInputBorder(),
+                                            errorText: field['Error'],
+                                            suffixIcon: const Icon(
+                                              Icons.phone_outlined,
+                                            ),
+                                          ),
+                                          onChanged: (value) {
+                                            field['EnteredValue'] = value;
+                                          },
+                                          validator: (value) {
+                                            if (isMandatory &&
+                                                (value == null ||
+                                                    value.trim().isEmpty)) {
+                                              return '$label is required';
+                                            }
+                                            if (value != null &&
+                                                value.isNotEmpty) {
+                                              final phoneRegex = RegExp(
+                                                r'^\+?[\d\s\-]{7,15}$',
+                                              );
+                                              if (!phoneRegex.hasMatch(value)) {
+                                                return 'Enter a valid mobile number';
+                                              }
+                                            }
+                                            return null;
+                                          },
+                                        );
+                                      } else {
+                                        // ✅ Default Text
+                                        inputField = TextFormField(
+                                          enabled: controller.isEditModePerdiem,
+                                          keyboardType: TextInputType.text,
+                                          controller:
+                                              fieldControllers[fieldKey],
+                                          decoration: InputDecoration(
+                                            labelText:
+                                                '$label${isMandatory ? " *" : ""}',
+                                            border: const OutlineInputBorder(),
+                                            errorText: field['Error'],
+                                          ),
+                                          onChanged: (value) {
+                                            field['EnteredValue'] = value;
+                                          },
+                                          validator: (value) {
+                                            if (isMandatory &&
+                                                (value == null ||
+                                                    value.trim().isEmpty)) {
+                                              return '$label is required';
+                                            }
+                                            return null;
+                                          },
+                                        );
+                                      }
+
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 8,
+                                        ),
+                                        child: inputField,
+                                      );
+                                    })
+                                    .toList(),
+                              );
+                            }),
+                             Obx(() {
+                              return Column(
                                 children: controller.customFields
                                     .where(
                                       (field) =>
@@ -1423,6 +1810,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                     .toList(),
                               );
                             }),
+                            
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [

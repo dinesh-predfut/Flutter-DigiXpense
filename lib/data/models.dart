@@ -1392,7 +1392,7 @@ class PerdiemResponseModel {
   final String? stepType;
   final int? workitemrecid;
   final List<Map<String, dynamic>> expenseHeaderCustomFieldValues;
-  final List<dynamic> expenseHeaderExpensecategorycustomfieldvalues;
+  final List<Map<String, dynamic>> expenseHeaderExpensecategorycustomfieldvalues;
   late List<AccountingDistribution> accountingDistributions;
   final List<AllocationLine> allocationLines;
 

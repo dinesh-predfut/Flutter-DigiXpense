@@ -74,7 +74,9 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       loadAndAppendCashAdvanceList();
       initializeCashAdvanceSelection();
       setupCustomFieldValidation(); // ✅ Add validation listeners
-
+controller.loadAllMillageCategotyCustomFieldValues(
+        savedValues: [],
+      );
       if (widget.mileageId != null) {
         controller.isEnable.value = false;
         historyFuture = controller.fetchExpenseHistory(widget.mileageId!.recId);
@@ -892,6 +894,621 @@ void scrollToFirstError() {
                                       ),
                                   ],
                                 ),
+
+Obx(() {
+                                return Column(
+                                  children: controller.categoryCustomFields
+                                      .where(
+                                        (field) =>
+                                            field['ObjectName'] ==
+                                                'ExpenseCategories' &&
+                                             field['IsActive'] == true,
+                                      )
+                                      .map((field) {
+                                        final String label =
+                                            field['FieldLabel'] ??
+                                            field['FieldName'];
+                                        final bool isMandatory =
+                                            field['IsMandatory'] ?? false;
+                                        final String fieldKey =
+                                            field['FieldName'];
+                                        final String fieldType =
+                                            field['FieldType'] ?? 'Text';
+                                        final bool isDateTime =
+                                            fieldType == 'Date&Time';
+
+                                        if (!fieldControllers.containsKey(
+                                          fieldKey,
+                                        )) {
+                                          fieldControllers[fieldKey] =
+                                              TextEditingController();
+                                        }
+
+                                        Widget inputField;
+
+                                        if (fieldType == 'List' ||
+                                            fieldType == 'CustomList' ||
+                                            fieldType == 'SystemList') {
+                                          if (field['_rxSelectedValue'] ==
+                                              null) {
+                                            field['_rxSelectedValue'] =
+                                                Rx<CustomDropdownValue?>(
+                                                  field['SelectedValue']
+                                                      as CustomDropdownValue?,
+                                                );
+                                          }
+
+                                          inputField = Obx(() {
+                                            final rxValue =
+                                                field['_rxSelectedValue']
+                                                    as Rx<CustomDropdownValue?>;
+                                            return SearchableMultiColumnDropdownField<
+                                              CustomDropdownValue
+                                            >(
+                                              labelText:
+                                                  '$label${isMandatory ? " *" : ""}',
+                                              items:
+                                                  (field['Options']
+                                                      as List<
+                                                        CustomDropdownValue
+                                                      >?) ??
+                                                  [],
+                                              selectedValue: rxValue.value,
+                                              searchValue: (val) =>
+                                                  val.valueName,
+                                              enabled:
+                                                  controller.isEnable.value,
+                                              displayText: (val) =>
+                                                  val.valueName,
+                                              columnHeaders: const [
+                                                'Value ID',
+                                                'Value Name',
+                                              ],
+                                              rowBuilder: (val, searchQuery) =>
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 10,
+                                                          horizontal: 16,
+                                                        ),
+                                                    child: Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: Text(
+                                                            val.valueId,
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          child: Text(
+                                                            val.valueName,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                              onChanged: (val) {
+                                                rxValue.value = val;
+                                                field['SelectedValue'] = val;
+                                                field['Error'] = null;
+                                              },
+                                            );
+                                          });
+                                        } else if (fieldType == 'Checkbox') {
+                                          if (field['_rxCheckboxValue'] ==
+                                              null) {
+                                            field['_rxCheckboxValue'] =
+                                                Rx<bool>(
+                                                  field['EnteredValue'] ??
+                                                      false,
+                                                );
+                                          }
+
+                                          inputField = Obx(() {
+                                            final rxValue =
+                                                field['_rxCheckboxValue']
+                                                    as Rx<bool>;
+                                            return CheckboxListTile(
+                                              title: Text(
+                                                '$label${isMandatory ? " *" : ""}',
+                                              ),
+                                              value: rxValue.value,
+                                              enabled:
+                                                  controller.isEnable.value,
+                                              controlAffinity:
+                                                  ListTileControlAffinity
+                                                      .leading,
+                                              contentPadding: EdgeInsets.zero,
+                                              onChanged:
+                                                  controller.isEnable.value
+                                                  ? (bool? val) {
+                                                      rxValue.value =
+                                                          val ?? false;
+                                                      field['EnteredValue'] =
+                                                          val ?? false;
+                                                      field['Error'] = null;
+                                                    }
+                                                  : null,
+                                            );
+                                          });
+                                        } else if (fieldType == 'Date' ||
+                                            fieldType == 'Date&Time') {
+                                          if (field['_rxDateValue'] == null) {
+                                            field['_rxDateValue'] =
+                                                Rx<DateTime?>(
+                                                  field['EnteredValue']
+                                                      as DateTime?,
+                                                );
+                                          }
+
+                                          inputField = Obx(() {
+                                            final rxDateValue =
+                                                field['_rxDateValue']
+                                                    as Rx<DateTime?>;
+                                            final currentDate =
+                                                rxDateValue.value;
+
+                                            if (currentDate != null) {
+                                              if (isDateTime) {
+                                                fieldControllers[fieldKey]!
+                                                    .text = DateFormat(
+                                                  'dd/MM/yyyy hh:mm a',
+                                                ).format(currentDate);
+                                              } else {
+                                                fieldControllers[fieldKey]!
+                                                    .text = DateFormat(
+                                                  'dd/MM/yyyy',
+                                                ).format(currentDate);
+                                              }
+                                            } else {
+                                              fieldControllers[fieldKey]!.text =
+                                                  '';
+                                            }
+
+                                            return TextFormField(
+                                              enabled:
+                                                  controller.isEnable.value,
+                                              readOnly: true,
+                                              controller:
+                                                  fieldControllers[fieldKey],
+                                              decoration: InputDecoration(
+                                                labelText:
+                                                    '$label${isMandatory ? " *" : ""}',
+                                                border:
+                                                    const OutlineInputBorder(),
+                                                errorText: field['Error'],
+                                                suffixIcon: const Icon(
+                                                  Icons.calendar_today,
+                                                ),
+                                              ),
+                                              onTap: controller.isEnable.value
+                                                  ? () async {
+                                                      DateTime? currentDate =
+                                                          rxDateValue.value ??
+                                                          DateTime.now();
+
+                                                      final DateTime?
+                                                      pickedDate =
+                                                          await showDatePicker(
+                                                            context: context,
+                                                            initialDate:
+                                                                currentDate,
+                                                            firstDate: DateTime(
+                                                              2000,
+                                                            ),
+                                                            lastDate: DateTime(
+                                                              2100,
+                                                            ),
+                                                          );
+
+                                                      if (pickedDate == null)
+                                                        return;
+
+                                                      if (isDateTime) {
+                                                        TimeOfDay initialTime =
+                                                            TimeOfDay.now();
+                                                        if (rxDateValue.value !=
+                                                            null) {
+                                                          initialTime =
+                                                              TimeOfDay.fromDateTime(
+                                                                rxDateValue
+                                                                    .value!,
+                                                              );
+                                                        }
+
+                                                        final TimeOfDay?
+                                                        pickedTime =
+                                                            await showTimePicker(
+                                                              context: context,
+                                                              initialTime:
+                                                                  initialTime,
+                                                            );
+
+                                                        if (pickedTime == null)
+                                                          return;
+
+                                                        final fullDateTime =
+                                                            DateTime(
+                                                              pickedDate.year,
+                                                              pickedDate.month,
+                                                              pickedDate.day,
+                                                              pickedTime.hour,
+                                                              pickedTime.minute,
+                                                            );
+
+                                                        rxDateValue.value =
+                                                            fullDateTime;
+                                                        field['EnteredValue'] =
+                                                            fullDateTime;
+                                                      } else {
+                                                        rxDateValue.value =
+                                                            pickedDate;
+                                                        field['EnteredValue'] =
+                                                            pickedDate;
+                                                      }
+
+                                                      field['Error'] = null;
+                                                    }
+                                                  : null,
+                                              validator: (value) {
+                                                if (isMandatory &&
+                                                    rxDateValue.value == null) {
+                                                  return '$label is required';
+                                                }
+                                                return null;
+                                              },
+                                            );
+                                          });
+                                        } else if (fieldType == 'LongInteger') {
+                                          if (field['_rxIntValue'] == null) {
+                                            field['_rxIntValue'] = Rx<int?>(
+                                              field['EnteredValue'] as int?,
+                                            );
+                                          }
+
+                                          inputField = Obx(() {
+                                            final rxValue =
+                                                field['_rxIntValue']
+                                                    as Rx<int?>;
+
+                                            final newText =
+                                                rxValue.value?.toString() ?? '';
+                                            if (fieldControllers[fieldKey]!
+                                                    .text !=
+                                                newText) {
+                                              WidgetsBinding.instance
+                                                  .addPostFrameCallback((_) {
+                                                    fieldControllers[fieldKey]!
+                                                            .text =
+                                                        newText;
+                                                  });
+                                            }
+
+                                            return TextFormField(
+                                              enabled:
+                                                  controller.isEnable.value,
+                                              keyboardType:
+                                                  TextInputType.number,
+                                              inputFormatters: [
+                                                FilteringTextInputFormatter
+                                                    .digitsOnly,
+                                              ],
+                                              controller:
+                                                  fieldControllers[fieldKey],
+                                              decoration: InputDecoration(
+                                                labelText:
+                                                    '$label${isMandatory ? " *" : ""}',
+                                                border:
+                                                    const OutlineInputBorder(),
+                                                errorText: field['Error'],
+                                              ),
+                                              onChanged: (value) {
+                                                final intValue = int.tryParse(
+                                                  value,
+                                                );
+                                                rxValue.value = intValue;
+                                                field['EnteredValue'] =
+                                                    intValue;
+                                                field['Error'] = null;
+                                              },
+                                              validator: (value) {
+                                                if (isMandatory &&
+                                                    (value == null ||
+                                                        value.trim().isEmpty)) {
+                                                  return '$label is required';
+                                                }
+                                                return null;
+                                              },
+                                            );
+                                          });
+                                        } else if (fieldType == 'Decimal') {
+                                          if (field['_rxDoubleValue'] == null) {
+                                            field['_rxDoubleValue'] =
+                                                Rx<double?>(
+                                                  field['EnteredValue']
+                                                      as double?,
+                                                );
+                                          }
+
+                                          inputField = Obx(() {
+                                            final rxValue =
+                                                field['_rxDoubleValue']
+                                                    as Rx<double?>;
+
+                                            final newText =
+                                                rxValue.value?.toString() ?? '';
+                                            if (fieldControllers[fieldKey]!
+                                                    .text !=
+                                                newText) {
+                                              WidgetsBinding.instance
+                                                  .addPostFrameCallback((_) {
+                                                    fieldControllers[fieldKey]!
+                                                            .text =
+                                                        newText;
+                                                  });
+                                            }
+
+                                            return TextFormField(
+                                              enabled:
+                                                  controller.isEnable.value,
+                                              keyboardType:
+                                                  const TextInputType.numberWithOptions(
+                                                    decimal: true,
+                                                  ),
+                                              inputFormatters: [
+                                                FilteringTextInputFormatter.allow(
+                                                  RegExp(r'^\d+\.?\d*'),
+                                                ),
+                                              ],
+                                              controller:
+                                                  fieldControllers[fieldKey],
+                                              decoration: InputDecoration(
+                                                labelText:
+                                                    '$label${isMandatory ? " *" : ""}',
+                                                border:
+                                                    const OutlineInputBorder(),
+                                                errorText: field['Error'],
+                                              ),
+                                              onChanged: (value) {
+                                                final doubleValue =
+                                                    double.tryParse(value);
+                                                rxValue.value = doubleValue;
+                                                field['EnteredValue'] =
+                                                    doubleValue;
+                                                field['Error'] = null;
+                                              },
+                                              validator: (value) {
+                                                if (isMandatory &&
+                                                    (value == null ||
+                                                        value.trim().isEmpty)) {
+                                                  return '$label is required';
+                                                }
+                                                return null;
+                                              },
+                                            );
+                                          });
+                                        } else if (fieldType == 'Email') {
+                                          if (field['_rxStringValue'] == null) {
+                                            field['_rxStringValue'] =
+                                                Rx<String?>(
+                                                  field['EnteredValue']
+                                                      as String?,
+                                                );
+                                          }
+
+                                          inputField = Obx(() {
+                                            final rxValue =
+                                                field['_rxStringValue']
+                                                    as Rx<String?>;
+
+                                            final newText = rxValue.value ?? '';
+                                            if (fieldControllers[fieldKey]!
+                                                    .text !=
+                                                newText) {
+                                              WidgetsBinding.instance
+                                                  .addPostFrameCallback((_) {
+                                                    fieldControllers[fieldKey]!
+                                                            .text =
+                                                        newText;
+                                                  });
+                                            }
+
+                                            return TextFormField(
+                                              enabled:
+                                                  controller.isEnable.value,
+                                              keyboardType:
+                                                  TextInputType.emailAddress,
+                                              controller:
+                                                  fieldControllers[fieldKey],
+                                              decoration: InputDecoration(
+                                                labelText:
+                                                    '$label${isMandatory ? " *" : ""}',
+                                                border:
+                                                    const OutlineInputBorder(),
+                                                errorText: field['Error'],
+                                                suffixIcon: const Icon(
+                                                  Icons.email_outlined,
+                                                ),
+                                              ),
+                                              onChanged: (value) {
+                                                rxValue.value = value;
+                                                field['EnteredValue'] = value;
+                                                field['Error'] = null;
+                                              },
+                                              validator: (value) {
+                                                if (isMandatory &&
+                                                    (value == null ||
+                                                        value.trim().isEmpty)) {
+                                                  return '$label is required';
+                                                }
+                                                if (value != null &&
+                                                    value.isNotEmpty) {
+                                                  final emailRegex = RegExp(
+                                                    r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                                  );
+                                                  if (!emailRegex.hasMatch(
+                                                    value,
+                                                  )) {
+                                                    return 'Enter a valid email address';
+                                                  }
+                                                }
+                                                return null;
+                                              },
+                                            );
+                                          });
+                                        } else if (fieldType ==
+                                            'MobileNumber') {
+                                          if (field['_rxStringValue'] == null ||
+                                              field['_rxStringValue']
+                                                  is! Rx<String?>) {
+                                            field['_rxStringValue'] =
+                                                Rx<String?>(
+                                                  field['EnteredValue']
+                                                      ?.toString(),
+                                                );
+                                          }
+
+                                          inputField = Obx(() {
+                                            final Rx<String?> rxValue =
+                                                field['_rxStringValue']
+                                                    as Rx<String?>;
+
+                                            final newText = rxValue.value ?? '';
+
+                                            if (fieldControllers[fieldKey]!
+                                                    .text !=
+                                                newText) {
+                                              WidgetsBinding.instance
+                                                  .addPostFrameCallback((_) {
+                                                    if (fieldControllers
+                                                        .containsKey(
+                                                          fieldKey,
+                                                        )) {
+                                                      fieldControllers[fieldKey]!
+                                                              .text =
+                                                          newText;
+                                                    }
+                                                  });
+                                            }
+
+                                            return TextFormField(
+                                              enabled:
+                                                  controller.isEnable.value,
+                                              keyboardType: TextInputType.phone,
+                                              controller:
+                                                  fieldControllers[fieldKey],
+                                              decoration: InputDecoration(
+                                                labelText:
+                                                    '$label${isMandatory ? " *" : ""}',
+                                                border:
+                                                    const OutlineInputBorder(),
+                                                errorText: field['Error'],
+                                                suffixIcon: const Icon(
+                                                  Icons.phone_outlined,
+                                                ),
+                                              ),
+                                              onChanged: (value) {
+                                                rxValue.value = value;
+                                                field['EnteredValue'] = value;
+                                                field['Error'] = null;
+                                              },
+                                              validator: (value) {
+                                                if (isMandatory &&
+                                                    (value == null ||
+                                                        value.trim().isEmpty)) {
+                                                  return '$label is required';
+                                                }
+
+                                                if (value != null &&
+                                                    value.isNotEmpty) {
+                                                  final phoneRegex = RegExp(
+                                                    r'^\+?[\d\s\-]{7,15}$',
+                                                  );
+
+                                                  if (!phoneRegex.hasMatch(
+                                                    value,
+                                                  )) {
+                                                    return 'Enter a valid mobile number';
+                                                  }
+                                                }
+
+                                                return null;
+                                              },
+                                            );
+                                          });
+                                        } else {
+                                          if (field['_rxStringValue'] == null ||
+                                              field['_rxStringValue']
+                                                  is! Rx<String?>) {
+                                            field['_rxStringValue'] =
+                                                Rx<String?>(
+                                                  field['EnteredValue']
+                                                      ?.toString(),
+                                                );
+                                          }
+
+                                          inputField = Obx(() {
+                                            final Rx<String?> rxValue =
+                                                field['_rxStringValue']
+                                                    as Rx<String?>;
+
+                                            final newText = rxValue.value ?? '';
+
+                                            if (fieldControllers[fieldKey]!
+                                                    .text !=
+                                                newText) {
+                                              WidgetsBinding.instance
+                                                  .addPostFrameCallback((_) {
+                                                    if (fieldControllers
+                                                        .containsKey(
+                                                          fieldKey,
+                                                        )) {
+                                                      fieldControllers[fieldKey]!
+                                                              .text =
+                                                          newText;
+                                                    }
+                                                  });
+                                            }
+
+                                            return TextFormField(
+                                              enabled:
+                                                  controller.isEnable.value,
+                                              keyboardType: TextInputType.text,
+                                              controller:
+                                                  fieldControllers[fieldKey],
+                                              decoration: InputDecoration(
+                                                labelText:
+                                                    '$label${isMandatory ? " *" : ""}',
+                                                border:
+                                                    const OutlineInputBorder(),
+                                                errorText: field['Error'],
+                                              ),
+                                              onChanged: (value) {
+                                                rxValue.value = value;
+                                                field['EnteredValue'] = value;
+                                                field['Error'] = null;
+                                              },
+                                              validator: (value) {
+                                                if (isMandatory &&
+                                                    (value == null ||
+                                                        value.trim().isEmpty)) {
+                                                  return '$label is required';
+                                                }
+                                                return null;
+                                              },
+                                            );
+                                          });
+                                        }
+
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 8,
+                                          ),
+                                          child: inputField,
+                                        );
+                                      })
+                                      .toList(),
+                                );
+                              }),
 
                               Obx(() {
                                 return Column(

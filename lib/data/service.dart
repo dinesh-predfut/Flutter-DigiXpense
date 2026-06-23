@@ -1226,7 +1226,8 @@ class Controller extends GetxController {
   RxDouble calculatedAmountUSD = 0.0.obs;
   double totalDistanceKm = 0;
   bool isRoundTrip = false;
-  RxList<dynamic> customFields = <dynamic>[].obs; // bool isInitialized = true;
+  RxList<dynamic> customFields = <dynamic>[].obs; 
+  RxList<dynamic> categoryCustomFields = <dynamic>[].obs; // bool isInitialized = true;
   var notifications = <NotificationModel>[].obs;
   var unreadNotifications = <NotificationModel>[].obs;
   late List<ProjectData> chartData = [];
@@ -14249,6 +14250,38 @@ class Controller extends GetxController {
             };
           })
           .toList();
+
+          final expenseCategoryCustomFields = categoryCustomFields.map((field) {
+  dynamic fieldValue;
+
+  if (field['FieldType'] == 'List' ||
+      field['FieldType'] == 'CustomList' ||
+      field['FieldType'] == 'SystemList') {
+    fieldValue = field['SelectedValue']?.valueId ?? '';
+  } else if (field['FieldType'] == 'Checkbox') {
+    fieldValue = field['EnteredValue'] ?? false;
+  } else if (field['FieldType'] == 'Date') {
+    fieldValue = field['EnteredValue'] != null
+        ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+        : '';
+  } else if (field['FieldType'] == 'Date&Time') {
+    fieldValue = field['EnteredValue'] != null
+        ? DateFormat('dd/MM/yyyy hh:mm a')
+            .format(field['EnteredValue'])
+        : '';
+  } else {
+    fieldValue = field['EnteredValue']?.toString() ?? '';
+  }
+
+  return {
+    "CustomFieldEntity":
+        field['ObjectName'] ?? 'ExpenseCategories',
+    "FieldId": field['FieldId'] ?? '',
+    "FieldName": field['FieldName'] ?? '',
+    "FieldType": field['FieldType'] ?? '',
+    "FieldValue": fieldValue,
+  };
+}).toList();
       return {
         "ExpenseId": expenseID ?? '',
         // ignore: prefer_null_aware_operators
@@ -14295,7 +14328,7 @@ class Controller extends GetxController {
               ) // ✅ 23:59:59:999
             : null,
         "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
-        "ExpenseHeaderExpensecategorycustomfieldvalues": [],
+        "ExpenseHeaderExpensecategorycustomfieldvalues": expenseCategoryCustomFields,
         "AccountingDistributions": accountingDistributions.isNotEmpty
             ? accountingDistributions.map((e) => e?.toJson()).toList()
             : [],
@@ -14304,6 +14337,12 @@ class Controller extends GetxController {
             : [],
       };
     }
+
+    print(
+  jsonEncode(
+    buildPayload()["ExpenseHeaderExpensecategorycustomfieldvalues"],
+  ),
+);
 
     try {
       final response = await ApiService.post(
@@ -15580,6 +15619,39 @@ class Controller extends GetxController {
             };
           })
           .toList();
+
+          final milegeExpenseCategoryCustomFields = categoryCustomFields.map((field) {
+  dynamic fieldValue;
+
+  if (field['FieldType'] == 'List' ||
+      field['FieldType'] == 'CustomList' ||
+      field['FieldType'] == 'SystemList') {
+    fieldValue = field['SelectedValue']?.valueId ?? '';
+  } else if (field['FieldType'] == 'Checkbox') {
+    fieldValue = field['EnteredValue'] ?? false;
+  } else if (field['FieldType'] == 'Date') {
+    fieldValue = field['EnteredValue'] != null
+        ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+        : '';
+  } else if (field['FieldType'] == 'Date&Time') {
+    fieldValue = field['EnteredValue'] != null
+        ? DateFormat('dd/MM/yyyy hh:mm a')
+            .format(field['EnteredValue'])
+        : '';
+  } else {
+    fieldValue = field['EnteredValue']?.toString() ?? '';
+  }
+
+  return {
+    "CustomFieldEntity":
+        field['ObjectName'] ?? 'ExpenseCategories',
+    "FieldId": field['FieldId'] ?? '',
+    "FieldName": field['FieldName'] ?? '',
+    "FieldType": field['FieldType'] ?? '',
+    "FieldValue": fieldValue,
+  };
+}).toList();
+
       // 🔹 Prepare main payload
       final payload = {
         "TotalAmountTrans": calculatedAmountINR,
@@ -15603,7 +15675,7 @@ class Controller extends GetxController {
         "ToLocation": tripControllers.last.text,
         "CashAdvReqId": cashAdvanceIds.text,
         "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
-        "ExpenseHeaderExpensecategorycustomfieldvalues": [],
+        "ExpenseHeaderExpensecategorycustomfieldvalues": milegeExpenseCategoryCustomFields,
         "AccountingDistributions": accountingDistributions.isNotEmpty
             ? accountingDistributions.map((e) => e?.toJson()).toList()
             : [],
@@ -15964,6 +16036,77 @@ class Controller extends GetxController {
       throw Exception('Failed to load custom fields: ${response.statusCode}');
     }
   }
+
+  Future<void> fetchCategoryCustomFields() async {
+    isLoadingGE1.value = true;
+
+   
+    final parsedDate = DateFormat(
+  selectedFormat?.key ?? 'dd/MM/yyyy',
+).parse(fromDateController.text);
+   final fromDateMillis = toStartOfDayUtc(parsedDate);
+    //  //  // print("receiptDate$receiptDate");
+    print("From Date => ${fromDateController.text}");
+print("Timestamp => $fromDateMillis");
+    final url = Uri.parse(
+  "${Urls.getCategoryCustomField}$fromDateMillis",
+);
+print("URL => $url");
+
+    final response = await ApiService.get(url);
+
+    if (response.statusCode == 200) {
+      final List<dynamic> fetchedFields = json.decode(response.body);
+      isLoadingGE1.value = false;
+
+      categoryCustomFields.value = fetchedFields;
+    } else {
+      isLoadingGE1.value = false;
+
+      throw Exception('Failed to load custom fields: ${response.statusCode}');
+    }
+  }
+
+
+ Future<void> fetchMileageCategoryCustomFields() async {
+    isLoadingGE1.value = true;
+
+   final DateTime dateToFormat = selectedDate ?? DateTime.now();
+   final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateToFormat);
+
+ final parsedDate = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).parse(formatted.toString());
+    final milegeDate = toStartOfDayUtc(parsedDate);
+
+
+    
+    //  //  // print("receiptDate$receiptDate");
+    print("From Date => ${selectedDate}");
+print("Timestamp => $milegeDate");
+    final url = Uri.parse(
+  "${Urls.getMilegeCategoryCustomField}$milegeDate",
+);
+print("URL => $url");
+
+    final response = await ApiService.get(url);
+
+    if (response.statusCode == 200) {
+      final List<dynamic> fetchedFields = json.decode(response.body);
+      isLoadingGE1.value = false;
+
+      categoryCustomFields.value = fetchedFields;
+    } else {
+      isLoadingGE1.value = false;
+
+      throw Exception('Failed to load custom fields: ${response.statusCode}');
+    }
+  }
+
+  
+
 
   Future<List<DimensionHierarchy>> fetchDimensionHierarchies() async {
     int todayEpoch = toStartOfDayUtc(DateTime.now());
@@ -19132,6 +19275,253 @@ class Controller extends GetxController {
     print("Custom fields refresh called. Total fields: ${customFields.length}");
   }
 
+  Future<void> loadAllCategotyCustomFieldValues({
+    List<Map<String, dynamic>>? savedValues,
+  }) async {
+    /// Step 1: Fetch custom field definitions
+    await fetchCategoryCustomFields();
+    print("category customFields after fetch: ${categoryCustomFields.length}");
+
+    if (categoryCustomFields.isEmpty) {
+      print("No custom fields found");
+      return;
+    }
+
+    /// Step 2: Fetch options for ALL dropdown fields in parallel
+    final dropdownFieldIds = categoryCustomFields
+        .where((field) {
+          final fieldType = field['FieldType'];
+          return fieldType == 'List' ||
+              fieldType == 'CustomList' ||
+              fieldType == 'SystemList';
+        })
+        .map((field) => field['FieldId']?.toString())
+        .where((id) => id != null)
+        .cast<String>()
+        .toList();
+
+    if (dropdownFieldIds.isNotEmpty) {
+      await Future.wait(
+        dropdownFieldIds.map((fieldId) => fetchCustomFieldValues(fieldId)),
+      );
+    }
+
+    print("All dropdown options loaded");
+
+    /// Step 3: Initialize reactive values AND apply saved/default values
+    for (int i = 0; i < categoryCustomFields.length; i++) {
+      final field = categoryCustomFields[i];
+      final fieldType = field['FieldType']?.toString().toLowerCase();
+      final fieldName = field['FieldName']?.toString() ?? 'Unknown';
+
+      /// Try to find a matching saved value
+      Map<String, dynamic>? match;
+      dynamic rawValue;
+
+      if (savedValues != null && savedValues.isNotEmpty) {
+        match = savedValues.firstWhereOrNull(
+          (sv) => sv['FieldId'] == field['FieldId'] || sv['FieldName'] == field['FieldName'],
+        );
+
+        if (match != null && match['FieldValue'] != null) {
+          // Don't convert to string - keep the original type
+          rawValue = match['FieldValue'];
+          print(
+            "Found saved value for $fieldName: $rawValue (${rawValue.runtimeType})",
+          );
+        }
+      }
+
+      // If no saved value, use default value
+      if (rawValue == null && field['DefaultValue'] != null) {
+        rawValue = field['DefaultValue'];
+        print(
+          "Using default value for $fieldName: $rawValue (${rawValue.runtimeType})",
+        );
+      }
+
+      print(
+        "Field: $fieldName | Type: $fieldType | Raw Value Type: ${rawValue?.runtimeType} | Raw Value: $rawValue",
+      );
+
+      /// ================= INITIALIZE REACTIVE VALUES FOR EACH FIELD TYPE =================
+
+      // DROPDOWN
+      if (fieldType == 'list' ||
+          fieldType == 'customlist' ||
+          fieldType == 'systemlist') {
+        final options = (field['Options'] as List<CustomDropdownValue>?) ?? [];
+
+        CustomDropdownValue? matched;
+        if (rawValue != null) {
+          final valueStr = rawValue.toString().toLowerCase();
+          matched = options.firstWhereOrNull(
+            (opt) =>
+                opt.valueId.toLowerCase() == valueStr ||
+                opt.valueName.toLowerCase() == valueStr,
+          );
+        }
+
+        field['_rxSelectedValue'] = Rx<CustomDropdownValue?>(matched);
+        field['SelectedValue'] = matched;
+        field['EnteredValue'] = matched?.valueId;
+        print(
+          "✅ Dropdown $fieldName initialized with: ${matched?.valueName ?? 'null'}",
+        );
+      }
+      // CHECKBOX
+      else if (fieldType == 'checkbox') {
+        bool boolValue = false;
+        if (rawValue is bool) {
+          boolValue = rawValue;
+        } else if (rawValue is String) {
+          boolValue = rawValue.toLowerCase() == 'true';
+        } else if (rawValue is int) {
+          boolValue = rawValue == 1;
+        } else if (rawValue is double) {
+          boolValue = rawValue == 1.0;
+        }
+        field['_rxCheckboxValue'] = Rx<bool>(boolValue);
+        field['EnteredValue'] = boolValue;
+        print("✅ Checkbox $fieldName initialized with: $boolValue");
+      }
+      // DATE
+      else if (fieldType == 'date') {
+        DateTime? dateValue;
+        if (rawValue != null) {
+          if (rawValue is DateTime) {
+            dateValue = rawValue;
+          } else if (rawValue is int) {
+            dateValue = DateTime.fromMillisecondsSinceEpoch(rawValue);
+          } else if (rawValue is double) {
+            dateValue = DateTime.fromMillisecondsSinceEpoch(rawValue.toInt());
+          } else if (rawValue is String && rawValue.isNotEmpty) {
+            try {
+              final millis = int.tryParse(rawValue);
+              dateValue = millis != null
+                  ? DateTime.fromMillisecondsSinceEpoch(millis)
+                  : DateTime.tryParse(rawValue);
+              if (dateValue == null) {
+                dateValue = DateFormat('dd/MM/yyyy').tryParse(rawValue);
+              }
+            } catch (e) {
+              print("Date parse error for $fieldName: $e");
+            }
+          }
+        }
+        field['_rxDateValue'] = Rx<DateTime?>(dateValue);
+        field['EnteredValue'] = dateValue;
+        print("✅ Date $fieldName initialized with: $dateValue");
+      }
+      // DATE & TIME
+      else if (fieldType == 'date&time') {
+        DateTime? dateTimeValue;
+        if (rawValue != null) {
+          if (rawValue is DateTime) {
+            dateTimeValue = rawValue;
+          } else if (rawValue is int) {
+            dateTimeValue = DateTime.fromMillisecondsSinceEpoch(rawValue);
+          } else if (rawValue is double) {
+            dateTimeValue = DateTime.fromMillisecondsSinceEpoch(
+              rawValue.toInt(),
+            );
+          } else if (rawValue is String && rawValue.isNotEmpty) {
+            try {
+              final millis = int.tryParse(rawValue);
+              dateTimeValue = millis != null
+                  ? DateTime.fromMillisecondsSinceEpoch(millis)
+                  : DateTime.tryParse(rawValue);
+              if (dateTimeValue == null) {
+                dateTimeValue = DateFormat(
+                  'dd/MM/yyyy hh:mm a',
+                ).tryParse(rawValue);
+              }
+            } catch (e) {
+              print("DateTime parse error for $fieldName: $e");
+            }
+          }
+        }
+        field['_rxDateValue'] = Rx<DateTime?>(dateTimeValue);
+        field['EnteredValue'] = dateTimeValue;
+        print("✅ DateTime $fieldName initialized with: $dateTimeValue");
+      }
+      // INTEGER / LONG INTEGER
+      else if (fieldType == 'integer' || fieldType == 'longinteger') {
+        int? intValue;
+        if (rawValue is int) {
+          intValue = rawValue;
+        } else if (rawValue is double) {
+          intValue = rawValue.toInt();
+        } else if (rawValue is String && rawValue.isNotEmpty) {
+          intValue = int.tryParse(rawValue);
+        }
+        field['_rxIntValue'] = Rx<int?>(intValue);
+        field['EnteredValue'] = intValue;
+        print("✅ Integer $fieldName initialized with: $intValue");
+      }
+      // DECIMAL / AMOUNT / PERCENTAGE
+      else if (fieldType == 'decimal' ||
+          fieldType == 'amount' ||
+          fieldType == 'percent' ||
+          fieldType == 'percentage') {
+        double? doubleValue;
+        if (rawValue is double) {
+          doubleValue = rawValue;
+        } else if (rawValue is int) {
+          doubleValue = rawValue.toDouble();
+        } else if (rawValue is String && rawValue.isNotEmpty) {
+          doubleValue = double.tryParse(rawValue);
+        }
+        field['_rxDoubleValue'] = Rx<double?>(doubleValue);
+        field['EnteredValue'] = doubleValue;
+        print(
+          "✅ Decimal/Amount/Percent $fieldName initialized with: $doubleValue",
+        );
+      }
+      // EMAIL
+      else if (fieldType == 'email') {
+        final stringValue = rawValue?.toString() ?? '';
+        field['_rxStringValue'] = Rx<String?>(stringValue);
+        field['EnteredValue'] = stringValue;
+        print("✅ Email $fieldName initialized with: $stringValue");
+      }
+      // MOBILE NUMBER
+      else if (fieldType == 'mobilenumber') {
+        final stringValue = rawValue?.toString() ?? '';
+        field['_rxStringValue'] = Rx<String?>(stringValue);
+        field['EnteredValue'] = stringValue;
+        print("✅ Mobile $fieldName initialized with: $stringValue");
+      }
+      // URL
+      else if (fieldType == 'url') {
+        final stringValue = rawValue?.toString() ?? '';
+        field['_rxStringValue'] = Rx<String?>(stringValue);
+        field['EnteredValue'] = stringValue;
+        print("✅ URL $fieldName initialized with: $stringValue");
+      }
+      // TEXT / TEXTAREA / DEFAULT
+      else {
+        final stringValue = rawValue?.toString() ?? '';
+        field['_rxStringValue'] = Rx<String?>(stringValue);
+        field['EnteredValue'] = stringValue;
+        print("✅ Text $fieldName initialized with: $stringValue");
+      }
+
+      // Clear any errors
+      field['Error'] = null;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      categoryCustomFields.refresh();
+    });
+    print("Custom fields refresh called. Total fields: ${categoryCustomFields.length}");
+  }
+
+
+
+
+
+
   Future<void> fetchCustomFieldValues(String fieldId) async {
     print("Fetching options for fieldId: $fieldId");
 
@@ -19190,6 +19580,253 @@ class Controller extends GetxController {
       /// once at the end of loadAllCustomFieldValues after all values are set
     }
   }
+
+
+Future<void>  loadAllMillageCategotyCustomFieldValues({
+    List<Map<String, dynamic>>? savedValues,
+  })
+  async {
+    /// Step 1: Fetch custom field definitions
+    await fetchMileageCategoryCustomFields();
+    print("category customFields after fetch: ${categoryCustomFields.length}");
+
+    if (categoryCustomFields.isEmpty) {
+      print("No custom fields found");
+      return;
+    }
+
+    /// Step 2: Fetch options for ALL dropdown fields in parallel
+    final dropdownFieldIds = categoryCustomFields
+        .where((field) {
+          final fieldType = field['FieldType'];
+          return fieldType == 'List' ||
+              fieldType == 'CustomList' ||
+              fieldType == 'SystemList';
+        })
+        .map((field) => field['FieldId']?.toString())
+        .where((id) => id != null)
+        .cast<String>()
+        .toList();
+
+    if (dropdownFieldIds.isNotEmpty) {
+      await Future.wait(
+        dropdownFieldIds.map((fieldId) => fetchCustomFieldValues(fieldId)),
+      );
+    }
+
+    print("All dropdown options loaded");
+
+    /// Step 3: Initialize reactive values AND apply saved/default values
+    for (int i = 0; i < categoryCustomFields.length; i++) {
+      final field = categoryCustomFields[i];
+      final fieldType = field['FieldType']?.toString().toLowerCase();
+      final fieldName = field['FieldName']?.toString() ?? 'Unknown';
+
+      /// Try to find a matching saved value
+      Map<String, dynamic>? match;
+      dynamic rawValue;
+
+      if (savedValues != null && savedValues.isNotEmpty) {
+        match = savedValues.firstWhereOrNull(
+          (sv) => sv['FieldId'] == field['FieldId'] || sv['FieldName'] == field['FieldName'],
+        );
+
+        if (match != null && match['FieldValue'] != null) {
+          // Don't convert to string - keep the original type
+          rawValue = match['FieldValue'];
+          print(
+            "Found saved value for $fieldName: $rawValue (${rawValue.runtimeType})",
+          );
+        }
+      }
+
+      // If no saved value, use default value
+      if (rawValue == null && field['DefaultValue'] != null) {
+        rawValue = field['DefaultValue'];
+        print(
+          "Using default value for $fieldName: $rawValue (${rawValue.runtimeType})",
+        );
+      }
+
+      print(
+        "Field: $fieldName | Type: $fieldType | Raw Value Type: ${rawValue?.runtimeType} | Raw Value: $rawValue",
+      );
+
+      /// ================= INITIALIZE REACTIVE VALUES FOR EACH FIELD TYPE =================
+
+      // DROPDOWN
+      if (fieldType == 'list' ||
+          fieldType == 'customlist' ||
+          fieldType == 'systemlist') {
+        final options = (field['Options'] as List<CustomDropdownValue>?) ?? [];
+
+        CustomDropdownValue? matched;
+        if (rawValue != null) {
+          final valueStr = rawValue.toString().toLowerCase();
+          matched = options.firstWhereOrNull(
+            (opt) =>
+                opt.valueId.toLowerCase() == valueStr ||
+                opt.valueName.toLowerCase() == valueStr,
+          );
+        }
+
+        field['_rxSelectedValue'] = Rx<CustomDropdownValue?>(matched);
+        field['SelectedValue'] = matched;
+        field['EnteredValue'] = matched?.valueId;
+        print(
+          "✅ Dropdown $fieldName initialized with: ${matched?.valueName ?? 'null'}",
+        );
+      }
+      // CHECKBOX
+      else if (fieldType == 'checkbox') {
+        bool boolValue = false;
+        if (rawValue is bool) {
+          boolValue = rawValue;
+        } else if (rawValue is String) {
+          boolValue = rawValue.toLowerCase() == 'true';
+        } else if (rawValue is int) {
+          boolValue = rawValue == 1;
+        } else if (rawValue is double) {
+          boolValue = rawValue == 1.0;
+        }
+        field['_rxCheckboxValue'] = Rx<bool>(boolValue);
+        field['EnteredValue'] = boolValue;
+        print("✅ Checkbox $fieldName initialized with: $boolValue");
+      }
+      // DATE
+      else if (fieldType == 'date') {
+        DateTime? dateValue;
+        if (rawValue != null) {
+          if (rawValue is DateTime) {
+            dateValue = rawValue;
+          } else if (rawValue is int) {
+            dateValue = DateTime.fromMillisecondsSinceEpoch(rawValue);
+          } else if (rawValue is double) {
+            dateValue = DateTime.fromMillisecondsSinceEpoch(rawValue.toInt());
+          } else if (rawValue is String && rawValue.isNotEmpty) {
+            try {
+              final millis = int.tryParse(rawValue);
+              dateValue = millis != null
+                  ? DateTime.fromMillisecondsSinceEpoch(millis)
+                  : DateTime.tryParse(rawValue);
+              if (dateValue == null) {
+                dateValue = DateFormat('dd/MM/yyyy').tryParse(rawValue);
+              }
+            } catch (e) {
+              print("Date parse error for $fieldName: $e");
+            }
+          }
+        }
+        field['_rxDateValue'] = Rx<DateTime?>(dateValue);
+        field['EnteredValue'] = dateValue;
+        print("✅ Date $fieldName initialized with: $dateValue");
+      }
+      // DATE & TIME
+      else if (fieldType == 'date&time') {
+        DateTime? dateTimeValue;
+        if (rawValue != null) {
+          if (rawValue is DateTime) {
+            dateTimeValue = rawValue;
+          } else if (rawValue is int) {
+            dateTimeValue = DateTime.fromMillisecondsSinceEpoch(rawValue);
+          } else if (rawValue is double) {
+            dateTimeValue = DateTime.fromMillisecondsSinceEpoch(
+              rawValue.toInt(),
+            );
+          } else if (rawValue is String && rawValue.isNotEmpty) {
+            try {
+              final millis = int.tryParse(rawValue);
+              dateTimeValue = millis != null
+                  ? DateTime.fromMillisecondsSinceEpoch(millis)
+                  : DateTime.tryParse(rawValue);
+              if (dateTimeValue == null) {
+                dateTimeValue = DateFormat(
+                  'dd/MM/yyyy hh:mm a',
+                ).tryParse(rawValue);
+              }
+            } catch (e) {
+              print("DateTime parse error for $fieldName: $e");
+            }
+          }
+        }
+        field['_rxDateValue'] = Rx<DateTime?>(dateTimeValue);
+        field['EnteredValue'] = dateTimeValue;
+        print("✅ DateTime $fieldName initialized with: $dateTimeValue");
+      }
+      // INTEGER / LONG INTEGER
+      else if (fieldType == 'integer' || fieldType == 'longinteger') {
+        int? intValue;
+        if (rawValue is int) {
+          intValue = rawValue;
+        } else if (rawValue is double) {
+          intValue = rawValue.toInt();
+        } else if (rawValue is String && rawValue.isNotEmpty) {
+          intValue = int.tryParse(rawValue);
+        }
+        field['_rxIntValue'] = Rx<int?>(intValue);
+        field['EnteredValue'] = intValue;
+        print("✅ Integer $fieldName initialized with: $intValue");
+      }
+      // DECIMAL / AMOUNT / PERCENTAGE
+      else if (fieldType == 'decimal' ||
+          fieldType == 'amount' ||
+          fieldType == 'percent' ||
+          fieldType == 'percentage') {
+        double? doubleValue;
+        if (rawValue is double) {
+          doubleValue = rawValue;
+        } else if (rawValue is int) {
+          doubleValue = rawValue.toDouble();
+        } else if (rawValue is String && rawValue.isNotEmpty) {
+          doubleValue = double.tryParse(rawValue);
+        }
+        field['_rxDoubleValue'] = Rx<double?>(doubleValue);
+        field['EnteredValue'] = doubleValue;
+        print(
+          "✅ Decimal/Amount/Percent $fieldName initialized with: $doubleValue",
+        );
+      }
+      // EMAIL
+      else if (fieldType == 'email') {
+        final stringValue = rawValue?.toString() ?? '';
+        field['_rxStringValue'] = Rx<String?>(stringValue);
+        field['EnteredValue'] = stringValue;
+        print("✅ Email $fieldName initialized with: $stringValue");
+      }
+      // MOBILE NUMBER
+      else if (fieldType == 'mobilenumber') {
+        final stringValue = rawValue?.toString() ?? '';
+        field['_rxStringValue'] = Rx<String?>(stringValue);
+        field['EnteredValue'] = stringValue;
+        print("✅ Mobile $fieldName initialized with: $stringValue");
+      }
+      // URL
+      else if (fieldType == 'url') {
+        final stringValue = rawValue?.toString() ?? '';
+        field['_rxStringValue'] = Rx<String?>(stringValue);
+        field['EnteredValue'] = stringValue;
+        print("✅ URL $fieldName initialized with: $stringValue");
+      }
+      // TEXT / TEXTAREA / DEFAULT
+      else {
+        final stringValue = rawValue?.toString() ?? '';
+        field['_rxStringValue'] = Rx<String?>(stringValue);
+        field['EnteredValue'] = stringValue;
+        print("✅ Text $fieldName initialized with: $stringValue");
+      }
+
+      // Clear any errors
+      field['Error'] = null;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      categoryCustomFields.refresh();
+    });
+    print("Custom fields refresh called. Total fields: ${categoryCustomFields.length}");
+  }
+
+
+
 
   String updateRole(String url, String role) {
     // Remove all role=XYZ params
