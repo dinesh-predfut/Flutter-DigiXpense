@@ -6541,22 +6541,28 @@ class BoardModel {
   final String boardId;
   final String boardName;
   final String boardType;
-  final String referenceType;
-  final String referenceId;
-  final String referenceName;
+  final String? referenceType;
+  final String? referenceId;
+  final String? referenceName;
   final bool isActive;
+  final String? description;
+  final String areaId;
   final String areaName;
+  final List<String> boardOwnerName; // Changed to List
 
   BoardModel({
     required this.recId,
     required this.boardId,
     required this.boardName,
     required this.boardType,
-    required this.referenceType,
-    required this.referenceId,
-    required this.referenceName,
+    this.referenceType,
+    this.referenceId,
+    this.referenceName,
     required this.isActive,
+    this.description,
+    required this.areaId,
     required this.areaName,
+    required this.boardOwnerName,
   });
 
   factory BoardModel.fromJson(Map<String, dynamic> json) {
@@ -6565,11 +6571,18 @@ class BoardModel {
       boardId: json['BoardId'] ?? '',
       boardName: json['BoardName'] ?? '',
       boardType: json['BoardType'] ?? '',
-      referenceType: json['ReferenceType'] ?? '',
-      referenceId: json['ReferenceId'] ?? '',
-      referenceName: json['ReferenceName'] ?? '',
+      referenceType: json['ReferenceType'],
+      referenceId: json['ReferenceId'],
+      referenceName: json['ReferenceName'],
       isActive: json['IsActive'] ?? false,
+      description: json['Description'],
+      areaId: json['AreaId'] ?? '',
       areaName: json['AreaName'] ?? '',
+      boardOwnerName: json['BoardOwnerName'] is List
+          ? (json['BoardOwnerName'] as List)
+                .map((e) => e.toString())
+                .toList()
+          : [],
     );
   }
 }
@@ -7298,7 +7311,7 @@ class KanbanBoard {
   final int? recId;
   final String? area;
   final String? backgroundImageUrl;
-  final String? boardOwnerName;
+   final List<String>? boardOwnerName;
   final String? defaultSortingOrder;
 
   KanbanBoard({
@@ -7329,7 +7342,12 @@ class KanbanBoard {
           ? json['RecId']
           : int.tryParse(json['RecId']?.toString() ?? ''),
       area: json['Area'],
-      boardOwnerName: json['BoardOwnerName'],
+     boardOwnerName: json['BoardOwnerName'] is List
+          ? (json['BoardOwnerName'] as List)
+                .map((e) => e.toString())
+                .toList()
+          : null,
+  
       defaultSortingOrder: json['DefaultSortingOrder'],
       shelfs:
           (json['Shelfs'] as List?)?.map((e) => Shelf.fromJson(e)).toList() ??
@@ -7656,55 +7674,75 @@ class TaskFieldConfig {
     this.listValues,
   });
 
-  factory TaskFieldConfig.fromJson(Map<String, dynamic> json) {
-    return TaskFieldConfig(
-      taskFieldId: json["TaskFieldId"],
-
-      fieldName: json["FieldName"],
-
-      fieldLabel: json["FieldLabel"],
-
-      description: json["Description"],
-
-      fieldType: json["FieldType"],
-
-      fieldLinkedTable: json["FieldLinkedTable"],
-
-      allowMultiSelect: json["AllowMultiSelect"] ?? false,
-
-      isMandatory: json["IsMandatory"] ?? false,
-
-      value: json["Value"],
-
-      listValues: json["ListValues"] == null
-          ? []
-          : (json["ListValues"] as List)
-                .map((e) => ListValue.fromJson(e))
-                .toList(),
-    );
-  }
+ factory TaskFieldConfig.fromJson(Map<String, dynamic> json) {
+  return TaskFieldConfig(
+    taskFieldId: json["TaskFieldId"],
+    fieldName: json["FieldName"],
+    fieldLabel: json["FieldLabel"],
+    description: json["Description"],
+    fieldType: json["FieldType"],
+    fieldLinkedTable: json["FieldLinkedTable"],
+    allowMultiSelect: json["AllowMultiSelect"] ?? false,
+    isMandatory: json["IsMandatory"] ?? false,
+    value: json["Value"],
+    listValues: json["ListValues"] == null
+        ? []
+        : (json["ListValues"] as List)
+            .map((e) => ListValue.fromJson(e)) // e can be Map or String
+            .toList(),
+  );
+}
 }
 
 class ListValue {
-  String taskId;
-  String taskName;
-  int recId;
+  String? taskId;
+  String? taskName;
+  int? recId;
+  String? value; // For simple string values
 
   ListValue({
-    required this.taskId,
-    required this.taskName,
-    required this.recId,
+    this.taskId,
+    this.taskName,
+    this.recId,
+    this.value,
   });
 
-  factory ListValue.fromJson(Map<String, dynamic> json) {
-    return ListValue(
-      taskId: json["TaskId"] ?? "",
-
-      taskName: json["TaskName"] ?? "",
-
-      recId: json["RecId"] ?? 0,
-    );
+  factory ListValue.fromJson(dynamic json) {
+    if (json is Map<String, dynamic>) {
+      // Handle object type with TaskId, TaskName, RecId
+      return ListValue(
+        taskId: json["TaskId"],
+        taskName: json["TaskName"],
+        recId: json["RecId"],
+        value: json["TaskName"], // Use TaskName as display value
+      );
+    } else if (json is String) {
+      // Handle simple string values like "High", "Medium", "Low"
+      return ListValue(
+        value: json,
+      );
+    } else {
+      // Handle other types or null
+      return ListValue();
+    }
   }
+
+  // Helper method to get display text
+  String get displayText {
+    if (taskName != null) return taskName!;
+    if (value != null) return value!;
+    return '';
+  }
+
+  // Helper method to get the actual value (for storing/selecting)
+  dynamic get actualValue {
+    if (taskId != null) return taskId!;
+    if (value != null) return value!;
+    return null;
+  }
+
+  @override
+  String toString() => displayText;
 }
 
 class AssignedUser {
@@ -7723,23 +7761,24 @@ class AssignedUser {
 
 class BoardSettings {
   final String boardSettingId;
-  final String boardId; // ✅ added
-  final int recId; // ✅ added
-
+  final String boardId;
+  final int recId;
   final String boardTheme;
   final String defaultSortingOrder;
   final String boardSettingType;
   final bool timeTrackingEnabled;
-  final bool enableAuditLogs; // ✅ added
-  final bool isActive; // ✅ added
+  final bool enableAuditLogs;
+  final bool isActive;
+  final bool automateMovement;
 
   final String? backgroundImageUrl;
   final String? areaName;
   final String boardName;
   final String? description;
-  final String boardOwnerName;
+  final List<String> boardOwnerName; // Changed to List<String>
   final String? referenceType;
   final String? referenceId;
+  final String? areaId;
 
   BoardSettings({
     required this.boardSettingId,
@@ -7751,6 +7790,7 @@ class BoardSettings {
     required this.timeTrackingEnabled,
     required this.enableAuditLogs,
     required this.isActive,
+    this.automateMovement = false,
     this.backgroundImageUrl,
     required this.boardName,
     this.areaName,
@@ -7758,32 +7798,140 @@ class BoardSettings {
     required this.boardOwnerName,
     this.referenceType,
     this.referenceId,
+    this.areaId,
   });
 
   factory BoardSettings.fromJson(Map<String, dynamic> json) {
+    // Handle BoardOwnerName - it can be a List or String
+    List<String> ownerNames = [];
+    final ownerNameData = json['BoardOwnerName'];
+    if (ownerNameData != null) {
+      if (ownerNameData is List) {
+        // If it's a List, convert each element to String
+        ownerNames = ownerNameData.map((e) => e.toString()).toList();
+      } else if (ownerNameData is String) {
+        // If it's a String, split by comma or add as single item
+        if (ownerNameData.contains(',')) {
+          ownerNames = ownerNameData.split(',').map((e) => e.trim()).toList();
+        } else {
+          ownerNames = [ownerNameData];
+        }
+      } else {
+        // Fallback: convert to string
+        ownerNames = [ownerNameData.toString()];
+      }
+    }
+
     return BoardSettings(
       boardSettingId: json['BoardSettingId'] ?? '',
       boardId: json['BoardId'] ?? '',
       recId: json['RecId'] ?? 0,
-
       boardTheme: json['BoardTheme'] ?? '',
       defaultSortingOrder: json['DefaultSortingOrder'] ?? '',
       boardSettingType: json['BoardSettingType'] ?? '',
       timeTrackingEnabled: json['TimeTrackingEnabled'] ?? false,
       enableAuditLogs: json['EnableAuditLogs'] ?? false,
       isActive: json['IsActive'] ?? true,
-
+      automateMovement: json['AutomateMovement'] ?? false,
       backgroundImageUrl: json['BackgroundImageUrl'],
       boardName: json['BoardName'] ?? '',
       areaName: json['AreaName'] ?? '',
       description: json['Description'],
-      boardOwnerName: json['BoardOwnerName'] ?? '',
+      boardOwnerName: ownerNames,
       referenceType: json['ReferenceType'],
       referenceId: json['ReferenceId'],
+      areaId: json['AreaId'],
+    );
+  }
+
+  // Convert to JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'BoardSettingId': boardSettingId,
+      'BoardId': boardId,
+      'RecId': recId,
+      'BoardTheme': boardTheme,
+      'DefaultSortingOrder': defaultSortingOrder,
+      'BoardSettingType': boardSettingType,
+      'TimeTrackingEnabled': timeTrackingEnabled,
+      'EnableAuditLogs': enableAuditLogs,
+      'IsActive': isActive,
+      'AutomateMovement': automateMovement,
+      'BackgroundImageUrl': backgroundImageUrl,
+      'BoardName': boardName,
+      'AreaName': areaName,
+      'Description': description,
+      'BoardOwnerName': boardOwnerName, // Sends as List
+      'ReferenceType': referenceType,
+      'ReferenceId': referenceId,
+      'AreaId': areaId,
+    };
+  }
+
+  // Helper method to get display name as comma-separated string
+  String get displayOwnerName => boardOwnerName.join(', ');
+
+  // Helper method to check if a user is an owner
+  bool isOwner(String userId) => boardOwnerName.contains(userId);
+
+  // Helper method to add an owner
+  BoardSettings addOwner(String userId) {
+    if (!boardOwnerName.contains(userId)) {
+      final newList = List<String>.from(boardOwnerName)..add(userId);
+      return copyWith(boardOwnerName: newList);
+    }
+    return this;
+  }
+
+  // Helper method to remove an owner
+  BoardSettings removeOwner(String userId) {
+    final newList = List<String>.from(boardOwnerName)..remove(userId);
+    return copyWith(boardOwnerName: newList);
+  }
+
+  // Helper method for copyWith
+  BoardSettings copyWith({
+    String? boardSettingId,
+    String? boardId,
+    int? recId,
+    String? boardTheme,
+    String? defaultSortingOrder,
+    String? boardSettingType,
+    bool? timeTrackingEnabled,
+    bool? enableAuditLogs,
+    bool? isActive,
+    bool? automateMovement,
+    String? backgroundImageUrl,
+    String? areaName,
+    String? boardName,
+    String? description,
+    List<String>? boardOwnerName,
+    String? referenceType,
+    String? referenceId,
+    String? areaId,
+  }) {
+    return BoardSettings(
+      boardSettingId: boardSettingId ?? this.boardSettingId,
+      boardId: boardId ?? this.boardId,
+      recId: recId ?? this.recId,
+      boardTheme: boardTheme ?? this.boardTheme,
+      defaultSortingOrder: defaultSortingOrder ?? this.defaultSortingOrder,
+      boardSettingType: boardSettingType ?? this.boardSettingType,
+      timeTrackingEnabled: timeTrackingEnabled ?? this.timeTrackingEnabled,
+      enableAuditLogs: enableAuditLogs ?? this.enableAuditLogs,
+      isActive: isActive ?? this.isActive,
+      automateMovement: automateMovement ?? this.automateMovement,
+      backgroundImageUrl: backgroundImageUrl ?? this.backgroundImageUrl,
+      areaName: areaName ?? this.areaName,
+      boardName: boardName ?? this.boardName,
+      description: description ?? this.description,
+      boardOwnerName: boardOwnerName ?? this.boardOwnerName,
+      referenceType: referenceType ?? this.referenceType,
+      referenceId: referenceId ?? this.referenceId,
+      areaId: areaId ?? this.areaId,
     );
   }
 }
-
 class TaskDocument {
   final String attachmentId;
   final String taskId;

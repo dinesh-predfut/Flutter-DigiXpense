@@ -85,7 +85,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get punchInOut => '签退';
   @override
   String get punchInOutList => '打卡记录';
-
+@override
+String get tag => '标签';
+@override String get autoMovement => '自动移动';
+@override
+String get createdDatetime => '创建日期';
+@override
+String get modifiedDatetime => '修改日期';
   @override
   String get myTeamAttendance => '我的团队考勤';
 @override String get attendance => '考勤';

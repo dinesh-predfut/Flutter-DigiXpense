@@ -738,7 +738,8 @@ class Controller extends GetxController {
     }
   }
 
-  Map<String, dynamic>? dynamicValues;
+  final RxList<String> ownerNameList = <String>[].obs;
+  final RxMap<String, dynamic> dynamicValues = <String, dynamic>{}.obs;
   Future<bool> updateTask({
     required int recId,
     required String taskName,
@@ -771,52 +772,82 @@ class Controller extends GetxController {
     Map<String, dynamic>? taskData,
   }) async {
     try {
-      // 🆕 Configure Fields (Budget, LocationUrl, etc.)
-      // List<Map<String, dynamic>>? customFieldValues;
+      // ========== BUILD TASK DATA PROPERLY ==========
+      Map<String, dynamic> finalTaskData = {};
+
+      // If taskData is provided and not null, use it
+      if (taskData != null && taskData.isNotEmpty) {
+        // Copy existing task data
+        finalTaskData = Map<String, dynamic>.from(taskData);
+      }
+
+      // Add/Update ParentTaskId if parentTask is selected
+      if (parentTask != null && parentTask.taskId != null) {
+        finalTaskData['ParentTaskId'] = parentTask.taskId!.toString();
+      } else if (finalTaskData.containsKey('ParentTaskId')) {
+        // If parent task was removed, clear the value
+        finalTaskData['ParentTaskId'] = '';
+      }
+
+      // Add/Update Dependencies if selected
+      if (selectedDependencies.isNotEmpty) {
+        final dependencyIds = selectedDependencies
+            .map((t) => t.taskId?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .join(',');
+        finalTaskData['Dependent'] = dependencyIds;
+      } else if (finalTaskData.containsKey('Dependent')) {
+        // If dependencies were removed, clear the value
+        finalTaskData['Dependent'] = '';
+      }
+
+      // Make sure all task data values are properly formatted
+      // Convert any DateTime values to appropriate format
+      finalTaskData.forEach((key, value) {
+        if (value is DateTime) {
+          finalTaskData[key] = value.toIso8601String();
+        }
+      });
+
+      print('Final TaskData: $finalTaskData');
+
       // Prepare payload
-      // / Prepare payload - fix for dependencies
       final payload = {
         "TaskName": taskName,
-
         "Notes": notes ?? "",
-        "ShowNotes": showNotes,
-        "ShowChecklist": showChecklist,
-
+        "ShowNotes": showNotes ?? false,
+        "ShowChecklist": showChecklist ?? false,
         "EstimatedHours": estimatedHours ?? 0,
         "ActualHours": actualHours ?? 0,
-
         "Status": status ?? "",
         "Priority": priority,
-
-        // 🟢 Planned Dates (milliseconds)
-        "PlannedStartDate": toStartOfDayUtc(plannedStartDate!),
-        "PlannedEndDate": toStartOfDayUtc(plannedEndDate!),
-
-        // 🟢 Actual Dates (milliseconds)
-        "ActualStartDate": toStartOfDayUtc(startDate!),
-        "ActualEndDate": toStartOfDayUtc(dueDate!),
-
+        "PlannedStartDate": plannedStartDate != null
+            ? toStartOfDayUtc(plannedStartDate)
+            : null,
+        "PlannedEndDate": plannedEndDate != null
+            ? toStartOfDayUtc(plannedEndDate)
+            : null,
+        "ActualStartDate": startDate != null
+            ? toStartOfDayUtc(startDate)
+            : null,
+        "ActualEndDate": dueDate != null ? toStartOfDayUtc(dueDate) : null,
         "TagId": selectedTags.isNotEmpty
             ? selectedTags.map((t) => t.tagId).join(',')
             : "",
-
         "AssignedTo": selectedMembers.isNotEmpty
             ? selectedMembers.map((m) => m.userId).join(',')
             : "",
-
         "CardType": selectedCardType?.boardCardId ?? "",
-
         "Attachments": attachments.map((attachment) {
           return {
-            "FileName": attachment.fileName,
-            "FileType": attachment.fileType,
+            "name": attachment.fileName,
+            "type": attachment.fileType,
             "FileSize": attachment.fileSize?.toString() ?? "0",
             "base64Data": attachment.base64Data ?? "",
             "ShowAttachment": attachment.showAttachment,
             "RecId": attachment.recId ?? 0,
           };
         }).toList(),
-
         "CheckLists":
             checkLists?.map((item) {
               return {
@@ -826,14 +857,16 @@ class Controller extends GetxController {
               };
             }).toList() ??
             [],
-        "TaskData": taskData,
+        "TaskData": finalTaskData.isNotEmpty
+            ? finalTaskData
+            : null, // Only include if not empty
         "CustomFieldValues": customFieldValues,
       };
 
-      // Remove null or empty TaskData if both fields are empty
-      if ((payload["TaskData"] as Map).isEmpty) {
-        payload.remove("TaskData");
-      }
+      // // Remove null or empty TaskData if both fields are empty
+      // if ((payload["TaskData"] as Map).isEmpty) {
+      //   payload.remove("TaskData");
+      // }
 
       // Make API call
 
@@ -946,8 +979,7 @@ class Controller extends GetxController {
   RxBool isExporting = false.obs;
   RxList<WidgetDataResponse> currentDashboardWidgets =
       <WidgetDataResponse>[].obs;
-  RxList<VehicleType> vehicleTypes =
-      <VehicleType>[].obs;
+  RxList<VehicleType> vehicleTypes = <VehicleType>[].obs;
   final wizardConfigs = <WizardConfig>[].obs;
   final widgetDataCache = <String, WidgetDataResponse>{}.obs;
   // final isLoadingWidgets = false.obs;
@@ -3353,62 +3385,99 @@ class Controller extends GetxController {
   }
 
   // In your controller, add this method:
-  Future<void> mergeLeaveBalances() async {
-    try {
-      final analytics = await fetchLeaveAnalytics(
-        Params.employeeId,
-        Params.userToken, // or however you pass token
-      );
+Future<void> mergeLeaveBalances() async {
+  try {
 
-      // Build a quick lookup map: leaveCode -> LeaveAnalytics
-      final balanceMap = {for (final a in analytics) a.leaveCode: a};
+    final response = await fetchLeaveAnalytics(
+      Params.employeeId,
+      Params.userToken,
+    );
 
-      // Merge balance into leaveCodes list
-      for (final code in leaveCodes) {
-        final match = balanceMap[code.leaveCode];
-        if (match != null) {
-          code.leaveBalance = match.leaveBalance;
-          code.totalLeaves = match.totalLeaves;
-        }
+
+    if (response == null) {
+      return;
+    }
+
+
+    // Build lookup map from LeaveCodeAnalytics
+    final balanceMap = {
+      for (final a in response.leaveCodeAnalytics)
+        a.leaveCode: a
+    };
+
+
+    // Merge balance into leaveCodes list
+    for (final code in leaveCodes) {
+
+      final match = balanceMap[code.leaveCode];
+
+
+      if (match != null) {
+
+        code.leaveBalance = match.leaveBalance;
+        code.totalLeaves = match.totalLeaves;
+
       }
 
-      // Trigger reactivity if leaveCodes is RxList
-      leaveCodes.refresh();
-    } catch (e) {
-      debugPrint('mergeLeaveBalances error: $e');
     }
-  }
 
-  Future<List<LeaveAnalytics>> fetchLeaveAnalytics(
+
+    // Refresh RxList
+    leaveCodes.refresh();
+
+
+  } catch (e) {
+
+    debugPrint(
+      'mergeLeaveBalances error: $e'
+    );
+
+  }
+}
+
+  Future<LeaveAnalyticsResponse?> fetchLeaveAnalytics(
     String employeeId,
     String token,
-  ) async {
-    try {
-      isLoadingLeave.value = true;
+) async {
 
-      final url = Uri.parse(
-        '${Urls.baseURL}/api/v1/leaverequisition/leavemanagement/leavecodeanalytics?employee_id=$employeeId',
-      );
+  try {
 
-      final response = await ApiService.get(url);
+    isLoadingLeave.value = true;
 
-      if (response.statusCode == 200 && response.body.isNotEmpty) {
-        final decoded = jsonDecode(response.body);
 
-        final analytics = (decoded['LeaveCodeAnalytics'] as List? ?? [])
-            .map<LeaveAnalytics>((e) => LeaveAnalytics.fromJson(e))
-            .toList();
+    final url = Uri.parse(
+      '${Urls.baseURL}/api/v1/leaverequisition/leavemanagement/leavecodeanalytics?employee_id=$employeeId',
+    );
 
-        return analytics;
-      }
-    } catch (e) {
-      debugPrint('fetchLeaveAnalytics error: $e');
-    } finally {
-      isLoadingLeave.value = false;
+
+    final response = await ApiService.get(url);
+
+
+    if(response.statusCode == 200){
+
+      final decoded = jsonDecode(response.body);
+
+
+      return LeaveAnalyticsResponse.fromJson(decoded);
+
     }
 
-    return <LeaveAnalytics>[];
+
+  } catch(e){
+
+    debugPrint("fetchLeaveAnalytics error $e");
+
   }
+  finally{
+
+    isLoadingLeave.value=false;
+
+  }
+
+
+  return null;
+
+}
 
   Future<void> fetchTemplates() async {
     try {
@@ -3545,7 +3614,7 @@ class Controller extends GetxController {
     isLoadingGE1.value = true;
 
     final url = Uri.parse(
-      '${Urls.baseURL}/api/v1/kanban/boards/boards/joints'
+      '${Urls.baseURL}/api/v1/kanban/boards/boards/gridjoints'
       '?screen_name=KANBoards'
       '&BoardId=$boardId',
     );
@@ -4065,14 +4134,67 @@ class Controller extends GetxController {
                 (field['_rxCheckboxValue'] as Rx<bool>?)?.value ??
                 false;
           } else if (fieldType == 'Date') {
-            fieldValue = field['EnteredValue'] != null
-                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
-                : field['DefaultValue'] ?? '';
-          } else if (fieldType == 'Date&Time') {
-            fieldValue = field['EnteredValue'] != null
-                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
-                : field['DefaultValue'] ?? '';
-          } else if (fieldType == 'Email') {
+  // Try to parse the value as DateTime, fallback to string or default
+  if (field['EnteredValue'] != null) {
+    final enteredValue = field['EnteredValue'];
+    try {
+      // If it's already a DateTime, use it directly
+      if (enteredValue is DateTime) {
+        fieldValue = DateFormat('dd/MM/yyyy').format(enteredValue);
+      } 
+      // If it's a String, try to parse it
+      else if (enteredValue is String) {
+        try {
+          final dateTime = DateTime.parse(enteredValue);
+          fieldValue = DateFormat('dd/MM/yyyy').format(dateTime);
+        } catch (e) {
+          // If parsing fails, try using the string directly or default
+          fieldValue = enteredValue.isNotEmpty ? enteredValue : (field['DefaultValue'] ?? '');
+        }
+      } 
+      // If it's a number (timestamp), parse it
+      else if (enteredValue is int) {
+        final dateTime = DateTime.fromMillisecondsSinceEpoch(enteredValue);
+        fieldValue = DateFormat('dd/MM/yyyy').format(dateTime);
+      }
+      else {
+        fieldValue = field['DefaultValue'] ?? '';
+      }
+    } catch (e) {
+      fieldValue = field['DefaultValue'] ?? '';
+    }
+  } else {
+    fieldValue = field['DefaultValue'] ?? '';
+  }
+} else if (fieldType == 'Date&Time') {
+  if (field['EnteredValue'] != null) {
+    final enteredValue = field['EnteredValue'];
+    try {
+      if (enteredValue is DateTime) {
+        fieldValue = DateFormat('dd/MM/yyyy hh:mm a').format(enteredValue);
+      } 
+      else if (enteredValue is String) {
+        try {
+          final dateTime = DateTime.parse(enteredValue);
+          fieldValue = DateFormat('dd/MM/yyyy hh:mm a').format(dateTime);
+        } catch (e) {
+          fieldValue = enteredValue.isNotEmpty ? enteredValue : (field['DefaultValue'] ?? '');
+        }
+      } 
+      else if (enteredValue is int) {
+        final dateTime = DateTime.fromMillisecondsSinceEpoch(enteredValue);
+        fieldValue = DateFormat('dd/MM/yyyy hh:mm a').format(dateTime);
+      }
+      else {
+        fieldValue = field['DefaultValue'] ?? '';
+      }
+    } catch (e) {
+      fieldValue = field['DefaultValue'] ?? '';
+    }
+  } else {
+    fieldValue = field['DefaultValue'] ?? '';
+  }
+} else if (fieldType == 'Email') {
             final rxValue = field['_rxStringValue'] as Rx<String?>?;
             fieldValue =
                 rxValue?.value ??
@@ -4842,6 +4964,8 @@ class Controller extends GetxController {
           referenceName: '',
           isActive: true,
           areaName: '',
+          areaId: '',
+          boardOwnerName: [],
         ),
         task: TaskModelDropDown(
           taskId: line['TaskId'] ?? '',
@@ -13954,7 +14078,7 @@ class Controller extends GetxController {
 
   Future<bool> deleteBoard(int recId) async {
     final Uri url = Uri.parse(
-      '${Urls.baseURL}api/v1/kanban/boards/boards/boards?RecId=$recId',
+      '${Urls.baseURL}/api/v1/kanban/boards/boards/boards?RecId=$recId',
     );
 
     try {
@@ -13968,26 +14092,23 @@ class Controller extends GetxController {
           message = responseData['detail']?['message'] ?? message;
         }
 
-        await fetchGetallGExpense();
+        await fetchBoards();
 
-        Fluttertoast.showToast(
-          msg: message,
-          toastLength: Toast.LENGTH_SHORT,
+Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.green[100],
+          toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
-          backgroundColor: const Color.fromARGB(255, 22, 87, 3),
-          textColor: Colors.white,
-          fontSize: 16,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
         );
 
         return true;
       } else {
-        String message = "Failed to delete expense";
-
-        if (response.body.isNotEmpty) {
-          final responseData = jsonDecode(response.body);
-          message = responseData['detail']?['message'] ?? message;
-        }
-
+        // String message = "Failed to delete Boards";
+        final responseData = jsonDecode(response.body);
+        String message = responseData['detail']?['message'];
+ await fetchBoards();
         Fluttertoast.showToast(
           msg: message,
           toastLength: Toast.LENGTH_SHORT,
@@ -14000,8 +14121,9 @@ class Controller extends GetxController {
         return false;
       }
     } catch (e) {
+       await fetchBoards();
       Fluttertoast.showToast(
-        msg: "Error deleting expense",
+        msg: "Error deleting Boards",
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
         backgroundColor: Colors.red,
@@ -14012,7 +14134,42 @@ class Controller extends GetxController {
       return false;
     }
   }
+// Add this method to your Controller class (Controller.dart)
+Future<bool> moveTaskToShelf({
+  required int taskRecId,
+  required int targetShelfRecId,
+  required String boardId,
+}) async {
+  try {
+    final url = Uri.parse(
+      "${Urls.baseURL}/api/v1/kanban/tasks/tasks/tasks"
+      "?RecId=$taskRecId"
+      "&target_shelf_Recid=$targetShelfRecId"
+      "&screen_name=KANTasks"
+    );
 
+    final response = await ApiService.put(
+      url,
+      body: jsonEncode({}), // Empty body as parameters are in URL
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      // Refresh the board data
+      await fetchKanbanBoardAndNavigate(
+        Get.context!,
+        boardId,
+        true,
+      );
+      return true;
+    } else {
+      print('Failed to move task: ${response.body}');
+      return false;
+    }
+  } catch (e) {
+    print('Error moving task: $e');
+    return false;
+  }
+}
   Future<bool> deleteLeave(int recId) async {
     final Uri url = Uri.parse(
       '${Urls.deleteLeave}$recId&screen_name=LVRLeaveHeader',

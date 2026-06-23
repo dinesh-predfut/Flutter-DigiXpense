@@ -599,6 +599,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get referenceId => 'Reference';
   @override
   String get reason => 'Reason';
+  @override String get autoMovement => 'Auto Movement';
+  @override
+String get tag => 'Tag';
+@override
+String get createdDatetime => 'Created Date';
+@override
+String get modifiedDatetime => 'Modified Date';
   @override
   String get add => 'Add';
   @override

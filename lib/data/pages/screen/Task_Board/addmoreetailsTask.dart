@@ -184,11 +184,24 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
     final label = field.fieldLabel;
     final isMandatory = field.isMandatory;
 
+    // Get the current value from customFieldValues
+    final currentValue = controller.customFieldValues[field.fieldName];
+
+    // For custom fields, the value might be in field.fieldValue
+    final fieldValue = field.fieldValue.toString();
+
+    // Debug print to check values
+    print(
+      'Building Custom Field: ${field.fieldName}, Type: ${field.fieldType}, Current Value: $currentValue, Field Value: $fieldValue',
+    );
+
     switch (field.fieldType) {
       case 'Amount':
+      case 'Number':
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: TextFormField(
+            initialValue: fieldValue,
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
               labelText: isMandatory ? '$label *' : label,
@@ -204,9 +217,11 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         );
 
       case 'Text':
+      case 'String':
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: TextFormField(
+            initialValue: currentValue?.toString() ?? fieldValue,
             maxLines: 3,
             decoration: InputDecoration(
               labelText: isMandatory ? '$label *' : label,
@@ -222,6 +237,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         );
 
       case 'List':
+      case 'Dropdown':
         // If it's a list/select type field
         List<String> options = field.defaultValue
             .split(',')
@@ -229,13 +245,21 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
             .toList();
         if (options.isEmpty) options = ['Option 1', 'Option 2', 'Option 3'];
 
+        // Get selected value - prefer currentValue, then fieldValue
+        String selectedValue = currentValue?.toString() ?? fieldValue;
+
+        // If selectedValue is empty but field has default value, use that
+        if (selectedValue.isEmpty && field.defaultValue != null) {
+          selectedValue = field.defaultValue;
+        }
+
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: SearchableMultiColumnDropdownField<String>(
             labelText: isMandatory ? '$label *' : label,
             columnHeaders: [label],
             items: options,
-            selectedValue: controller.customFieldValues[field.fieldName] ?? '',
+            selectedValue: selectedValue,
             searchValue: (v) => v,
             displayText: (v) => v,
             onChanged: (selected) {
@@ -247,23 +271,50 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         );
 
       case 'Date':
+        DateTime? initialDate;
+
+        // Try to parse date from currentValue first
+        if (currentValue != null && currentValue.toString().isNotEmpty) {
+          initialDate = DateTime.tryParse(currentValue.toString());
+        }
+
+        // If not found, try fieldValue
+        if (initialDate == null && fieldValue.isNotEmpty) {
+          initialDate = DateTime.tryParse(fieldValue);
+        }
+
+        // If still null, try defaultValue
+        if (initialDate == null &&
+            field.defaultValue != null &&
+            field.defaultValue!.isNotEmpty) {
+          initialDate = DateTime.tryParse(field.defaultValue!);
+        }
+
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: _datePicker(
-            label,
-            controller.customFieldValues[field.fieldName] != null
-                ? DateTime.tryParse(
-                    controller.customFieldValues[field.fieldName],
-                  )
-                : null,
-            (date) {
-              controller.customFieldValues[field.fieldName] = date
-                  .toIso8601String();
-            },
-          ),
+          child: _datePicker(label, initialDate, (date) {
+            controller.customFieldValues[field.fieldName] = date
+                .toIso8601String();
+          }),
         );
 
       case 'Boolean':
+      case 'YesNo':
+        bool initialValue = false;
+
+        // Try to get value from currentValue
+        if (currentValue != null) {
+          if (currentValue is bool) {
+            initialValue = currentValue;
+          } else if (currentValue is String) {
+            initialValue =
+                currentValue.toLowerCase() == 'true' || currentValue == '1';
+          }
+        } else if (fieldValue.isNotEmpty) {
+          initialValue =
+              fieldValue.toLowerCase() == 'true' || fieldValue == '1';
+        }
+
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(
@@ -271,7 +322,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
               Text(label),
               const Spacer(),
               Switch(
-                value: controller.customFieldValues[field.fieldName] ?? false,
+                value: initialValue,
                 onChanged: (value) {
                   controller.customFieldValues[field.fieldName] = value;
                 },
@@ -280,11 +331,74 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
           ),
         );
 
+      case 'Email':
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: TextFormField(
+            initialValue: currentValue?.toString() ?? fieldValue,
+            keyboardType: TextInputType.emailAddress,
+            decoration: InputDecoration(
+              labelText: isMandatory ? '$label *' : label,
+              hintText: 'Enter $label',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onChanged: (value) {
+              controller.customFieldValues[field.fieldName] = value;
+            },
+          ),
+        );
+
+      case 'Phone':
+      case 'PhoneNumber':
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: TextFormField(
+            initialValue: currentValue?.toString() ?? fieldValue,
+            keyboardType: TextInputType.phone,
+            decoration: InputDecoration(
+              labelText: isMandatory ? '$label *' : label,
+              hintText: 'Enter $label',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onChanged: (value) {
+              controller.customFieldValues[field.fieldName] = value;
+            },
+          ),
+        );
+
+      case 'URL':
+      case 'Url':
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: TextFormField(
+            initialValue: currentValue?.toString() ?? fieldValue,
+            keyboardType: TextInputType.url,
+            decoration: InputDecoration(
+              labelText: isMandatory ? '$label *' : label,
+              hintText: 'Enter $label',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onChanged: (value) {
+              // Safe null check - initialize if null
+              controller.dynamicValues.value;
+              controller.dynamicValues[field.fieldName!] = value;
+              print('URL field changed: ${field.fieldName} = $value');
+            },
+          ),
+        );
+
       default:
         // Default to text field
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: TextFormField(
+            initialValue: currentValue?.toString() ?? fieldValue,
             decoration: InputDecoration(
               labelText: isMandatory ? '$label *' : label,
               hintText: 'Enter $label',
@@ -415,13 +529,13 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
     controller.cardType.assignAll(tags);
   }
 
- Future<void> _loadTask() async {
+  Future<void> _loadTask() async {
     _loading = true;
     setState(() {});
 
     try {
       // Wait for all initial data to load
-      await Future.wait([
+        await Future.wait([
         loadtags(),
         loadMembers(),
         fetchCardTypes(),
@@ -429,7 +543,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         loadChecklist(),
         controller.fetchTaskConfig(widget.taskRecId),
       ]);
-      
+
       _taskDetails = await controller.fetchTaskDetails(
         widget.taskRecId,
         context,
@@ -455,7 +569,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
       plannedStartDate = _taskDetails!.plannedStartDate;
       actualHours.text = _taskDetails!.actualHours.toString();
       estimatedHours.text = _taskDetails!.estimatedHours?.toString() ?? "0";
-      
+
       print("plannedStartDate$plannedStartDate");
 
       // ========== CARD TYPE ==========
@@ -463,11 +577,11 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
       if (cardId != null && cardId.isNotEmpty) {
         controller.selectedCardType.value = controller.cardType
             .firstWhereOrNull((c) => c.boardCardId.trim() == cardId);
-        
+
         // Set card type name for custom fields fetch
         cardTypeName.text = cardId;
         cardType.text = controller.selectedCardType.value?.cardName ?? '';
-        
+
         // Fetch custom fields for this card type
         await _fetchCustomFieldsForCard(controller.selectedCardType.value);
       }
@@ -489,7 +603,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
           controller.selectedMembers.add(user);
         }
       }
-      
+
       controller.userIdController.text = controller.selectedMembers
           .map((e) => e.userId)
           .join(', ');
@@ -503,63 +617,92 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         controller.selectedTags.add(matched ?? tag);
       }
 
-      // ========== TASK CONFIG / DYNAMIC FIELDS ==========
-      // Load dynamic field values from task config
-      if (controller.taskConfig.value?.taskData != null) {
-        // Clear existing dynamic values
-        controller.dynamicValues?.clear();
-        
-        for (final field in controller.taskConfig.value!.taskData) {
-          // For each field, set its value
-          if (field.value != null) {
-            controller.dynamicValues![field.fieldName!] = field.value;
+      final cardIds = _taskDetails!.cardType?.trim();
+      if (cardIds != null && cardIds.isNotEmpty) {
+        controller.selectedCardType.value = controller.cardType
+            .firstWhereOrNull((c) => c.boardCardId.trim() == cardId);
+
+        // Set card type name for custom fields fetch
+        cardTypeName.text = cardIds;
+        cardType.text = controller.selectedCardType.value?.cardName ?? '';
+
+        // Fetch custom fields for this card type
+        // await _fetchCustomFieldsForCard(controller.selectedCardType.value);
+      }
+      // controller.customFieldValues.clear();
+
+      // Load custom field values from the API response
+      if (_taskDetails != null && _taskDetails!.customFields != null) {
+        for (final field in _taskDetails!.customFields!) {
+          if (field.fieldName != null && field.fieldValue != null) {
+            controller.customFieldValues[field.fieldName!] = field.fieldValue;
+            print(
+              'Loaded custom field: ${field.fieldName} = ${field.fieldValue}',
+            );
           }
         }
-        
-        // Also store task fields for UI rendering
-        controller.taskFields.assignAll(controller.taskConfig.value!.taskData);
       }
 
-      // ========== CUSTOM FIELDS ==========
-      // Clear existing custom field values
-      controller.customFieldValues.clear();
-      
-      // Load custom field values if they exist in task details
-      if (_taskDetails!.customFields != null) {
-        // Assuming customFields is a Map<String, dynamic> or List<CustomFieldValue>
-        // You'll need to adapt this based on your actual data structure
-        for (final field in _taskDetails!.customFields!) {
-          // This depends on your actual data structure
-          // Example: if customFields is a list of {fieldName: value}
-          controller.customFieldValues[field.fieldName] = field;
-        }
-      }
-      
-      // Also fetch custom fields from the API if needed
+      // Also fetch custom fields from the API for the card type
       if (cardId != null && cardId.isNotEmpty) {
         await _fetchCustomFieldsForCard(controller.selectedCardType.value);
       }
+      // // ========== TASK CONFIG / DYNAMIC FIELDS ==========
+      // // Load dynamic field values from task config
+      // if (controller.taskConfig.value?.taskData != null) {
+      //   // Clear existing dynamic values
+      //   controller.dynamicValues?.clear();
 
-      // ========== DEPENDENCIES (commented out) ==========
-      // controller.selectedDependency.clear();
-      // final dependent = _taskDetails!.dependent;
-      // if (dependent != null && dependent.trim().isNotEmpty) {
-      //   final ids = dependent.split(',').map((e) => e.trim());
-      //   for (final id in ids) {
-      //     final task = controller.tasksValue.firstWhereOrNull(
-      //       (t) => t.taskId.trim() == id,
-      //     );
-      //     if (task != null) controller.selectedDependency.add(task);
+      //   for (final field in controller.taskConfig.value!.taskData) {
+      //     // For each field, set its value
+      //     if (field.value != null) {
+      //       controller.dynamicValues![field.fieldName!] = field.value;
+      //     }
+      //   }
+
+      //   // Also store task fields for UI rendering
+      //   controller.taskFields.assignAll(controller.taskConfig.value!.taskData);
+      // }
+
+      // // ========== CUSTOM FIELDS ==========
+      // // Clear existing custom field values
+      // controller.customFieldValues.clear();
+
+      // // Load custom field values if they exist in task details
+      // if (_taskDetails!.customFields != null) {
+      //   // Assuming customFields is a Map<String, dynamic> or List<CustomFieldValue>
+      //   // You'll need to adapt this based on your actual data structure
+      //   for (final field in _taskDetails!.customFields!) {
+      //     // This depends on your actual data structure
+      //     // Example: if customFields is a list of {fieldName: value}
+      //     controller.customFieldValues[field.fieldName] = field;
       //   }
       // }
 
-      // final parentId = _taskDetails!.parentTaskId?.trim();
-      // controller.selectTast.value = parentId == null
-      //     ? null
-      //     : controller.tasksValue.firstWhereOrNull(
-      //         (t) => t.taskId.trim() == parentId,
-      //       );
-      
+      // // Also fetch custom fields from the API if needed
+      // if (cardId != null && cardId.isNotEmpty) {
+      //   await _fetchCustomFieldsForCard(controller.selectedCardType.value);
+      // }
+
+      // // ========== DEPENDENCIES (commented out) ==========
+      // // controller.selectedDependency.clear();
+      // // final dependent = _taskDetails!.dependent;
+      // // if (dependent != null && dependent.trim().isNotEmpty) {
+      // //   final ids = dependent.split(',').map((e) => e.trim());
+      // //   for (final id in ids) {
+      // //     final task = controller.tasksValue.firstWhereOrNull(
+      // //       (t) => t.taskId.trim() == id,
+      // //     );
+      // //     if (task != null) controller.selectedDependency.add(task);
+      // //   }
+      // // }
+
+      // // final parentId = _taskDetails!.parentTaskId?.trim();
+      // // controller.selectTast.value = parentId == null
+      // //     ? null
+      // //     : controller.tasksValue.firstWhereOrNull(
+      // //         (t) => t.taskId.trim() == parentId,
+      // //       );
     } finally {
       _loading = false;
       setState(() {});
@@ -578,6 +721,14 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
     final label = field.fieldLabel ?? field.fieldName;
     final mandatory = field.isMandatory ?? false;
 
+    // Get the current value from dynamicValues
+    final currentValue = controller.dynamicValues?[field.fieldName];
+
+    // Debug print to check values
+    print(
+      'Building field: ${field.fieldName}, Type: ${field.fieldType}, Current Value: $currentValue, Raw Value: ${field.value}',
+    );
+
     switch (field.fieldType) {
       // Amount / Decimal / Currency
       case "Amount":
@@ -587,27 +738,24 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: TextFormField(
+            initialValue:
+                currentValue?.toString() ?? field.value?.toString() ?? '',
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-
             decoration: InputDecoration(
               labelText: mandatory ? "$label *" : label,
               border: const OutlineInputBorder(),
             ),
-
             validator: (value) {
               if (mandatory && (value == null || value.trim().isEmpty)) {
                 return "$label is required";
               }
-
               if (value != null &&
                   value.isNotEmpty &&
                   double.tryParse(value) == null) {
                 return "Enter valid $label";
               }
-
               return null;
             },
-
             onChanged: (value) {
               controller.dynamicValues![field.fieldName!] =
                   double.tryParse(value) ?? value;
@@ -620,27 +768,24 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: TextFormField(
+            initialValue:
+                currentValue?.toString() ?? field.value?.toString() ?? '',
             keyboardType: TextInputType.number,
-
             decoration: InputDecoration(
               labelText: mandatory ? "$label *" : label,
               border: const OutlineInputBorder(),
             ),
-
             validator: (value) {
               if (mandatory && (value == null || value.isEmpty)) {
                 return "$label is required";
               }
-
               if (value != null &&
                   value.isNotEmpty &&
                   int.tryParse(value) == null) {
                 return "Enter valid number";
               }
-
               return null;
             },
-
             onChanged: (value) {
               controller.dynamicValues![field.fieldName!] =
                   int.tryParse(value) ?? value;
@@ -654,19 +799,18 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: TextFormField(
+            initialValue:
+                currentValue?.toString() ?? field.value?.toString() ?? '',
             decoration: InputDecoration(
               labelText: mandatory ? "$label *" : label,
               border: const OutlineInputBorder(),
             ),
-
             validator: (value) {
               if (mandatory && (value == null || value.trim().isEmpty)) {
                 return "$label is required";
               }
-
               return null;
             },
-
             onChanged: (value) {
               controller.dynamicValues![field.fieldName!] = value;
             },
@@ -679,73 +823,270 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: TextFormField(
+            initialValue:
+                currentValue?.toString() ?? field.value?.toString() ?? '',
             keyboardType: TextInputType.url,
-
             decoration: InputDecoration(
               labelText: mandatory ? "$label *" : label,
               border: const OutlineInputBorder(),
             ),
-
             validator: (value) {
               if (mandatory && (value == null || value.isEmpty)) {
                 return "$label is required";
               }
-
               if (value != null &&
                   value.isNotEmpty &&
                   !Uri.tryParse(value)!.hasAbsolutePath) {
                 return "Enter valid URL";
               }
-
               return null;
             },
-
             onChanged: (value) {
               controller.dynamicValues![field.fieldName!] = value;
             },
           ),
         );
 
-      // Dropdown / List
+      // List type - regular dropdown
       case "List":
-      case "SystemList":
-        final options = (field.listValues ?? [])
-            .map((e) => e.taskName)
-            .toList();
+final options = (field.listValues ?? [])
+    .map((e) => e.displayText) // Use the displayText getter we created
+    .whereType<String>() // Filter out null values
+    .toList();
+
+        final selectedValue =
+            currentValue?.toString() ?? field.value?.toString() ?? '';
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: SearchableMultiColumnDropdownField<String>(
             labelText: mandatory ? '$label *' : label,
-
             columnHeaders: [label!],
-
             items: options,
-
-            selectedValue: controller.customFieldValues[field.fieldName] ?? '',
-
+            selectedValue: selectedValue,
             searchValue: (v) => v,
-
             displayText: (v) => v,
-
             onChanged: (selected) {
-              controller.customFieldValues[field.fieldName!] = selected ?? '';
+              controller.dynamicValues![field.fieldName!] = selected ?? '';
             },
-
             rowBuilder: (v, _) {
               return Padding(padding: const EdgeInsets.all(12), child: Text(v));
             },
           ),
         );
 
+      // SystemList type - special handling for ParentTaskId and Dependent
+      case "SystemList":
+        // Get the current value
+        final value = currentValue?.toString() ?? field.value?.toString() ?? '';
+
+        if (field.fieldName == 'ParentTaskId') {
+          // Parent Task dropdown
+          String selectedTaskName = '';
+          String selectedTaskId = '';
+
+          if (value.isNotEmpty) {
+            final task = controller.tasksValue.firstWhereOrNull(
+              (t) => t.taskId?.toString().trim() == value.trim(),
+            );
+            if (task != null) {
+              selectedTaskName = task.taskName ?? '';
+              selectedTaskId = task.taskId?.toString() ?? '';
+            }
+          }
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: SearchableMultiColumnDropdownField<String>(
+              labelText: mandatory ? '$label *' : label,
+              columnHeaders: ['Task ID', 'Task Name'],
+              items: controller.tasksValue
+                  .map((t) => t.taskName ?? '')
+                  .toList(),
+              selectedValue: selectedTaskName,
+              searchValue: (v) => v,
+              displayText: (v) => v,
+              onChanged: (selected) {
+                print('========== DROPDOWN SELECTION ==========');
+                print('Selected value from dropdown: $selected');
+
+                if (selected != null && selected.isNotEmpty) {
+                  // Find the task by name
+                  final task = controller.tasksValue.firstWhereOrNull(
+                    (t) => t.taskName == selected,
+                  );
+                  print('Found task: ${task?.taskId} - ${task?.taskName}');
+
+                  if (task != null) {
+                    // IMPORTANT: Update selectTast.value
+                    controller.selectTast.value = task;
+
+                    // Also store in dynamicValues
+                    controller.dynamicValues[field.fieldName!] =
+                        task.taskId?.toString() ?? '';
+
+                    print(
+                      '✅ selectTast.value set to: ${controller.selectTast.value?.taskId}',
+                    );
+                    print(
+                      '✅ dynamicValues[${field.fieldName}] = ${task.taskId}',
+                    );
+                  }
+                } else {
+                  // Clear selection
+                  controller.selectTast.value = null;
+                  controller.dynamicValues[field.fieldName!] = '';
+                  print('❌ Cleared ParentTaskId selection');
+                }
+                print('=========================================');
+
+                // Force UI update
+                setState(() {});
+              },
+              rowBuilder: (v, _) {
+                final task = controller.tasksValue.firstWhereOrNull(
+                  (t) => t.taskName == v,
+                );
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 16,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          task?.taskId?.toString() ?? 'N/A',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(v, style: const TextStyle(fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          );
+        } else if (field.fieldName == 'Dependent') {
+    // Dependency dropdown - multi-select
+    // Get currently selected task IDs from the value
+    List<String> selectedTaskIds = [];
+    if (value.isNotEmpty) {
+      selectedTaskIds = value.split(',').map((e) => e.trim()).toList();
+    }
+    
+    // Get currently selected tasks
+    final List<TaskModel> selectedTasks = [];
+    for (final id in selectedTaskIds) {
+      if (id.isNotEmpty) {
+        final task = controller.tasksValue.firstWhereOrNull(
+          (t) => t.taskId?.toString().trim() == id.trim(),
+        );
+        if (task != null) {
+          selectedTasks.add(task);
+        }
+      }
+    }
+    
+    // Store selected tasks in controller for multi-select dropdown
+    controller.selectedDependency.assignAll(selectedTasks);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: MultiSelectMultiColumnDropdownField<TaskModel>(
+        enabled: true,
+        labelText: mandatory ? '$label *' : label,
+        items: controller.tasksValue,
+        selectedValues: controller.selectedDependency,
+        isMultiSelect: true,
+        searchValue: (task) => '${task.taskId ?? ''} ${task.taskName ?? ''}',
+        displayText: (task) => task.taskName ?? '',
+        dropdownMaxHeight: 250,
+        onMultiChanged: (tasks) {
+          // Update selected dependencies
+          controller.selectedDependency.assignAll(tasks);
+          
+          // Update dynamic values with comma-separated task IDs
+          final ids = tasks
+              .map((t) => t.taskId?.toString() ?? '')
+              .where((id) => id.isNotEmpty)
+              .join(',');
+          controller.dynamicValues![field.fieldName!] = ids;
+        },
+        columnHeaders: [
+          'Task ID',
+          'Task Name',
+        ],
+        rowBuilder: (task, searchQuery) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    task.taskId?.toString() ?? 'N/A',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    task.taskName ?? 'Unnamed Task',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+        onChanged: (task) {}, // Not used for multi-select
+      ),
+    );
+} else {
+          // Other SystemList fields - treat as regular dropdown
+          final options = (field.listValues ?? [])
+    .map((e) => e.displayText) // Use the displayText getter we created
+    .whereType<String>() // Filter out null values
+    .toList();
+
+          final selectedValue =
+              currentValue?.toString() ?? field.value?.toString() ?? '';
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: SearchableMultiColumnDropdownField<String>(
+              labelText: mandatory ? '$label *' : label,
+              columnHeaders: [label!],
+              items: options,
+              selectedValue: selectedValue,
+              searchValue: (v) => v,
+              displayText: (v) => v,
+              onChanged: (selected) {
+                controller.dynamicValues![field.fieldName!] = selected ?? '';
+              },
+              rowBuilder: (v, _) {
+                return Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(v),
+                );
+              },
+            ),
+          );
+        }
+
       // Boolean
       case "Boolean":
       case "YesNo":
         return SwitchListTile(
           title: Text(label!),
-
-          value: controller.dynamicValues![field.fieldName] ?? false,
-
+          value: (currentValue ?? field.value) ?? false,
           onChanged: (value) {
             controller.dynamicValues![field.fieldName!] = value;
           },
@@ -753,37 +1094,64 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
 
       // Date
       case "Date":
-        return TextFormField(
-          readOnly: true,
+        DateTime? initialDate;
+        if (currentValue != null) {
+          if (currentValue is DateTime) {
+            initialDate = currentValue;
+          } else if (currentValue is String) {
+            initialDate = DateTime.tryParse(currentValue);
+          }
+        } else if (field.value != null) {
+          if (field.value is DateTime) {
+            initialDate = field.value;
+          } else if (field.value is String) {
+            initialDate = DateTime.tryParse(field.value);
+          }
+        }
 
-          decoration: InputDecoration(
-            labelText: mandatory ? "$label *" : label,
-            border: const OutlineInputBorder(),
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: InkWell(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: initialDate ?? DateTime.now(),
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2035),
+              );
+              if (picked != null) {
+                controller.dynamicValues![field.fieldName!] = picked
+                    .toIso8601String();
+              }
+            },
+            child: InputDecorator(
+              decoration: InputDecoration(
+                labelText: mandatory ? "$label *" : label,
+                border: const OutlineInputBorder(),
+              ),
+              child: Text(
+                initialDate != null
+                    ? DateFormat('dd/MM/yyyy').format(initialDate!)
+                    : 'Select date',
+              ),
+            ),
           ),
-
-          validator: (value) {
-            if (mandatory && (value == null || value.isEmpty)) {
-              return "$label is required";
-            }
-
-            return null;
-          },
-
-          onTap: () {
-            // open date picker here
-          },
         );
 
       default:
-        return TextFormField(
-          decoration: InputDecoration(
-            labelText: label,
-            border: const OutlineInputBorder(),
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: TextFormField(
+            initialValue:
+                currentValue?.toString() ?? field.value?.toString() ?? '',
+            decoration: InputDecoration(
+              labelText: label,
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (value) {
+              controller.dynamicValues![field.fieldName!] = value;
+            },
           ),
-
-          onChanged: (value) {
-            controller.dynamicValues![field.fieldName!] = value;
-          },
         );
     }
   }
@@ -1400,34 +1768,33 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                 //   ),
                 const SizedBox(height: 12),
                 if (controller.taskFields.isNotEmpty)
-                  Obx(() {
-                    return Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: const [
-                            Icon(
-                              Icons.settings,
-                              size: 20,
-                              color: Colors.blueAccent,
+                  Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: const [
+                          Icon(
+                            Icons.settings,
+                            size: 20,
+                            color: Colors.blueAccent,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            "Configure Fields",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                             ),
-                            SizedBox(width: 8),
-                            Text(
-                              "Configure Fields",
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        ...controller.taskFields.map((field) {
-                          return buildDynamicField(field);
-                        }).toList(),
-                      ],
-                    );
-                  }),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ...controller.taskFields.map((field) {
+                        return buildDynamicField(field);
+                      }).toList(),
+                    ],
+                  ),
+
                 const SizedBox(height: 12),
 
                 _buildCustomFields(),
@@ -2107,6 +2474,9 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
     // Dates
     _startDate = null;
     _dueDate = null;
+    plannedStartDate = null;
+    plannedEndDate = null;
+    _estimatedDate = null;
 
     // Flags
     _showNotes = false;
@@ -2116,6 +2486,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
     _priority = "";
     _status = "";
     _cardType = "";
+    riskLevel = 'Low';
 
     // GetX selections
     controller.selectedTags.clear();
@@ -2125,8 +2496,107 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
     controller.selectedCardType.value = null;
     controller.selectTast.value = null;
 
+    // ========== CLEAR TASK DATA ==========
+    // Clear dynamic values (taskData)
+    if (controller.dynamicValues != null) {
+      controller.dynamicValues!.clear();
+    }
+    // Clear task fields
+    controller.taskFields.clear();
+    // Clear task config
+    controller.taskConfig.value = null;
+
+    // ========== CLEAR CUSTOM FIELDS ==========
+    // Clear custom field values
+    if (controller.customFieldValues != null) {
+      controller.customFieldValues.clear();
+    }
+    // Clear custom fields boards
+    controller.customFieldsBoards.clear();
+    // Reset loading state if needed
+    controller.isLoadingCustomFields.value = false;
+
+    // ========== CLEAR CHECKLIST ==========
+    // Dispose all checklist controllers
+    for (final controller in checklistControllers) {
+      controller.dispose();
+    }
+    checklistControllers.clear();
+    checklist.clear();
+    showChecklistOnCard = false;
+
+    // ========== CLEAR ATTACHMENTS ==========
+    controller.attachments.clear();
+    controller.isLoading.value = false;
+
+    // ========== CLEAR COMMENTS ==========
+    controller.commentKanba.clear();
+    _commentController.clear();
+
+    // ========== CLEAR OTHER CONTROLLERS ==========
+    cardType.clear();
+    cardTypeName.clear();
+    _commentsController.clear();
+
+    // ========== RESET STATUS LIST ==========
+    _selectedStatus = null;
+    _statusList = [];
+
+    // ========== RESET OTHER VARIABLES ==========
+    _createdName = null;
+    _createdUserId = null;
+    _taskDetails = null;
+    _isDownloading = false;
+    _isCommentPosting = false;
+    _saving = false;
+    _deletingFile = null;
+
     // Force UI refresh
     setState(() {});
+  }
+
+  // ========== HELPER METHOD TO CLEAR CUSTOM FIELD VALUES ==========
+  void _clearCustomFieldValues() {
+    // Clear the custom field values map
+    if (controller.customFieldValues != null) {
+      controller.customFieldValues.clear();
+    }
+
+    // Also clear the custom fields boards if needed
+    controller.customFieldsBoards.clear();
+
+    // Reset loading state
+    controller.isLoadingCustomFields.value = false;
+
+    print('Custom fields cleared');
+  }
+
+  // ========== HELPER METHOD TO CLEAR TASK DATA ==========
+  void _clearTaskData() {
+    // Clear dynamic values
+    if (controller.dynamicValues != null) {
+      controller.dynamicValues!.clear();
+    }
+
+    // Clear task fields
+    controller.taskFields.clear();
+
+    // Clear task config
+    controller.taskConfig.value = null;
+
+    print('Task data cleared');
+  }
+
+  // ========== COMPLETE CLEAR WITH ALL OPTIONS ==========
+  void _clearEverything() {
+    // Call the main clear function
+    _clearTaskForm();
+
+    // Additional clears if needed
+    _clearCustomFieldValues();
+    _clearTaskData();
+
+    print('All form data cleared');
   }
 
   List<Map<String, dynamic>> _buildCustomFieldValuesPayload() {
@@ -2157,6 +2627,65 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
     setState(() {});
 
     try {
+      // ========== BUILD TASK DATA FROM DYNAMIC FIELDS ==========
+      Map<String, dynamic> taskData = {};
+
+      // Get all dynamic field values
+      if (controller.dynamicValues != null &&
+          controller.dynamicValues!.isNotEmpty) {
+        // Copy all dynamic values
+        controller.dynamicValues!.forEach((key, value) {
+          if (value != null && value.toString().isNotEmpty) {
+            taskData[key] = value;
+          }
+        });
+      }
+
+      // Also get values from taskFields
+      for (final field in controller.taskFields) {
+        final fieldName = field.fieldName;
+        if (fieldName != null) {
+          final value = controller.dynamicValues?[fieldName];
+          if (value != null && value.toString().isNotEmpty) {
+            taskData[fieldName] = value;
+          } else if (field.value != null && field.value.toString().isNotEmpty) {
+            taskData[fieldName] = field.value;
+          }
+        }
+      }
+
+      // Add ParentTaskId from selectTast
+      if (controller.selectTast.value != null) {
+        final parentId = controller.selectTast.value!.taskId?.toString() ?? '';
+        print('========== PARENT TASK DEBUG ==========');
+        print('selectTast.value is NOT null');
+        print(
+          'selectTast.value.taskId: ${controller.selectTast.value!.taskId}',
+        );
+        print(
+          'selectTast.value.taskName: ${controller.selectTast.value!.taskName}',
+        );
+        print('ParentTaskId to save: $parentId');
+        print('=======================================');
+        taskData['ParentTaskId'] = parentId;
+      } else {
+        print('========== PARENT TASK DEBUG ==========');
+        print('selectTast.value IS null');
+        print('=======================================');
+        taskData['ParentTaskId'] = '';
+      }
+
+      // Add Dependencies from selectedDependency
+      if (controller.selectedDependency.isNotEmpty) {
+        final dependencyIds = controller.selectedDependency
+            .map((t) => t.taskId?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .join(',');
+        taskData['Dependent'] = dependencyIds;
+      }
+
+      print('Task Data to save: $taskData');
+
       final success = await controller.updateTask(
         main: bool,
         recId: widget.taskRecId,
@@ -2170,8 +2699,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         showNotes: _showNotes,
         showChecklist: showChecklistOnCard,
         estimatedHours: double.tryParse(estimatedHours.text) ?? 0,
-        status: _status,
-        // taskData: controller.dynamicValues,
+        status: _selectedStatus!.id,
         selectedTags: controller.selectedTags,
         selectedMembers: controller.selectedMembers,
         selectedCardType: controller.selectedCardType.value,
@@ -2182,7 +2710,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         dependentDescription: '',
         context: context,
         checkLists: checklist,
-        taskData: controller.dynamicValues,
+        taskData: taskData, // Pass the built task data
         plannedStartDate: plannedStartDate,
         plannedEndDate: plannedEndDate,
         riskLevel: riskLevel,
@@ -2194,7 +2722,23 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
 
       if (success) {
         _clearTaskForm();
-      } else {}
+        _clearEverything();
+        Fluttertoast.showToast(
+          msg: 'Task updated successfully',
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.green,
+          textColor: Colors.white,
+        );
+      } else {
+        Fluttertoast.showToast(
+          msg: 'Failed to update task',
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+      }
     } catch (e) {
       _saving = false;
       setState(() {});

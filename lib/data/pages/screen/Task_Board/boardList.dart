@@ -69,12 +69,9 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
   List<String> getTabTitles(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
 
-    List<String> tabs = [loc.board];
+    List<String> tabs = [loc.board,loc.grid];
 
-    // 👇 Show Grid only if Read permission
-    if (PermissionHelper.canRead("Board Management")) {
-      tabs.add(loc.grid);
-    }
+   
 
     // 👇 Show Settings only if Update permission
     if (PermissionHelper.canUpdate("Board Management")) {
@@ -178,13 +175,18 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
 
     for (final s in originalBoard!.shelfs) {
       for (final t in s.tasks) {
-        for (final u in t.assignedTo) {
-          set.add(u.employeeName);
+        // Check if createdBy is not null
+        if (t.createdBy != null) {
+          // Use userName (since employeeName doesn't exist)
+          if (t.createdBy!.userName != null &&
+              t.createdBy!.userName.isNotEmpty) {
+            set.add(t.createdBy!.userName);
+          }
         }
       }
     }
 
-    return ['ALL', ...set];
+    return ['All', ...set];
   }
 
   /* ---------------- APPLY FILTERS ---------------- */
@@ -194,13 +196,16 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     final String keyword = searchCtrl.text.toLowerCase();
     final List<Shelf> filteredShelves = [];
 
-    for (final shelf in originalBoard!.shelfs) {
+    // Pre-calculate today for date filters
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+
+    for (final shelf in controller.originalBoard!.shelfs) {
       // Shelf name filter
       if (selectedShelf != 'All' && shelf.shelfName != selectedShelf) continue;
 
       final List<TaskItem> filteredTasks = [];
-
-      for (final task in shelf.tasks) {
+     for (final task in shelf.tasks) {
         /// 🔍 SEARCH FILTER
         final bool matchesSearch =
             keyword.isEmpty ||
@@ -218,31 +223,20 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
             selectedUser == 'All' ||
             task.assignedTo.any((user) => user.employeeName == selectedUser);
 
-        /// ✏️ CREATED BY FILTER
-        final bool matchesCreatedBy =
-            createBy == 'All' ||
-            (task.createdBy != null && task.createdBy!.userName == createBy);
+        /// ✏️ CREATED BY FILTER - FIXED
+        final bool matchesCreatedBy = _matchesCreatedBy(task);
 
-        /// 🏷️ TAG FILTER (NEW)
+        /// 🏷️ TAG FILTER
         final bool matchesTag =
             selectedLable == 'All' ||
             task.tags.any((tag) => tag.tagName == selectedLable);
 
-        /// 📅 DUE DATE FILTER
-        final today = DateTime.now();
-        final todayOnly = DateTime(today.year, today.month, today.day);
-
-        bool matchesDueDate = true;
-
-        if (dueDateValue == 'Today') {
-          matchesDueDate =
-              task.plannedStartDate != null &&
-              DateUtils.isSameDay(task.plannedStartDate!, todayOnly);
-        } else if (dueDateValue == 'Late') {
-          matchesDueDate =
-              task.plannedStartDate != null &&
-              task.plannedStartDate!.isBefore(todayOnly);
-        }
+        /// 📅 DUE DATE FILTER - FIXED
+        final bool matchesDueDate = _matchesDueDate(
+          task,
+          dueDateValue,
+          todayOnly,
+        );
 
         /// ✅ FINAL CONDITION
         if (matchesSearch &&
@@ -279,6 +273,78 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
       );
     });
   }
+
+  /// Helper method to check Created By filter
+  bool _matchesCreatedBy(TaskItem task) {
+    // If 'All' is selected, return true
+
+    
+    if (createBy == 'All') return true;
+
+    // Check if task has createdBy
+    if (task.assignedTo == null) return false;
+
+    // Check by userName
+    if (task.createdBy!.userName == createBy) return true;
+
+    // Check by userId (if your createBy stores userId)
+    if (task.createdBy!.userId == createBy) return true;
+
+    // Check by fullName or other fields
+    if (task.createdBy!.userName == createBy) return true;
+
+    return false;
+  }
+
+  /// Helper method to check Due Date filter
+  /// Helper method to check Due Date filter
+bool _matchesDueDate(
+  TaskItem task,
+  String? dueDateValue,
+  DateTime todayOnly,
+) {
+  // If 'All' is selected, show all tasks including those with null dates
+  if (dueDateValue == null || dueDateValue == 'All') {
+    return true;
+  }
+
+  // Handle 'No Date' - show only tasks with null dates
+  if (dueDateValue == 'No Date') {
+    return task.plannedEndDate == null;
+  }
+
+  // For all other date filters (Today, Late, etc.)
+  // Only check tasks that have a date
+  if (task.plannedEndDate == null) {
+    return false; // Exclude tasks with no date from specific date filters
+  }
+
+  final taskDate = task.plannedEndDate!;
+  final taskDateOnly = DateTime(taskDate.year, taskDate.month, taskDate.day);
+
+  switch (dueDateValue) {
+    case 'Today':
+      return DateUtils.isSameDay(taskDate, todayOnly);
+
+    case 'Late':
+      return taskDateOnly.isBefore(todayOnly);
+
+    case 'This Week':
+      final weekStart = todayOnly.subtract(
+        Duration(days: todayOnly.weekday - 1),
+      );
+      final weekEnd = weekStart.add(const Duration(days: 6));
+      return taskDate.isAfter(weekStart.subtract(const Duration(days: 1))) &&
+          taskDate.isBefore(weekEnd.add(const Duration(days: 1)));
+
+    case 'This Month':
+      return taskDate.year == todayOnly.year &&
+          taskDate.month == todayOnly.month;
+
+    default:
+      return true;
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -663,7 +729,9 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
 
   String formatDate(DateTime? date) {
     if (date == null) return 'No Due Date';
-    return DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(date);
+    return DateFormat(
+      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(date);
   }
 
   Widget _buildSwipeActionLeft(bool isLoading) {
@@ -1072,7 +1140,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
             ),
             _filterDropdown(
               icon: Icons.view_column,
-              label: AppLocalizations.of(context)!.label,
+              label: AppLocalizations.of(context)!.tags,
               value: selectedLable,
               items: tags,
               onChanged: (v) {
@@ -1223,7 +1291,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Due Date', // 🔹 localize later if needed
+                          "Planned EndDate", // 🔹 localize later if needed
                           style: TextStyle(
                             fontSize: 10,
                             color: Colors.grey.shade600,
@@ -2298,7 +2366,7 @@ class _TaskCardState extends State<_TaskCard> {
                     Text(
                       widget.task.plannedEndDate != null
                           ? DateFormat(
-                             controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                              controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                             ).format(widget.task.plannedEndDate!)
                           : "No Date",
                       style: const TextStyle(fontSize: 12, color: Colors.grey),
@@ -2339,17 +2407,17 @@ class _TaskCardState extends State<_TaskCard> {
                       style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ),
-              Expanded(
-  flex: 2,
-  child: Text(
-    widget.task.plannedEndDate == null
-        ? '-'
-        : DateFormat(
-            controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-          ).format(widget.task.plannedEndDate!),
-    style: const TextStyle(fontSize: 12),
-  ),
-),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      widget.task.plannedEndDate == null
+                          ? '-'
+                          : DateFormat(
+                              controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                            ).format(widget.task.plannedEndDate!),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
                 ],
               ),
             if (controller.isEnabled('PlannedStartDate') &&
@@ -2368,7 +2436,7 @@ class _TaskCardState extends State<_TaskCard> {
                     child: Text(
                       widget.task.plannedStartDate != null
                           ? DateFormat(
-                             controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                              controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                             ).format(widget.task.plannedStartDate!)
                           : '-',
                       style: const TextStyle(fontSize: 12),
@@ -2392,7 +2460,7 @@ class _TaskCardState extends State<_TaskCard> {
                     child: Text(
                       widget.task.actualStartDate != null
                           ? DateFormat(
-                             controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                              controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                             ).format(widget.task.actualStartDate!)
                           : '-',
                       style: const TextStyle(fontSize: 12),
@@ -2416,7 +2484,7 @@ class _TaskCardState extends State<_TaskCard> {
                     child: Text(
                       widget.task.actualEndDate != null
                           ? DateFormat(
-                             controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                              controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                             ).format(widget.task.actualEndDate!)
                           : '-',
                       style: const TextStyle(fontSize: 12),
@@ -2441,7 +2509,7 @@ class _TaskCardState extends State<_TaskCard> {
                     child: Text(
                       widget.task.plannedStartDate != null
                           ? DateFormat(
-                             controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                              controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                             ).format(widget.task.plannedStartDate!)
                           : '-',
                       style: const TextStyle(fontSize: 12),
@@ -2850,7 +2918,7 @@ Future<void> showAddTaskBottomSheet(
                                     FocusScope.of(context).unfocus();
                                     final date = await showDatePicker(
                                       context: context,
-                                      firstDate: DateTime.now(),
+                                      firstDate: DateTime(2000),
                                       lastDate: DateTime(2100),
                                       initialDate: DateTime.now(),
                                     );
@@ -3204,7 +3272,8 @@ Future<void> showAddTaskBottomSheetInSecond(
                                               .value!
                                               .shelfId,
                                           "TaskName": taskNameCtrl.text,
-                                          "PlannedEndDate": dueDateCtrl.text.isEmpty
+                                          "PlannedEndDate":
+                                              dueDateCtrl.text.isEmpty
                                               ? null
                                               : dueDateCtrl.text,
                                           "AssignedTo": controller
@@ -3658,7 +3727,7 @@ class BoardSettingsWidget extends StatefulWidget {
 class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
     with SingleTickerProviderStateMixin {
   late TabController tabController;
-
+  final RxList<String> ownerNameList = <String>[].obs;
   final boardNameCtrl = TextEditingController();
   final ownerNameController = TextEditingController();
   final descriptionCtrl = TextEditingController();
@@ -3673,6 +3742,8 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
   var sortingOrder = 'By Assignee'.obs;
   var boardTheme = 'System'.obs;
   var enableTimeTracking = false.obs;
+  var autoMovement = false.obs;
+
   var ownerName = ''.obs;
 
   var showUrlUpload = false.obs;
@@ -3681,7 +3752,9 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
   void initState() {
     super.initState();
     tabController = TabController(length: 2, vsync: this);
-    _loadTask();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _loadTask();
+    });
   }
 
   RxBool isUpdating = false.obs;
@@ -3694,7 +3767,9 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
         "BoardId": widget.boardId,
         "BoardName": boardNameCtrl.text.trim(),
         "Description": descriptionCtrl.text.trim(),
-        "BoardOwnerName": ownerName.value.isNotEmpty ? ownerName.value : null,
+        'BoardOwnerName': controller.selectedMembers
+            .map((m) => m.userId)
+            .join(';'),
         "BoardSettingType": boardType.value,
         "BoardTheme": boardTheme.value,
         "DefaultSortingOrder": reverseMapSorting(sortingOrder.value),
@@ -3705,7 +3780,9 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
         "ReferenceId": referenceIdCtrl.text.trim().isEmpty
             ? null
             : referenceIdCtrl.text.trim(),
-        "BackgroundImageUrl": imageUrlCtrl.text, // 🔥 base64 string
+        "BackgroundImageUrl": imageUrlCtrl.text,
+        "AutomateMovement": autoMovement.value,
+        // 🔥 base64 string
       };
       print("payload$payload");
       final response = await ApiService.put(
@@ -3807,7 +3884,25 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
         sortingOrder.value = _mapSorting(settings.defaultSortingOrder);
         boardTheme.value = settings.boardTheme;
         enableTimeTracking.value = settings.timeTrackingEnabled;
-        ownerName.value = settings.boardOwnerName;
+        autoMovement.value = settings.automateMovement;
+        final ownerIds = settings.boardOwnerName;
+        final List<BoardMember> selectedMembers = [];
+        for (final ownerId in ownerIds) {
+          final member = controller.boardMembers.firstWhereOrNull(
+            (m) => m.userId == ownerId,
+          );
+          if (member != null) {
+            selectedMembers.add(member);
+          }
+        }
+
+        // Update controller
+        controller.selectedMembers.assignAll(selectedMembers);
+
+        // Update text controller for display
+        ownerNameController.text =
+            settings.displayOwnerName; // Comma-separated names
+
         controller.recID = settings.recId;
         imageUrlCtrl.text = settings.backgroundImageUrl ?? '';
         final user = controller.boardMembers.firstWhereOrNull(
@@ -3817,8 +3912,9 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
 
         if (user != null) controller.selectedSettingsMembers.value = user;
       } else {}
-    } catch (e) {
+    } catch (e, struct) {
       print("Data Start Uploaded$e");
+      print(struct);
     } finally {
       isLoading.value = false;
     }
@@ -3845,7 +3941,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
 
   Future<void> _loadTask() async {
     setState(() {});
-
+    isLoading.value = true;
     try {
       await loadMembers();
       await boardAllemployeeMembers();
@@ -3854,6 +3950,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
       });
     } catch (e) {
       debugPrint('Checklist error: $e');
+       isLoading.value = false;
     }
   }
 
@@ -3975,12 +4072,23 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                       '${AppLocalizations.of(context)!.boardOwnerName} *',
                   items: controller.boardMembers,
                   controller: ownerNameController,
-
-                  selectedValues: controller.selectedMembers,
-                  isMultiSelect: false,
+                  selectedValues: controller
+                      .selectedMembers, // Assuming this is RxList<BoardMember>
+                  isMultiSelect: true,
                   searchValue: (emp) => '${emp.userId} ${emp.userName}',
                   displayText: (emp) => emp.userName,
-                  onMultiChanged: controller.selectedMembers.assignAll,
+                  onMultiChanged: (members) {
+                    // Update selected members
+                    controller.selectedMembers.assignAll(members);
+
+                    // Store the list of user IDs in a separate variable
+                    ownerNameList.value = members.map((m) => m.userId).toList();
+
+                    // Also update the controller text display
+                    ownerNameController.text = members
+                        .map((m) => m.userName)
+                        .join(', ');
+                  },
                   columnHeaders: [
                     AppLocalizations.of(context)!.employeeId,
                     AppLocalizations.of(context)!.employeeName,
@@ -3998,10 +4106,13 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                     ),
                   ),
                   onChanged: (emp) {
-                    ownerName.value = emp!.userId;
+                    // Single selection (if needed)
+                    if (emp != null) {
+                      ownerNameList.value = [emp.userId];
+                      ownerNameController.text = emp.userName;
+                    }
                   },
                 ),
-
                 const SizedBox(height: 15),
 
                 /// SORTING ORDER
@@ -4009,8 +4120,12 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                   labelText: AppLocalizations.of(context)!.defaultSortingOrder,
                   items: [
                     AppLocalizations.of(context)!.byAssignee,
-                    AppLocalizations.of(context)!.dueDate,
+                    AppLocalizations.of(context)!.plannedEndDate,
                     AppLocalizations.of(context)!.priority,
+                    AppLocalizations.of(context)!.tag,
+                    AppLocalizations.of(context)!.taskName,
+                    AppLocalizations.of(context)!.createdDatetime,
+                    AppLocalizations.of(context)!.modifiedDatetime,
                   ],
                   selectedValue: sortingOrder.value,
                   enabled: PermissionHelper.canUpdate("Board Management"),
@@ -4046,6 +4161,30 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                           value: enableTimeTracking.value,
                           onChanged: canUpdate
                               ? (v) => enableTimeTracking.value = v
+                              : null, // 🔒 disables switch
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      AppLocalizations.of(context)!.autoMovement,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    Transform.scale(
+                      scale: 0.75,
+                      child: Obx(() {
+                        final canUpdate = PermissionHelper.canUpdate(
+                          "Board Management",
+                        );
+
+                        return Switch(
+                          value: autoMovement.value,
+                          onChanged: canUpdate
+                              ? (v) => autoMovement.value = v
                               : null, // 🔒 disables switch
                         );
                       }),

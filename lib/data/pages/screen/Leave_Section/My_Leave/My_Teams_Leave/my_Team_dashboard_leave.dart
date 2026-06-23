@@ -9,15 +9,7 @@ import 'package:diginexa/core/constant/Parames/colors.dart';
 import 'package:diginexa/core/constant/Parames/params.dart' show Params;
 import 'package:diginexa/core/utils.dart';
 import 'package:diginexa/data/models.dart'
-    show
-        ManageExpensesCard,
-        GExpense,
-        LeaveAnalytics,
-        LeaveRequisition,
-        LeaveDetailsModel,
-        TeamLeaveAnalytics,
-        Employee,
-        LeaveAnalyticsFilter;
+    show ManageExpensesCard, GExpense, LeaveAnalytics, LeaveRequisition, LeaveDetailsModel, TeamLeaveAnalytics, Employee, LeaveAnalyticsFilter, UpcomingHoliday, LastAppliedLeave;
 import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/leaveCalenderView.dart';
 import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/view_CreateLeave.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
@@ -47,13 +39,22 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
   late final AnimationController _animationController;
   late final Animation<double> _animation;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
-  RxList<LeaveAnalytics> leaveAnalyticsCards = <LeaveAnalytics>[].obs;
+ RxList<LeaveAnalytics> leaveAnalyticsCards =
+    <LeaveAnalytics>[].obs;
+
+
+RxList<UpcomingHoliday> upcomingHolidays =
+    <UpcomingHoliday>[].obs;
+
+
+RxList<LastAppliedLeave> lastAppliedLeaves =
+    <LastAppliedLeave>[].obs;
   CalendarFormat _viewMode = CalendarFormat.month;
   CalendarFormat _calendarFormat = CalendarFormat.month;
 
   // Tab related variables
   int _selectedTabIndex = 0;
-   late final List<String> _tabTitles = [
+  late final List<String> _tabTitles = [
     AppLocalizations.of(context)!.tableView,
     AppLocalizations.of(context)!.calendarView,
   ];
@@ -142,15 +143,33 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
     });
   }
 
-  Future<void> loadLeaveAnalytics() async {
-    final result = await controller.fetchLeaveAnalytics(
-      Params.employeeId,
-      Params.userToken,
-    );
-    print("resultLeave$result");
-    leaveAnalyticsCards.assignAll(result);
-  }
+Future<void> loadLeaveAnalytics() async {
 
+ final result = await controller.fetchLeaveAnalytics(
+    Params.employeeId,
+    Params.userToken,
+ );
+
+
+ if(result != null){
+
+   leaveAnalyticsCards.assignAll(
+      result.leaveCodeAnalytics
+   );
+
+
+   upcomingHolidays.assignAll(
+      result.upcomingHolidays
+   );
+
+
+   lastAppliedLeaves.assignAll(
+      result.lastAppliedLeaves
+   );
+
+ }
+
+}
   void _initializeCalendarEvents() {
     // Initialize events from controller's leave data
     for (var leave in controller.myTeamsfilteredLeaves) {
@@ -486,36 +505,72 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
                 // 🔹 Auto-Scrolling Cards (Only show in Card View tab)
                 if (_selectedTabIndex == 0) ...[
                   SizedBox(
-                    height: 110,
-                    child: Obx(() {
-                      if (controller.isLoading.value) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 30),
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      }
+  height: 150,
+  child: Obx(() {
+    final isLoading =
+        controller.isLoadingLeave.value || controller.isLoading.value;
 
-                      if (controller.teamLeaveAnalytics.isEmpty) {
-                        return const Center(child: Text('No analytics data'));
-                      }
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-                      return SizedBox(
-                        height: 160,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemBuilder: (context, index) {
-                            return analyticsCard(
-                              controller.teamLeaveAnalytics[index],
-                            );
-                          },
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 12),
-                          itemCount: controller.teamLeaveAnalytics.length,
-                        ),
-                      );
-                    }),
-                  ),
+    final hasTeamAnalytics = controller.teamLeaveAnalytics.isNotEmpty;
+    final hasHolidays = upcomingHolidays.isNotEmpty;
+    final hasLeaves = lastAppliedLeaves.isNotEmpty;
+
+    if (leaveAnalyticsCards.isEmpty &&
+        !hasTeamAnalytics &&
+        !hasHolidays &&
+        !hasLeaves) {
+      return const Center(child: Text('No analytics data'));
+    }
+
+    final totalCount =
+        leaveAnalyticsCards.length +
+        (hasTeamAnalytics ? 1 : 0) +
+        (hasHolidays ? 1 : 0) +
+        (hasLeaves ? 1 : 0);
+
+    return ListView.separated(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: totalCount,
+      separatorBuilder: (_, __) => const SizedBox(width: 12),
+      itemBuilder: (context, index) {
+        /// 🔹 SECTION 1 — individual summary cards
+        if (index < leaveAnalyticsCards.length) {
+          final card = leaveAnalyticsCards[index];
+          return _buildCard(card);
+        }
+
+        int remaining = index - leaveAnalyticsCards.length;
+
+        /// 🔹 SECTION 2 — all team analytics in ONE card
+        if (hasTeamAnalytics) {
+          if (remaining == 0) {
+            final teamIndex = index - leaveAnalyticsCards.length;
+            final analytics =
+                              controller.teamLeaveAnalytics[teamIndex];
+                          return analyticsCard(analytics);
+          }
+          remaining -= 1;
+        }
+
+        /// 🔹 SECTION 3 — all upcoming holidays in ONE card
+        if (hasHolidays) {
+          if (remaining == 0) {
+            return _buildHolidayCard(upcomingHolidays);
+          }
+          remaining -= 1;
+        }
+
+        /// 🔹 SECTION 4 — all applied leaves in ONE card
+        return _buildLastLeaveCard(lastAppliedLeaves);
+      },
+    );
+  }),
+),
                 ],
 
                 // 🔹 Calendar View Content
@@ -922,24 +977,24 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
                       const SizedBox(height: 24),
 
                       _buildDatePickerField(context),
-                      // const SizedBox(height: 16),
 
+                      // const SizedBox(height: 16),
                       _buildViewTypeDropdown(context, controller),
-                      // const SizedBox(height: 16),
 
-                   Obx(
-                            () => controller.showEmployeeField.value
-                                ? Column(
-                                    children: [
-                                      const SizedBox(height: 16),
-                                      _buildEmployeeMultiSelect(
-                                        context,
-                                        controller,
-                                      ),
-                                    ],
-                                  )
-                                : const SizedBox(),
-                          ),
+                      // const SizedBox(height: 16),
+                      Obx(
+                        () => controller.showEmployeeField.value
+                            ? Column(
+                                children: [
+                                  const SizedBox(height: 16),
+                                  _buildEmployeeMultiSelect(
+                                    context,
+                                    controller,
+                                  ),
+                                ],
+                              )
+                            : const SizedBox(),
+                      ),
 
                       const SizedBox(height: 16),
 
@@ -1001,7 +1056,7 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
               text: controller.selectedFilterDate.value == null
                   ? ''
                   : DateFormat(
-                     controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                     ).format(controller.selectedFilterDate.value!),
             ),
             decoration: InputDecoration(
@@ -1251,20 +1306,13 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
               if (controller.filterFormKey.currentState?.validate() ?? true) {
                 // Use current month range or selected dates
                 final now = DateTime.now();
-                final fromDate = toMillisecondsWithTimezone(DateTime(
-                  now.year,
-                  now.month,
-                  1,
-                ));
+                final fromDate = toMillisecondsWithTimezone(
+                  DateTime(now.year, now.month, 1),
+                );
 
-                final toDate = toMillisecondsWithTimezone (DateTime(
-                  now.year,
-                  now.month + 1,
-                  0,
-                  23,
-                  59,
-                  59,
-                ));
+                final toDate = toMillisecondsWithTimezone(
+                  DateTime(now.year, now.month + 1, 0, 23, 59, 59),
+                );
 
                 controller.loadCalendarLeaves(
                   fromDate: fromDate,
@@ -1282,20 +1330,13 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
             onPressed: () {
               controller.resetFilters(); // reset filters
               final now = DateTime.now();
-              final fromDate = toMillisecondsWithTimezone(DateTime(
-                now.year,
-                now.month,
-                1,
-              ));
+              final fromDate = toMillisecondsWithTimezone(
+                DateTime(now.year, now.month, 1),
+              );
 
-              final toDate = toMillisecondsWithTimezone (DateTime(
-                now.year,
-                now.month + 1,
-                0,
-                23,
-                59,
-                59,
-              ));
+              final toDate = toMillisecondsWithTimezone(
+                DateTime(now.year, now.month + 1, 0, 23, 59, 59),
+              );
 
               controller.loadCalendarLeaves(fromDate: fromDate, toDate: toDate);
               Navigator.pop(context); // close dialog/page
@@ -2091,7 +2132,122 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
         return Colors.grey;
     }
   }
-
+Widget _buildHolidayCard(List<UpcomingHoliday> holidays) {
+  return Container(
+    width: 220,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(12),
+      color: Colors.orange.shade50,
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Upcoming Holidays",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ListView.separated(
+            padding: EdgeInsets.zero,
+            itemCount: holidays.length,
+            separatorBuilder: (_, __) => const Divider(height: 10),
+            itemBuilder: (context, i) {
+              final holiday = holidays[i];
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          holiday.name,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          holiday.holidayType,
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    DateFormat('dd MMM').format(holiday.date),
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    ),
+  );
+}
+ Widget _buildLastLeaveCard(List<LastAppliedLeave> leaves) {
+  return Container(
+    width: 220,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(12),
+      color: Colors.blue.shade50,
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Applied Leaves",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ListView.separated(
+            padding: EdgeInsets.zero,
+            itemCount: leaves.length,
+            separatorBuilder: (_, __) => const Divider(height: 10),
+            itemBuilder: (context, i) {
+              final leave = leaves[i];
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          leave.leaveId,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          "Duration: ${leave.duration}",
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    leave.approvalStatus,
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    ),
+  );
+}
   Widget analyticsCard(TeamLeaveAnalytics data) {
     final indicatorColor = getIndicatorColor(data.description);
 

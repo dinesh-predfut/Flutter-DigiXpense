@@ -42,6 +42,9 @@ class _ApprovalHubViewEditLeavePageState
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   RxList<LeaveAnalytics> leaveAnalyticsCards = <LeaveAnalytics>[].obs;
 
+  RxList<UpcomingHoliday> upcomingHolidays = <UpcomingHoliday>[].obs;
+
+  RxList<LastAppliedLeave> lastAppliedLeaves = <LastAppliedLeave>[].obs;
   @override
   void initState() {
     super.initState();
@@ -89,14 +92,33 @@ class _ApprovalHubViewEditLeavePageState
     }
   }
 
-  Future<void> loadLeaveAnalytics() async {
-    final result = await controller.fetchLeaveAnalytics(
-      Params.employeeId,
-      Params.userToken,
-    );
-    print("resultLeave$result");
-    controller.leaveCodes.assignAll(result);
-  }
+ Future<void> loadLeaveAnalytics() async {
+
+ final result = await controller.fetchLeaveAnalytics(
+    Params.employeeId,
+    Params.userToken,
+ );
+
+
+ if(result != null){
+
+   leaveAnalyticsCards.assignAll(
+      result.leaveCodeAnalytics
+   );
+
+
+   upcomingHolidays.assignAll(
+      result.upcomingHolidays
+   );
+
+
+   lastAppliedLeaves.assignAll(
+      result.lastAppliedLeaves
+   );
+
+ }
+
+}
 
   Future<void> loadEmployee() async {
     final result = await controller.fetchEmployees();
@@ -375,12 +397,14 @@ class _ApprovalHubViewEditLeavePageState
                                 return;
                               controller.createLeaveTransactions(
                                 employeeId: Params.employeeId,
-                                fromDate: toMillisecondsWithTimezone(controller.startDate.value!),    
-                                          
-                                toDate:toMillisecondsWithTimezone(controller
-                                    .endDate
-                                    .value!),
-                                  
+                                fromDate: toMillisecondsWithTimezone(
+                                  controller.startDate.value!,
+                                ),
+
+                                toDate: toMillisecondsWithTimezone(
+                                  controller.endDate.value!,
+                                ),
+
                                 leaveCode: controller.leaveCodeController.text,
                               );
                             },
@@ -1095,7 +1119,10 @@ class _ApprovalHubViewEditLeavePageState
                                       /// Date column
                                       Expanded(
                                         child: Text(
-                                          DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(date),
+                                          DateFormat(
+                                            controller.selectedFormat?.key ??
+                                                'dd/MM/yyyy',
+                                          ).format(date),
                                           style: const TextStyle(fontSize: 14),
                                         ),
                                       ),
@@ -1301,10 +1328,13 @@ class _ApprovalHubViewEditLeavePageState
                                   /// DATE
                                   Expanded(
                                     child: Text(
-                                      DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
+                                      DateFormat(
+                                        controller.selectedFormat?.key ??
+                                            'dd/MM/yyyy',
+                                      ).format(
                                         DateTime.fromMillisecondsSinceEpoch(
-                                          leaveDay.transDate,isUtc: true
-                                          
+                                          leaveDay.transDate,
+                                          isUtc: true,
                                         ),
                                       ),
                                     ),

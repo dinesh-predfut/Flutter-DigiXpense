@@ -17,10 +17,18 @@ class AppLocalizationsFr extends AppLocalizations {
   String get punchInOut => 'Pointage Sortie';
   @override
   String get punchInOutList => 'Liste de pointage';
-
+  @override
+  String get autoMovement => 'Mouvement automatique';
+  @override
+  String get tag => 'Étiquette';
+  @override
+  String get createdDatetime => 'Date de création';
+  @override
+  String get modifiedDatetime => 'Date de modification';
   @override
   String get myTeamAttendance => 'Présence de mon équipe';
-@override String get attendance => 'Présence';
+  @override
+  String get attendance => 'Présence';
   @override
   String get timesheets => 'Feuilles de temps';
 

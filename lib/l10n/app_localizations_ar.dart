@@ -127,6 +127,13 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get punchInOutList => 'قائمة تسجيل الحضور/الانصراف';
   @override
+  String get tag => 'العلامة';
+  @override
+  String get createdDatetime => 'تاريخ الإنشاء';
+  @override
+  String get modifiedDatetime => 'تاريخ التعديل';
+  @override String get autoMovement => 'الحركة التلقائية';
+  @override
   String get attendance => 'الحضور';
   @override
   String get myTeamAttendance => 'حضور فريقي';

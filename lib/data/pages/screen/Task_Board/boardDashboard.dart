@@ -28,7 +28,7 @@ class BoardDashboard extends StatefulWidget {
 
 class _BoardDashboardState extends State<BoardDashboard>
     with TickerProviderStateMixin {
-          final controller = Get.find<Controller>();
+  final controller = Get.find<Controller>();
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
@@ -380,19 +380,22 @@ class _BoardDashboardState extends State<BoardDashboard>
                                 key: ValueKey(item.recId),
                                 background: _buildSwipeActionLeft(isLoading),
                                 secondaryBackground: _buildSwipeActionRight(),
+                                dismissThresholds: const {
+                                  DismissDirection.startToEnd: 0.3,
+                                  DismissDirection.endToStart: 0.5,
+                                },
                                 confirmDismiss: (direction) async {
                                   if (direction ==
                                       DismissDirection.startToEnd) {
-                                    setState(() => isLoading = true);
-                                    // isLoadingGE1.value
+                                    // Navigate without dismissing
                                     Navigator.pushNamed(
                                       context,
                                       AppRoutes.kanbanBoardPage,
                                       arguments: {"boardId": item.boardId},
                                     );
-
-                                    return false;
+                                    return false; // Don't dismiss
                                   }
+
                                   if (direction ==
                                           DismissDirection.endToStart &&
                                       PermissionHelper.canDelete(
@@ -424,18 +427,24 @@ class _BoardDashboardState extends State<BoardDashboard>
                                     );
 
                                     if (shouldDelete == true) {
-                                      setState(() => isLoading = true);
+                                     
 
+                                      // Then perform the delete operation
                                       await controller.deleteBoard(item.recId);
 
-                                      setState(() => isLoading = false);
-
-                                      return true; // remove item from UI
+                                      return true; // Allow dismissal
                                     }
-
-                                    return false;
+                                    return false; // Don't dismiss
                                   }
                                   return false;
+                                },
+                                onDismissed: (direction) {
+                                  // Only handle endToStart (delete) direction
+                                  if (direction ==
+                                      DismissDirection.endToStart) {
+                                    // Show a snackbar with undo option (optional)
+                                    
+                                  }
                                 },
                                 child: buildBoardCard(item, context),
                               );
@@ -635,6 +644,7 @@ class _BoardDashboardState extends State<BoardDashboard>
 
   Widget buildBoardCard(BoardModel item, BuildContext context) {
     final controller = Get.find<Controller>();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Obx(() {
       final isSelected = controller.isSelected(item.boardId);
@@ -648,60 +658,306 @@ class _BoardDashboardState extends State<BoardDashboard>
             arguments: {"boardId": item.boardId},
           );
         },
-        child: Card(
-          color: isSelected ? Colors.green.shade100 : const Color(0xFFF2F8F2),
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: isSelected
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Colors.green.shade100, Colors.green.shade50],
+                  )
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isDark
+                        ? [Colors.grey.shade800, Colors.grey.shade900]
+                        : [Colors.white, const Color(0xFFF8FAF8)],
+                  ),
+            boxShadow: [
+              BoxShadow(
+                color: isSelected
+                    ? Colors.green.shade300.withOpacity(0.4)
+                    : Colors.black.withOpacity(0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+                spreadRadius: 2,
+              ),
+            ],
+            border: Border.all(
+              color: isSelected ? Colors.green.shade400 : Colors.transparent,
+              width: 2,
+            ),
           ),
           child: Stack(
             children: [
+              // Decorative background elements
+              Positioned(
+                top: -20,
+                right: -20,
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.green.shade100.withOpacity(0.3),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: -30,
+                left: -30,
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.blue.shade100.withOpacity(0.2),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 40,
+                right: -10,
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.purple.shade100.withOpacity(0.15),
+                  ),
+                ),
+              ),
+
               Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: 20),
-                    _row(
-                      AppLocalizations.of(context)!.boardName,
-                      item.boardName,
+                    // Header with board type and status
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.green.shade400,
+                                Colors.green.shade600,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            item.boardType.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: item.isActive
+                                ? Colors.green.shade100
+                                : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: item.isActive
+                                      ? Colors.green
+                                      : Colors.grey,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                item.isActive ? 'Active' : 'Inactive',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: item.isActive
+                                      ? Colors.green.shade700
+                                      : Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    _row(
-                      AppLocalizations.of(context)!.boardTemplate,
-                      item.areaName,
+
+                    const SizedBox(height: 16),
+
+                    // Board Name with icon
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.blue.shade400,
+                                Colors.blue.shade600,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.dashboard,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            item.boardName,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? Colors.white
+                                  : Colors.grey.shade800,
+                              letterSpacing: 0.3,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                    _row(
-                      AppLocalizations.of(context)!.referenceName,
-                      item.referenceName,
+
+                    const SizedBox(height: 14),
+
+                    // Info Grid
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.grey.shade800.withOpacity(0.4)
+                            : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          _infoRow(
+                            Icons.category,
+                            'Template',
+                            item.areaName,
+                            isDark,
+                          ),
+                          const Divider(height: 12, thickness: 0.5),
+                          _infoRow(
+                            Icons.tag,
+                            'Reference',
+                            item.referenceName ?? '-',
+                            isDark,
+                          ),
+                          const Divider(height: 12, thickness: 0.5),
+                          _infoRow(
+                            Icons.qr_code,
+                            'ID',
+                            item.referenceId ?? '-',
+                            isDark,
+                          ),
+                          const Divider(height: 12, thickness: 0.5),
+                          _ownersRow(
+                            Icons.people,
+                            'Owners',
+                            item.boardOwnerName,
+                            isDark,
+                          ),
+                        ],
+                      ),
                     ),
-                    _row(
-                      AppLocalizations.of(context)!.referenceId,
-                      item.referenceId,
+
+                    const SizedBox(height: 12),
+
+                    // Footer - Board ID
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Board ID: ${item.boardId}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isDark
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade500,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.folder_outlined,
+                              size: 14,
+                              color: isDark
+                                  ? Colors.grey.shade400
+                                  : Colors.grey.shade500,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Rec#${item.recId}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isDark
+                                    ? Colors.grey.shade400
+                                    : Colors.grey.shade500,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
 
-              /// Public badge
-              Positioned(
-                top: 10,
-                right: 12,
-                child: Text(
-                  "${item.boardType} ${AppLocalizations.of(context)!.board}",
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              // Selection indicator
+              if (isSelected)
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.withOpacity(0.4),
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
                 ),
-              ),
-
-              /// Checkbox
-              // Positioned(
-              //   top: 4,
-              //   left: 4,
-              //   child: Checkbox(
-              //     value: isSelected,
-              //     onChanged: (_) =>
-              //         controller.toggleSelection(item.boardId),
-              //   ),
-              // ),
             ],
           ),
         ),
@@ -709,20 +965,175 @@ class _BoardDashboardState extends State<BoardDashboard>
     });
   }
 
-  Widget _row(String label, String value) {
+  // Info row with icon
+  Widget _infoRow(IconData icon, String label, String value, bool isDark) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
+          Icon(
+            icon,
+            size: 16,
+            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+          ),
+          const SizedBox(width: 10),
           SizedBox(
-            width: 120,
-            child: Text(label, style: const TextStyle(color: Colors.grey)),
+            width: 70,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
           Expanded(
             child: Text(
-              ":  $value",
-              style: const TextStyle(fontWeight: FontWeight.w500),
+              value,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.grey.shade800,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Owners row with horizontal scrolling
+  Widget _ownersRow(
+    IconData icon,
+    String label,
+    List<String> owners,
+    bool isDark,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 70,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: owners.isEmpty
+                ? Text(
+                    '-',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade500,
+                    ),
+                  )
+                : SizedBox(
+                    height: 32,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: owners.map((owner) {
+                          final initials = owner
+                              .split(' ')
+                              .map((e) => e.isNotEmpty ? e[0] : '')
+                              .take(2)
+                              .join()
+                              .toUpperCase();
+
+                          final colors = [
+                            Colors.blue,
+                            Colors.green,
+                            Colors.purple,
+                            Colors.orange,
+                            Colors.red,
+                            Colors.teal,
+                            Colors.pink,
+                            Colors.indigo,
+                            Colors.cyan,
+                            Colors.amber,
+                            Colors.brown,
+                            Colors.deepPurple,
+                          ];
+                          final colorIndex = owner.length % colors.length;
+                          final color = colors[colorIndex];
+
+                          return Container(
+                            margin: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  color.shade50,
+                                  color.shade100.withOpacity(0.5),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: color.shade200,
+                                width: 1,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: color.shade200.withOpacity(0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // ✅ Fixed CircleAvatar - removed backgroundImage
+                                CircleAvatar(
+                                  radius: 10,
+                                  backgroundColor: color,
+                                  child: Text(
+                                    initials,
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  owner.trim(),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: color.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),

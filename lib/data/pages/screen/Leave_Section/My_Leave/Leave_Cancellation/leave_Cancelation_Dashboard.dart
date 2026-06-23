@@ -9,7 +9,7 @@ import 'package:diginexa/core/constant/Parames/models.dart';
 import 'package:diginexa/core/constant/Parames/params.dart' show Params;
 import 'package:diginexa/core/utils.dart';
 import 'package:diginexa/data/models.dart'
-    show ManageExpensesCard, GExpense, LeaveAnalytics, LeaveCancellationModel, LeaveDetailsModel, LeaveRequisition, LeaveAnalyticsFilter, Employee;
+    show ManageExpensesCard, GExpense, LeaveAnalytics, LeaveCancellationModel, LeaveDetailsModel, LeaveRequisition, LeaveAnalyticsFilter, Employee, UpcomingHoliday, LastAppliedLeave;
 import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/leaveCalenderView.dart';
 import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/view_CreateLeave.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
@@ -40,7 +40,16 @@ class _CancellationLeaveDashboardState extends State<CancellationLeaveDashboard>
   late final AnimationController _animationController;
   late final Animation<double> _animation;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
-  RxList<LeaveAnalytics> leaveAnalyticsCards = <LeaveAnalytics>[].obs;
+ RxList<LeaveAnalytics> leaveAnalyticsCards =
+    <LeaveAnalytics>[].obs;
+
+
+RxList<UpcomingHoliday> upcomingHolidays =
+    <UpcomingHoliday>[].obs;
+
+
+RxList<LastAppliedLeave> lastAppliedLeaves =
+    <LastAppliedLeave>[].obs;
 
   // Tab related variables
   int _selectedTabIndex = 0;
@@ -137,14 +146,33 @@ String _isoDate(int epoch) {
     });
   }
 
-  Future<void> loadLeaveAnalytics() async {
-    final result = await controller.fetchLeaveAnalytics(
-      Params.employeeId,
-      Params.userToken,
-    );
-    print("resultLeave$result");
-    leaveAnalyticsCards.assignAll(result);
-  }
+Future<void> loadLeaveAnalytics() async {
+
+ final result = await controller.fetchLeaveAnalytics(
+    Params.employeeId,
+    Params.userToken,
+ );
+
+
+ if(result != null){
+
+   leaveAnalyticsCards.assignAll(
+      result.leaveCodeAnalytics
+   );
+
+
+   upcomingHolidays.assignAll(
+      result.upcomingHolidays
+   );
+
+
+   lastAppliedLeaves.assignAll(
+      result.lastAppliedLeaves
+   );
+
+ }
+
+}
 
   void _initializeCalendarEvents() {
     // Initialize events from controller's leave data

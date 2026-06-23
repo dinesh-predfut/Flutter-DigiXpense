@@ -40,8 +40,19 @@ class ViewEditLeavePage extends StatefulWidget {
 class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
   final controller = Get.find<Controller>();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  RxList<LeaveAnalytics> leaveAnalyticsCards = <LeaveAnalytics>[].obs;
+RxList<LeaveAnalytics> leaveAnalyticsCards =
+    <LeaveAnalytics>[].obs;
+
+
+RxList<UpcomingHoliday> upcomingHolidays =
+    <UpcomingHoliday>[].obs;
+
+
+RxList<LastAppliedLeave> lastAppliedLeaves =
+    <LastAppliedLeave>[].obs;
   late Future<List<ExpenseHistory>> historyFuture;
+
+  var isAllowPastDate = true.obs;
   // late final Controller controller;
   @override
   void initState() {
@@ -70,6 +81,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
         controller.fetchLocation(),
         controller.loadLeaveAnalytics(DateTime.now()),
         loadEmployee(),
+        loadLeaveAnalytics(),
         controller.fetchUsers(),
       ]);
       await controller.mergeLeaveBalances();
@@ -105,6 +117,34 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
       controller.isLoading.value = false;
     }
   }
+
+Future<void> loadLeaveAnalytics() async {
+
+ final result = await controller.fetchLeaveAnalytics(
+    Params.employeeId,
+    Params.userToken,
+ );
+
+
+ if(result != null){
+
+   leaveAnalyticsCards.assignAll(
+      result.leaveCodeAnalytics
+   );
+
+
+   upcomingHolidays.assignAll(
+      result.upcomingHolidays
+   );
+
+
+   lastAppliedLeaves.assignAll(
+      result.lastAppliedLeaves
+   );
+
+ }
+
+}
 
   Future<void> loadEmployee() async {
     final result = await controller.fetchEmployees();
@@ -235,7 +275,43 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
             controller.startDate.value = startDateUtc;
             controller.endDate.value = endDateUtc;
           }
+          final pickedStart = DateTime(
+            picked.start.year,
+            picked.start.month,
+            picked.start.day,
+          );
+          final pickedEnd = DateTime(
+            picked.end.year,
+            picked.end.month,
+            picked.end.day,
+          );
 
+          if (!controller.isAllowedPastDates.value) {
+            final now = DateTime.now();
+            final today = DateTime(now.year, now.month, now.day);
+
+            // Check if start date is today or before today (not allowed)
+            if (pickedStart.isBefore(today) ||
+                pickedStart.isAtSameMomentAs(today)) {
+              isAllowPastDate.value = false;
+
+              return;
+            }
+
+            // Check if end date is today or before today (not allowed)
+            if (pickedEnd.isBefore(today) ||
+                pickedEnd.isAtSameMomentAs(today)) {
+              isAllowPastDate.value = false;
+
+              return;
+            }
+
+            // ✅ Dates are valid (tomorrow or future)
+            isAllowPastDate.value = true;
+          } else {
+            // ✅ Past dates are allowed
+            isAllowPastDate.value = true;
+          }
           // Update display using formatDate (converts UTC to org-local correctly)
           controller.fromDateController.text = formatDate(
             controller.startDate.value!,
@@ -243,7 +319,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
           controller.toDateController.text = formatDate(
             controller.endDate.value!,
           );
-controller.updateDatesController();
+          controller.updateDatesController();
           // Load leave analytics
           await controller.loadLeaveAnalytics(controller.startDate.value);
 
@@ -410,6 +486,58 @@ controller.updateDatesController();
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+SizedBox(
+  height: 150,
+  child: Obx(() {
+    final isLoading =
+        controller.isLoadingLeave.value || controller.isLoading.value;
+
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final hasHolidays = upcomingHolidays.isNotEmpty;
+    final hasLeaves = lastAppliedLeaves.isNotEmpty;
+
+    final totalCount =
+        leaveAnalyticsCards.length +
+        (hasHolidays ? 1 : 0) +
+        (hasLeaves ? 1 : 0);
+
+    if (totalCount == 0) {
+      return const Center(child: Text("No Data Found"));
+    }
+
+    return ListView.separated(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: totalCount,
+      separatorBuilder: (_, __) => const SizedBox(width: 12),
+      itemBuilder: (context, index) {
+        // 🔹 Leave Analytics Cards
+        if (index < leaveAnalyticsCards.length) {
+          final card = leaveAnalyticsCards[index];
+          return _buildCard(card);
+        }
+
+        int remaining = index - leaveAnalyticsCards.length;
+
+        // 🔹 Single card containing ALL upcoming holidays
+        if (hasHolidays) {
+          if (remaining == 0) {
+            return _buildHolidayCard(upcomingHolidays);
+          }
+          remaining -= 1;
+        }
+
+        // 🔹 Single card containing ALL applied leaves
+        return _buildLastLeaveCard(lastAppliedLeaves);
+      },
+    );
+  }),
+),
+const SizedBox(height: 10,),
                         // Header with status if editing
                         if (widget.leaveRequest != null && widget.status)
                           Row(
@@ -560,7 +688,50 @@ controller.updateDatesController();
                                 code.leaveCode;
                             controller.isAllowedPastDates.value =
                                 code.isPastAllowed;
+                            // Direct check: If past dates not allowed, validate selected dates
+                            if (!code.isPastAllowed) {
+                              if (controller.startDate.value != null &&
+                                  controller.endDate.value != null) {
+                                final now = DateTime.now();
+                                final today = DateTime(
+                                  now.year,
+                                  now.month,
+                                  now.day,
+                                );
 
+                                // Normalize dates
+                                final startDateOnly = DateTime(
+                                  controller.startDate.value!.year,
+                                  controller.startDate.value!.month,
+                                  controller.startDate.value!.day,
+                                );
+                                final endDateOnly = DateTime(
+                                  controller.endDate.value!.year,
+                                  controller.endDate.value!.month,
+                                  controller.endDate.value!.day,
+                                );
+
+                                // Check if date is today or past (NOT after today)
+                                if (!startDateOnly.isAfter(today) ||
+                                    !endDateOnly.isAfter(today)) {
+                                  isAllowPastDate.value = false;
+
+                                  // controller.startDate.value = null;
+                                  // controller.endDate.value = null;
+                                  // controller.datesController.text = '';
+                                  return;
+                                }
+                              }
+                              isAllowPastDate.value = true;
+                            } else {
+                              isAllowPastDate.value = true;
+                            }
+
+                            // if (!code.isPastAllowed) {
+                            //   isAllowPastDate.value = true;
+                            // } else {
+                            //   isAllowPastDate.value = false;
+                            // }
                             // Validate
                             if (controller.startDate.value == null ||
                                 controller.endDate.value == null) {
@@ -570,7 +741,9 @@ controller.updateDatesController();
                               );
                               return;
                             }
-
+                            print(
+                              "isAllowedPastDates${controller.isAllowedPastDates.value}$isAllowPastDate",
+                            );
                             // Convert to org-local timezone
                             final offsetMs = getTimezoneOffsetMs();
 
@@ -770,6 +943,9 @@ controller.updateDatesController();
                             labelText:
                                 '${AppLocalizations.of(context)!.dates} *',
                             border: const OutlineInputBorder(),
+                            errorText: isAllowPastDate.value
+                                ? null
+                                : "Start Date must be greater than today", // Returns String? (null when no error)
                             suffixIcon: controller.leaveField.value
                                 ? IconButton(
                                     icon: const Icon(Icons.calendar_today),
@@ -780,6 +956,8 @@ controller.updateDatesController();
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return '${AppLocalizations.of(context)!.dates} ${AppLocalizations.of(context)!.fieldRequired}';
+                            } else if (!isAllowPastDate.value) {
+                              return "Start Date must be greater than today";
                             }
                             return null;
                           },
@@ -2351,6 +2529,307 @@ controller.updateDatesController();
     );
   }
 
+  Color hexToColor(String hex) {
+    hex = hex.replaceAll('#', '');
+    return Color(int.parse('FF$hex', radix: 16));
+  }
+
+  Widget _buildCard(LeaveAnalytics data) {
+    final percent = data.totalLeaves == 0
+        ? 0.0
+        : (data.leaveBalance / data.totalLeaves).clamp(0.0, 1.0);
+
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  AppLocalizations.of(context)!.remaining,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  data.leaveCode,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                height: 70,
+                width: 70,
+                child: CircularProgressIndicator(
+                  value: percent,
+                  strokeWidth: 7,
+                  backgroundColor: Colors.grey.shade200,
+                  valueColor: AlwaysStoppedAnimation(
+                    hexToColor(data.leaveCodeColor),
+                  ),
+                ),
+              ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    data.leaveBalance.toString(),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    '${AppLocalizations.of(context)!.outOf} ${data.totalLeaves}',
+                    style: const TextStyle(fontSize: 8),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+Widget _buildHolidayCard(List<UpcomingHoliday> holidays) {
+  return Container(
+    width: 220,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(12),
+      color: Colors.orange.shade50,
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Upcoming Holidays",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ListView.separated(
+            padding: EdgeInsets.zero,
+            itemCount: holidays.length,
+            separatorBuilder: (_, __) => const Divider(height: 10),
+            itemBuilder: (context, i) {
+              final holiday = holidays[i];
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          holiday.name,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          holiday.holidayType,
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    DateFormat('dd MMM').format(holiday.date),
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    ),
+  );
+}
+ Widget _buildLastLeaveCard(List<LastAppliedLeave> leaves) {
+  return Container(
+    width: 220,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(12),
+      color: Colors.blue.shade50,
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Applied Leaves",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ListView.separated(
+            padding: EdgeInsets.zero,
+            itemCount: leaves.length,
+            separatorBuilder: (_, __) => const Divider(height: 10),
+            itemBuilder: (context, i) {
+              final leave = leaves[i];
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          leave.leaveId,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          "Duration: ${leave.duration}",
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    leave.approvalStatus,
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    ),
+  );
+}
+  Color getIndicatorColor(String description) {
+    switch (description) {
+      case 'Total Team Members':
+        return Colors.deepPurple;
+
+      case 'Total leaves':
+        return Colors.orange;
+
+      case 'Average Team Leaves':
+        return Colors.green;
+
+      case 'Pending':
+        return Colors.amber;
+
+      case 'Approved':
+        return Colors.green;
+
+      case 'Draft':
+        return Colors.blueGrey;
+
+      case 'Cancelled':
+        return Colors.red;
+
+      case 'Rejected':
+        return Colors.redAccent;
+
+      case 'Partially Cancelled':
+        return Colors.deepOrange;
+
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData getIcon(String description) {
+    switch (description) {
+      case 'Total Team Members':
+        return Icons.groups_rounded;
+
+      case 'Total leaves':
+        return Icons.event_note_rounded;
+
+      case 'Average Team Leaves':
+        return Icons.bar_chart_rounded;
+
+      case 'Pending':
+        return Icons.pending_actions_rounded;
+
+      case 'Approved':
+        return Icons.check_circle_rounded;
+
+      case 'Draft':
+        return Icons.edit_note_rounded;
+
+      case 'Cancelled':
+        return Icons.cancel_rounded;
+
+      case 'Rejected':
+        return Icons.highlight_off_rounded;
+
+      case 'Partially Cancelled':
+        return Icons.remove_circle_outline_rounded;
+
+      default:
+        return Icons.info_outline_rounded;
+    }
+  }
+
+  String? _getDateError() {
+    // Check if field is empty
+    if (controller.datesController.text.isEmpty) {
+      return '${AppLocalizations.of(context)!.dates} ${AppLocalizations.of(context)!.fieldRequired}';
+    }
+
+    // Check if start and end dates are set
+    if (controller.startDate.value == null ||
+        controller.endDate.value == null) {
+      return 'Please select valid date range';
+    }
+
+    // Check if past dates are allowed
+    if (!controller.isAllowedPastDates.value) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      if (controller.startDate.value!.isBefore(today)) {
+        return 'Past dates are not allowed for this leave type';
+      }
+
+      if (controller.endDate.value!.isBefore(today)) {
+        return 'Past dates are not allowed for this leave type';
+      }
+    }
+
+    // Check if start date is after end date
+    if (controller.startDate.value!.isAfter(controller.endDate.value!)) {
+      return 'Start date cannot be after end date';
+    }
+
+    return null; // No error
+  }
+
   Widget _buildTimelineItem(ExpenseHistory item, bool isLast) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2539,7 +3018,7 @@ controller.updateDatesController();
                                               String
                                             >(
                                               enabled:
-                                                  controller.leaveField.value &&
+                                                  
                                                   !leaveDay.isHoliday,
                                               labelText: AppLocalizations.of(
                                                 context,
@@ -3617,31 +4096,27 @@ controller.updateDatesController();
 
                               /// Form validation
                               if (!_formKey.currentState!.validate() &&
-                                  !_validateNegativeBalance() && controller
-                                      .commentsController.text.isEmpty) {
+                                  !_validateNegativeBalance() &&
+                                  controller.commentsController.text.isEmpty) {
                                 setState(() {});
                                 return;
                               }
-                              if (controller
-                                      .selectedLeaveCode
-                                      .value!
-                                      .isSupportiveDocReq &&
-                                  controller.uploadedImages.isEmpty) {
-                                Fluttertoast.showToast(
-                                  msg: "Receipt Required",
-                                  backgroundColor: const Color.fromARGB(
-                                    255,
-                                    247,
-                                    2,
-                                    2,
-                                  ),
-                                  textColor: const Color.fromARGB(
-                                    255,
-                                    253,
-                                    253,
-                                    252,
-                                  ),
-                                );
+                              if (!isAllowPastDate.value) {
+                                // Fluttertoast.showToast(
+                                //   msg: "Receipt Required",
+                                //   backgroundColor: const Color.fromARGB(
+                                //     255,
+                                //     247,
+                                //     2,
+                                //     2,
+                                //   ),
+                                //   textColor: const Color.fromARGB(
+                                //     255,
+                                //     253,
+                                //     253,
+                                //     252,
+                                //   ),
+                                // );
                                 return;
                               }
 
@@ -3722,7 +4197,24 @@ controller.updateDatesController();
                                     setState(() {});
                                     return;
                                   }
-
+                                  if (!isAllowPastDate.value) {
+                                    // Fluttertoast.showToast(
+                                    //   msg: "Receipt Required",
+                                    //   backgroundColor: const Color.fromARGB(
+                                    //     255,
+                                    //     247,
+                                    //     2,
+                                    //     2,
+                                    //   ),
+                                    //   textColor: const Color.fromARGB(
+                                    //     255,
+                                    //     253,
+                                    //     253,
+                                    //     252,
+                                    //   ),
+                                    // );
+                                    return;
+                                  }
                                   controller.setButtonLoading(
                                     'saveDraft',
                                     true,
