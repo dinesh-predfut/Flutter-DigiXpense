@@ -144,6 +144,11 @@ class Urls {
 
   static const getCustomField =
       "$baseURL/api/v1/masters/fieldmanagement/customfields/customfields?filter_query=STPCustomFields.IsActive__eq%3Dtrue%26STPCustomFields.ObjectName__not_eq%3DExpenseCategories&page=1&sort_order=asc";
+  static const getCategoryCustomField =
+    "$baseURL/api/v1/perdiemregistration/perdiemregistration/expensecategorycustomfields?expensetype=PerDiem&Fromdate=";
+
+    static const getMilegeCategoryCustomField =
+    "$baseURL/api/v1/perdiemregistration/perdiemregistration/expensecategorycustomfields?expensetype=Mileage&Fromdate=";
   static const getdimensionsDropdownName =
       "$baseURL/api/v1/masters/financemgmt/dimensions/dimensions/dimensionhierarchiesanddimensionhierarchylines/?passeddate=";
   static const getdimensionsDropdownValue =
