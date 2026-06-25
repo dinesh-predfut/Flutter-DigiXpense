@@ -1,44 +1,79 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
+
 class InternetProvider extends ChangeNotifier {
-  bool _hasInternet = true;
-  bool get hasInternet => _hasInternet;
 
-  final Connectivity _connectivity = Connectivity();
-  late StreamSubscription _subscription;
+  bool _isConnected = true;
 
-  InternetProvider() {
-    _init();
-  }
+  bool get isConnected => _isConnected;
 
-  void _init() async {
-    await checkInternet();
 
-    _subscription =
-        _connectivity.onConnectivityChanged.listen((_) async {
-      await checkInternet();
+  late StreamSubscription subscription;
+
+
+  InternetProvider(){
+
+    checkInternet();
+
+
+    subscription =
+        Connectivity()
+        .onConnectivityChanged
+        .listen((List<ConnectivityResult> result){
+
+
+      if(result.contains(ConnectivityResult.none)){
+
+        _isConnected = false;
+
+      }else{
+
+        _isConnected = true;
+
+      }
+
+
+      notifyListeners();
+
     });
+
   }
+
+
 
   Future<void> checkInternet() async {
-    try {
-      final result = await InternetAddress.lookup('google.com');
 
-      _hasInternet =
-          result.isNotEmpty && result.first.rawAddress.isNotEmpty;
-    } on SocketException {
-      _hasInternet = false;
+
+    final result =
+        await Connectivity().checkConnectivity();
+
+
+    if(result.contains(ConnectivityResult.none)){
+
+      _isConnected = false;
+
+    }else{
+
+      _isConnected = true;
+
     }
 
+
     notifyListeners();
+
   }
 
+
+
   @override
-  void dispose() {
-    _subscription.cancel();
+  void dispose(){
+
+    subscription.cancel();
+
     super.dispose();
+
   }
+
 }

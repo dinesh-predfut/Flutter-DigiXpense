@@ -23388,7 +23388,7 @@ Future<void>  loadAllMillageCategotyCustomFieldValues({
     if (!isShown) {
       showLocationDisclosure(context);
     } else {
-      fetchCurrentLocation();
+    fetchCurrentLocation();
     }
   }
 

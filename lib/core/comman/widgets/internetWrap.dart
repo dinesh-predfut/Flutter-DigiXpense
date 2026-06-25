@@ -5,26 +5,56 @@ import 'package:provider/provider.dart';
 
 
 class InternetWrapper extends StatelessWidget {
+
   final Widget child;
 
-  const InternetWrapper({super.key, required this.child});
+
+  const InternetWrapper({
+    super.key,
+    required this.child,
+  });
+
+
 
   @override
   Widget build(BuildContext context) {
+
     return Consumer<InternetProvider>(
       builder: (_, internet, _) {
+
+
         return Stack(
+
           children: [
+
+
             child,
 
-            /// ✅ INTERNET OVERLAY
-            if (!internet.hasInternet)
-              const Positioned.fill(
-                child: NoInternetScreen(),
+
+            if(!internet.isConnected)
+
+              Positioned.fill(
+
+                child: NoInternetPage(
+
+                  onRetry: () {
+
+                    internet.checkInternet();
+
+                  },
+
+                ),
+
               ),
+
           ],
+
         );
+
       },
+
     );
+
   }
+
 }
