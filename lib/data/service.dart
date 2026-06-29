@@ -235,6 +235,8 @@ class Controller extends GetxController {
       TextEditingController();
   final TextEditingController projectDropDowncontroller =
       TextEditingController();
+        final TextEditingController projectDropDowncontrollerError =
+      TextEditingController();
   List<TextEditingController> tripControllers = [
     TextEditingController(), // Start Trip
     TextEditingController(), // End Trip
@@ -3316,23 +3318,36 @@ class Controller extends GetxController {
   }
 
   void validatePercentage(String value, String text, Controller controller) {
-    // Allow temporary empty state while typing
-    if (value.trim().isEmpty) {
-      controller.percentageError.value = false; // ✅ allow clearing
-      return;
-    }
-
-    final number = double.tryParse(value);
-    final percentage = double.tryParse(text);
-
-    if (number == null || percentage == null) {
-      controller.percentageError.value = true;
-    } else if (number < 0 || number > percentage) {
-      controller.percentageError.value = true;
-    } else {
-      controller.percentageError.value = false;
-    }
+  // Allow temporary empty state while typing
+  if (value.trim().isEmpty) {
+    controller.percentageError.value = false; // ✅ allow clearing
+    return;
   }
+
+  final number = double.tryParse(value);
+
+  // value is not empty but not a valid number → error
+  if (number == null) {
+    controller.percentageError.value = true;
+    return;
+  }
+
+  // percentage is empty → only require a valid number (already checked above)
+  if (text.trim().isEmpty) {
+    controller.percentageError.value = false;
+    return;
+  }
+
+  // percentage is NOT empty → validate the range
+  final percentage = double.tryParse(text);
+  if (percentage == null) {
+    controller.percentageError.value = true;
+  } else if (number < 0 || number > percentage) {
+    controller.percentageError.value = true;
+  } else {
+    controller.percentageError.value = false;
+  }
+}
 
   final teamLeaveAnalytics = <TeamLeaveAnalytics>[].obs;
   Future<void> loadMyTeamLeaveAnalytics() async {
@@ -3992,7 +4007,7 @@ Future<void> mergeLeaveBalances() async {
     selectedTax = null;
     selectedProject = null;
     selectedCategory = null;
-    // selectedDate = DateTime.now();
+    selectedDate = null;
     imageFiles.clear();
     finalItems.clear();
     finalItemsSpecific.clear();
@@ -4078,7 +4093,7 @@ Future<void> mergeLeaveBalances() async {
                 '';
           } else if (fieldType == 'Decimal' ||
               fieldType == 'Amount' ||
-              fieldType == 'Percentage') {
+              fieldType == 'Percent') {
             final rxValue = field['_rxDoubleValue'] as Rx<double?>?;
             fieldValue =
                 rxValue?.value?.toString() ??
@@ -4219,7 +4234,7 @@ Future<void> mergeLeaveBalances() async {
                 '';
           } else if (fieldType == 'Decimal' ||
               fieldType == 'Amount' ||
-              fieldType == 'Percentage') {
+              fieldType == 'Percent') {
             final rxValue = field['_rxDoubleValue'] as Rx<double?>?;
             fieldValue =
                 rxValue?.value?.toString() ??
@@ -4696,39 +4711,54 @@ Future<void> mergeLeaveBalances() async {
   }
 
   void clearTimeSheetForm() {
-    /// Header fields
-    ///
-    ///
-    projectDropDowncontroller.clear();
-    uploadedImages.clear();
-    boardNameController.clear();
-    taskIdController.clear();
-    selectedProject = null;
-    showProjectError.value = false;
-    recId = null;
-    noteCtrl.clear();
-    timeSheetID.clear();
-    sheetEnable.value = false;
-    durationSeconds.value = 0;
-    taskList.clear();
-    periodType.value = '';
+  /// Header fields
+  projectDropDowncontroller.clear();
+  uploadedImages.clear();
+  boardNameController.clear();
+  taskIdController.clear();
+  selectedProject = null;
+  showProjectError.value = false;
+  recId = null;
+  noteCtrl.clear();
+  timeSheetID.clear();
+  sheetEnable.value = false;
+  durationSeconds.value = 0;
+  taskList.clear();
+  periodType.value = '';
 
-    /// Line items
-    lineItems.clear();
-    lineItems.add(LineItemModel());
-    timeEntries.clear();
-
-    /// Timer state
-    for (final line in lineItems) {
-      line.timerRunning.value = false;
-      line.timerCompleted.value = false;
-      line.elapsedSeconds.value = 0;
+  /// Custom fields
+  headerCustomFields.clear();
+  lineCustomFields.clear();
+  headerCustomFields.refresh();
+  lineCustomFields.refresh();
+    for (final field in customFields) {
+      if (field['FieldType'] == 'List' ||
+          field['FieldType'] == 'CustomList' ||
+          field['FieldType'] == 'SystemList') {
+        field['SelectedValue'] = null;
+      } else if (field['FieldType'] == 'Checkbox') {
+        field['EnteredValue'] = false;
+      } else {
+        field['EnteredValue'] = null;
+      }
+      field['Error'] = null;
     }
+    lineCustomFields.clear();
+  /// Line items
+  lineItems.clear();
+  lineItems.add(LineItemModel());
+  timeEntries.clear();
 
-    /// Date range & period
-    // handled in UI state
+  /// Timer state
+  for (final line in lineItems) {
+    line.timerRunning.value = false;
+    line.timerCompleted.value = false;
+    line.elapsedSeconds.value = 0;
   }
 
+  /// Date range & period
+  // handled in UI state
+}
   bool isImage(String path) {
     final ext = path.toLowerCase();
     return ext.endsWith('.jpg') ||
@@ -4886,189 +4916,181 @@ Future<void> mergeLeaveBalances() async {
   DateTimeRange? dateRange;
   String? stepType;
   String? statusApproval;
-  void _appendExistingTimesheetData(
-    Map<String, dynamic> data,
-    BuildContext context,
-    String page,
-  ) {
-    periodType.value = '';
+ void _appendExistingTimesheetData(
+  Map<String, dynamic> data,
+  BuildContext context,
+  String page,
+) {
+  periodType.value = '';
 
-    /// HEADER
-    projectDropDowncontroller.text = data["ProjectId"] ?? '';
-    stepValue = data['StepType'] ?? '';
-    periodType.value = getPeriodTypeForUI(data['Frequency'] ?? '');
-    print("stepValue${periodType.value}");
-    timeSheetID.text = data["TimesheetId"];
-    recId = data["RecId"];
+  /// HEADER
+  projectDropDowncontroller.text = data["ProjectId"] ?? '';
+  stepValue = data['StepType'] ?? '';
+  periodType.value = getPeriodTypeForUI(data['Frequency'] ?? '');
+  timeSheetID.text = data["TimesheetId"];
+  recId = data["RecId"];
 
-    // FIX: Convert API UTC milliseconds to UTC DateTime (stored format)
-    // API returns UTC milliseconds, we store as UTC DateTime
-    final fromDateUtc = DateTime.fromMillisecondsSinceEpoch(
-      data['FromDate'],
-      isUtc: true,
-    );
-    final toDateUtc = DateTime.fromMillisecondsSinceEpoch(
-      data['ToDate'],
-      isUtc: true,
-    );
+  // API returns UTC milliseconds -> UTC DateTime
+  final fromDateUtc =
+      DateTime.fromMillisecondsSinceEpoch(data['FromDate'], isUtc: true);
+  final toDateUtc =
+      DateTime.fromMillisecondsSinceEpoch(data['ToDate'], isUtc: true);
 
-    // Convert to org-local for display in date range picker
-    final offsetMs = getTimezoneOffsetMs();
-    final fromDateOrg = DateTime.fromMillisecondsSinceEpoch(
-      fromDateUtc.millisecondsSinceEpoch + offsetMs,
-      isUtc: true,
-    );
-    final toDateOrg = DateTime.fromMillisecondsSinceEpoch(
-      toDateUtc.millisecondsSinceEpoch + offsetMs,
-      isUtc: true,
-    );
+  // Convert to org-local for display in date range picker
+  final offsetMs = getTimezoneOffsetMs();
+  final fromDateOrg = DateTime.fromMillisecondsSinceEpoch(
+    fromDateUtc.millisecondsSinceEpoch + offsetMs,
+    isUtc: true,
+  );
+  final toDateOrg = DateTime.fromMillisecondsSinceEpoch(
+    toDateUtc.millisecondsSinceEpoch + offsetMs,
+    isUtc: true,
+  );
 
-    // Store as org-local DateTime objects (as UTC DateTimes representing org-local time)
-    dateRange = DateTimeRange(start: fromDateOrg, end: toDateOrg);
+  // Store org-local range (used by the date picker + grid)
+  dateRange = DateTimeRange(start: fromDateOrg, end: toDateOrg);
 
-    print("=== TIMESHEET DATE LOADING ===");
-    print("API FromDate MS: ${data['FromDate']}");
-    print("API ToDate MS: ${data['ToDate']}");
-    print("FromDate Utc: $fromDateUtc");
-    print("ToDate Utc: $toDateUtc");
-    print("FromDate Org: $fromDateOrg");
-    print("ToDate Org: $toDateOrg");
-    print("DateRange stored: ${dateRange!.start} to ${dateRange!.end}");
+  statusApproval = data['ApprovalStatus'] ?? 'Created';
+  stepType = data['StepType'] ?? '';
+  workitemrecid = data['workitemrecid'] ?? 0;
 
-    statusApproval = data['ApprovalStatus'] ?? 'Created';
-    stepType = data['StepType'] ?? '';
-    workitemrecid = data['workitemrecid'] ?? 0;
+  fetchExpenseDocImage(data['RecId']);
 
-    fetchExpenseDocImage(data['RecId']);
+  /// CLEAR OLD DATA
+  lineItems.clear();
+  timeEntries.clear();
 
-    /// CLEAR OLD DATA
-    lineItems.clear();
-    timeEntries.clear();
+  int index = 0;
 
-    int index = 0;
-
-    /// LINES
-    for (final line in data['Timesheetlines']) {
-      final lineItem = LineItemModel(
-        project: Project(
-          code: line['ProjectId'] ?? "",
-          name: "",
-          isNotEmpty: false,
-        ),
-        board: BoardModel(
-          recId: line['RecId'],
-          boardId: line['BoardId'] ?? '',
-          boardName: '',
-          boardType: '',
-          referenceType: '',
-          referenceId: '',
-          referenceName: '',
-          isActive: true,
-          areaName: '',
-          areaId: '',
-          boardOwnerName: [],
-        ),
-        task: TaskModelDropDown(
-          taskId: line['TaskId'] ?? '',
-          taskName: line['TaskName'] ?? '',
-          boardId: '',
-        ),
+  /// LINES
+  for (final line in data['Timesheetlines']) {
+    final lineItem = LineItemModel(
+      project: Project(
+        code: line['ProjectId'] ?? "",
+        name: "",
+        isNotEmpty: false,
+      ),
+      board: BoardModel(
         recId: line['RecId'],
+        boardId: line['BoardId'] ?? '',
+        boardName: '',
+        boardType: '',
+        referenceType: '',
+        referenceId: '',
+        referenceName: '',
+        isActive: true,
+        areaName: '',
+        areaId: '',
+        boardOwnerName: [],
+      ),
+      task: TaskModelDropDown(
+        taskId: line['TaskId'] ?? '',
+        taskName: line['TaskName'] ?? '',
+        boardId: '',
+      ),
+      recId: line['RecId'],
+    );
+
+    /// Custom fields
+    final List<dynamic> customFields = line['LinesCustomfields'] ?? [];
+    lineCustomFields[index] = customFields.map((field) {
+      return {
+        "FieldId": field["FieldId"],
+        "FieldName": field["FieldName"],
+        "FieldLabel": field["FieldLabel"] ?? field["FieldName"],
+        "FieldValue": field["FieldValue"] ?? "",
+        "EnteredValue": field["FieldValue"] ?? "",
+        "CustomFieldEntity": field["CustomFieldEntity"],
+        "FieldType": _mapFieldType(field["FieldType"] ?? "text"),
+        "IsMandatory": field["IsMandatory"] ?? false,
+        "IsVisible": field["IsVisible"] ?? true,
+        "Options": _mapOptions(field["Options"]),
+        "DefaultValue": field["DefaultValue"] ?? "",
+      };
+    }).toList();
+
+    lineItems.add(lineItem);
+
+    /// Daily entries -> build directly into timeEntries.
+    /// KEY uses the SAME derivation that _HourItem uses for the cell lookup
+    /// (toMillisecondsWithTimezone on the calendar day), so cell key == entry key.
+    final Map<int, TimeEntryModel> dailyMap = {};
+    for (final daily in line['DailyEntry']) {
+      final int? entryDateMs = daily['EntryDate'];
+      if (entryDateMs == null) continue;
+
+      // Backend UTC -> org-local calendar day
+      final entryDateUtc =
+          DateTime.fromMillisecondsSinceEpoch(entryDateMs, isUtc: true);
+      final entryDateOrg = DateTime.fromMillisecondsSinceEpoch(
+        entryDateUtc.millisecondsSinceEpoch + offsetMs,
+        isUtc: true,
+      );
+      final dayLocal = DateTime(
+        entryDateOrg.year,
+        entryDateOrg.month,
+        entryDateOrg.day,
       );
 
-      /// FIX: Properly map custom fields with all required fields
-      final List<dynamic> customFields = line['LinesCustomfields'] ?? [];
+      // Match _HourItem's entryKey exactly.
+      final int key = toMillisecondsWithTimezone(dayLocal);
 
-      // Map to the expected structure with proper field names
-      lineCustomFields[index] = customFields.map((field) {
-        return {
-          "FieldId": field["FieldId"],
-          "FieldName": field["FieldName"],
-          "FieldLabel": field["FieldLabel"] ?? field["FieldName"],
-          "FieldValue": field["FieldValue"] ?? "",
-          "EnteredValue": field["FieldValue"] ?? "",
-          "CustomFieldEntity": field["CustomFieldEntity"],
-          "FieldType": _mapFieldType(field["FieldType"] ?? "text"),
-          "IsMandatory": field["IsMandatory"] ?? false,
-          "IsVisible": field["IsVisible"] ?? true,
-          "Options": _mapOptions(field["Options"]),
-          "DefaultValue": field["DefaultValue"] ?? "",
-        };
-      }).toList();
-
-      lineItems.add(lineItem);
-
-      /// Time entries mapping - FIX: Convert entry dates properly
-      final Map<int, TimeEntryModel> dailyMap = {};
-
-      for (final daily in line['DailyEntry']) {
-        final int? entryDateMs = daily['EntryDate'];
-        if (entryDateMs == null) continue;
-
-        // Convert API UTC milliseconds to UTC DateTime
-        final entryDateUtc = DateTime.fromMillisecondsSinceEpoch(
-          entryDateMs,
-          isUtc: true,
-        );
-
-        // Convert to org-local for storage
-        final entryDateOrg = DateTime.fromMillisecondsSinceEpoch(
-          entryDateUtc.millisecondsSinceEpoch + offsetMs,
-          isUtc: true,
-        );
-
-        // Get start of day in org-local (as milliseconds for key)
-        final normalized = toStartOfDayUtc(entryDateOrg);
-
-        dailyMap[normalized] = TimeEntryModel(
-          recId: daily['RecId'],
-          entryDate: normalized,
-          timeFrom: daily['TimeFrom'] != null
-              ? (daily['TimeFrom'] as num).toInt()
-              : null,
-          timeTo: daily['TimeTo'] != null
-              ? (daily['TimeTo'] as num).toInt()
-              : null,
-          totalHours: (daily['TotalHours'] ?? 0).toString(),
-          comment: daily['InternalComment'] ?? '',
-          accountingDistributions: () {
-            final rawList = daily['AccountingDistributions'] as List? ?? [];
-            return rawList
-                .map(
-                  (dist) => AccountingDistribution.fromJson(
-                    dist as Map<String, dynamic>,
-                  ),
-                )
-                .toList();
-          }(),
-        );
-      }
-
-      timeEntries[index] = dailyMap;
-      index++;
-    }
-
-    /// Load master line custom fields structure for new lines
-    _loadMasterLineCustomFields();
-
-    /// NAVIGATION
-    if (page == "Team") {
-      Navigator.pushNamed(
-        context,
-        AppRoutes.timeSheetRequestPage,
-        arguments: {'status': true, "team": true},
-      );
-    } else if (page == "Edit" || page == "Approvals") {
-      Navigator.pushNamed(
-        context,
-        AppRoutes.timeSheetRequestPage,
-        arguments: {'status': true, "team": false},
+      dailyMap[key] = TimeEntryModel(
+        recId: daily['RecId'],
+        entryDate: key,
+        timeFrom: daily['TimeFrom'] != null
+            ? (daily['TimeFrom'] as num).toInt()
+            : null,
+        timeTo:
+            daily['TimeTo'] != null ? (daily['TimeTo'] as num).toInt() : null,
+        totalHours: (daily['TotalHours'] ?? 0).toString(),
+        comment: daily['InternalComment'] ?? '',
+        accountingDistributions: () {
+          final rawList = daily['AccountingDistributions'] as List? ?? [];
+          return rawList
+              .map((dist) =>
+                  AccountingDistribution.fromJson(dist as Map<String, dynamic>))
+              .toList();
+        }(),
       );
     }
 
-    update();
+    timeEntries[index] = dailyMap;
+    index++;
   }
 
+  /// Load master line custom fields structure for new lines
+  _loadMasterLineCustomFields();
+
+  // Build the day-cell grid (weekend/holiday flags come from here).
+  // No merge needed: entries are already keyed the same way the cells look up.
+  final safeStart =
+      DateTime(fromDateOrg.year, fromDateOrg.month, fromDateOrg.day);
+  final safeEnd = DateTime(
+      toDateOrg.year, toDateOrg.month, toDateOrg.day, 23, 59, 59, 999);
+
+  loadTimeSheetRange(
+    fromDate: toStartOfDayUtc(safeStart),
+    toDate: toEndOfDayUtc(safeEnd),
+  );
+
+  /// NAVIGATION
+  if (page == "Team") {
+    Navigator.pushNamed(
+      context,
+      AppRoutes.timeSheetRequestPage,
+      arguments: {'status': true, "team": true},
+    );
+  } else if (page == "Edit" || page == "Approvals") {
+    Navigator.pushNamed(
+      context,
+      AppRoutes.timeSheetRequestPage,
+      arguments: {'status': true, "team": false},
+    );
+  }
+
+  update();
+}
   // Helper method to map field types
   String _mapFieldType(dynamic type) {
     if (type == null) return 'text';
@@ -5098,8 +5120,8 @@ Future<void> mergeLeaveBalances() async {
       case 'decimal':
       case 'amount':
         return 'decimal';
-      case 'percentage':
-        return 'percentage';
+      case 'percent':
+        return 'percent';
       case 'email':
         return 'email';
       case 'mobile':
@@ -10482,7 +10504,7 @@ Future<void> mergeLeaveBalances() async {
           return enteredValue?.toString() ?? '';
         } else if (fieldType == 'Decimal' ||
             fieldType == 'Amount' ||
-            fieldType == 'Percentage') {
+            fieldType == 'Percent') {
           // Handle decimal types
           if (enteredValue is double) {
             return enteredValue.toString();
@@ -13951,7 +13973,18 @@ Future<void> mergeLeaveBalances() async {
     selectedVehicleType = null;
     selectedLocation = null;
     selectedLocation = null;
-
+    for (final field in customFields) {
+      if (field['FieldType'] == 'List' ||
+          field['FieldType'] == 'CustomList' ||
+          field['FieldType'] == 'SystemList') {
+        field['SelectedValue'] = null;
+      } else if (field['FieldType'] == 'Checkbox') {
+        field['EnteredValue'] = false;
+      } else {
+        field['EnteredValue'] = null;
+      }
+      field['Error'] = null;
+    }
     split.clear();
     accountingDistributions.clear();
     update();
@@ -15331,15 +15364,17 @@ Future<bool> moveTaskToShelf({
     return 'FullDay';
   }
 
-  List<Map<String, dynamic>> buildPartialCancelTrans() {
-    return modifiedDays.entries.map((e) {
-      return {
-        "RecId": e.key,
-        "CancelRequest": e.value.replaceAll(" ", ""), // ✅ removes space
-      };
-    }).toList();
-  }
-
+   List<Map<String, dynamic>> buildPartialCancelTrans() {
+  return modifiedDays.entries.map((e) {
+    return {
+      "RecId": e.key,
+      "CancelRequest": e.value
+          .replaceAll("Cancel", "")  // remove the word
+          .replaceAll(" ", "")       // then remove spaces
+          .trim(),
+    };
+  }).toList();
+}
   Future<bool> cancelLeave(
     BuildContext context, {
     required int leaveReqId,
@@ -15396,57 +15431,57 @@ Future<bool> moveTaskToShelf({
     }
   }
 
-  Future<void> submitPartialCancellation(
-    BuildContext context, {
-    required int leaveReqId,
-    required String reason,
-  }) async {
-    try {
-      setButtonLoading('cancel', true);
+    Future<void> submitPartialCancellation(
+      BuildContext context, {
+      required int leaveReqId,
+      required String reason,
+    }) async {
+      try {
+        setButtonLoading('cancel', true);
 
-      final payload = {
-        "LeaveReqId": leaveReqId,
-        "CancellationType": "Partial",
-        "CancellationDate": toStartOfDayUtc(
-          DateTime.now().add(Duration(days: 1)),
-        ),
-        "ReasonForCancellation": reason,
-        "LeaveCancellationTrans": buildPartialCancelTrans(),
-      };
+        final payload = {
+          "LeaveReqId": leaveReqId,
+          "CancellationType": "Partial",
+          "CancellationDate": toStartOfDayUtc(
+            DateTime.now().add(Duration(days: 1)),
+          ),
+          "ReasonForCancellation": reason,
+          "LeaveCancellationTrans": buildPartialCancelTrans(),
+        };
 
-      final response = await ApiService.post(
-        Uri.parse(
-          "${Urls.baseURL}/api/v1/leavemanagement/leavecancellation/cancelleaves",
-        ),
+        final response = await ApiService.post(
+          Uri.parse(
+            "${Urls.baseURL}/api/v1/leavemanagement/leavecancellation/cancelleaves",
+          ),
 
-        body: jsonEncode(payload),
-      );
-      final Map<String, dynamic> responseData = jsonDecode(response.body);
-      final String message =
-          responseData['detail']['message'] ?? 'Cancel Successfully';
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        Fluttertoast.showToast(
-          msg: message,
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          backgroundColor: Colors.green[100],
-          textColor: Colors.green[800],
+          body: jsonEncode(payload),
         );
-        Navigator.pushNamed(context, AppRoutes.generalExpense);
-      } else {
-        Fluttertoast.showToast(
-          msg: message,
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          backgroundColor: const Color.fromARGB(207, 248, 1, 1),
-          textColor: const Color.fromARGB(255, 243, 242, 242),
-        );
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final String message =
+            responseData['detail']['message'] ?? 'Cancel Successfully';
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          Fluttertoast.showToast(
+            msg: message,
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: Colors.green[100],
+            textColor: Colors.green[800],
+          );
+          Navigator.pushNamed(context, AppRoutes.leaveDashboard);
+        } else {
+          Fluttertoast.showToast(
+            msg: message,
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: const Color.fromARGB(207, 248, 1, 1),
+            textColor: const Color.fromARGB(255, 243, 242, 242),
+          );
+        }
+      } catch (e) {
+      } finally {
+        setButtonLoading('cancel', false);
       }
-    } catch (e) {
-    } finally {
-      setButtonLoading('cancel', false);
     }
-  }
 
   Future<void> leavecancelExpense(
     BuildContext context,
@@ -15722,6 +15757,18 @@ Future<bool> moveTaskToShelf({
     tripControllers.clear();
     tripControllers.add(TextEditingController());
     tripControllers.add(TextEditingController());
+        for (final field in customFields) {
+      if (field['FieldType'] == 'List' ||
+          field['FieldType'] == 'CustomList' ||
+          field['FieldType'] == 'SystemList') {
+        field['SelectedValue'] = null;
+      } else if (field['FieldType'] == 'Checkbox') {
+        field['EnteredValue'] = false;
+      } else {
+        field['EnteredValue'] = null;
+      }
+      field['Error'] = null;
+    }
   }
 
   Future<void> submitMileageExpense(
@@ -19378,7 +19425,7 @@ print("URL => $url");
       else if (fieldType == 'decimal' ||
           fieldType == 'amount' ||
           fieldType == 'percent' ||
-          fieldType == 'percentage') {
+          fieldType == 'percent') {
         double? doubleValue;
         if (rawValue is double) {
           doubleValue = rawValue;
@@ -19616,11 +19663,11 @@ print("URL => $url");
         field['EnteredValue'] = intValue;
         print("✅ Integer $fieldName initialized with: $intValue");
       }
-      // DECIMAL / AMOUNT / PERCENTAGE
+      // DECIMAL / AMOUNT / PERCENT
       else if (fieldType == 'decimal' ||
           fieldType == 'amount' ||
           fieldType == 'percent' ||
-          fieldType == 'percentage') {
+          fieldType == 'percent') {
         double? doubleValue;
         if (rawValue is double) {
           doubleValue = rawValue;
@@ -19924,11 +19971,11 @@ Future<void>  loadAllMillageCategotyCustomFieldValues({
         field['EnteredValue'] = intValue;
         print("✅ Integer $fieldName initialized with: $intValue");
       }
-      // DECIMAL / AMOUNT / PERCENTAGE
+      // DECIMAL / AMOUNT / PERCENT
       else if (fieldType == 'decimal' ||
           fieldType == 'amount' ||
           fieldType == 'percent' ||
-          fieldType == 'percentage') {
+          fieldType == 'percent') {
         double? doubleValue;
         if (rawValue is double) {
           doubleValue = rawValue;
@@ -22323,7 +22370,18 @@ Future<void>  loadAllMillageCategotyCustomFieldValues({
     selectedProject = null;
     selectedBoards = null;
     selectedTask = null;
-
+    for (final field in customFields) {
+      if (field['FieldType'] == 'List' ||
+          field['FieldType'] == 'CustomList' ||
+          field['FieldType'] == 'SystemList') {
+        field['SelectedValue'] = null;
+      } else if (field['FieldType'] == 'Checkbox') {
+        field['EnteredValue'] = false;
+      } else {
+        field['EnteredValue'] = null;
+      }
+      field['Error'] = null;
+    }
     projectError.value = "";
     boardError.value = "";
     taskError.value = "";

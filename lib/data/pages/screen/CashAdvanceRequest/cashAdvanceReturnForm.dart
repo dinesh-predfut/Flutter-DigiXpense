@@ -7,7 +7,8 @@ import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
 import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
-import 'package:diginexa/core/utils.dart' show toStartOfDayUtc, todayInOrgTimezone, formatDate;
+import 'package:diginexa/core/utils.dart'
+    show toStartOfDayUtc, todayInOrgTimezone, formatDate;
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/data/service.dart';
 import 'package:diginexa/main.dart';
@@ -49,6 +50,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
   List<Controller> itemizeControllers = [];
   late FocusNode paidAmountFocusNode;
   bool allowDocAttachments = false;
+  bool docAttachmentsRequired = false;
   int _currentStep = 0;
   RxBool showField = true.obs;
   int _itemizeCount = 1;
@@ -121,16 +123,16 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     //  controller.loadSequenceModules();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       controller.isLoadingCAForm.value = true;
-final todayOrg = todayInOrgTimezone();
+      final todayOrg = todayInOrgTimezone();
 
-// Convert to UTC milliseconds
-final fromMs = toStartOfDayUtc(todayOrg);
+      // Convert to UTC milliseconds
+      final fromMs = toStartOfDayUtc(todayOrg);
 
-// Store as UTC DateTime (always keep isUtc: true)
-controller.selectedDate ??= DateTime.fromMillisecondsSinceEpoch(
-  fromMs,
-  isUtc: true,
-);
+      // Store as UTC DateTime (always keep isUtc: true)
+      controller.selectedDate ??= DateTime.fromMillisecondsSinceEpoch(
+        fromMs,
+        isUtc: true,
+      );
       controller.fetchEmployeesID();
       loadSequenceAndUpdateUI();
 
@@ -242,6 +244,7 @@ controller.selectedDate ??= DateTime.fromMillisecondsSinceEpoch(
     if (settings != null) {
       setState(() {
         allowDocAttachments = settings.allowDocAttachments;
+        docAttachmentsRequired = settings.isDocAttachmentMandatory;
         print("allowDocAttachments$allowDocAttachments");
         // isLoading = false;
       });
@@ -726,6 +729,7 @@ controller.selectedDate ??= DateTime.fromMillisecondsSinceEpoch(
                   _buildItemizePage(),
                   CreateExpensePage(
                     allowDocAttachments: allowDocAttachments,
+                    docRequired: docAttachmentsRequired,
                     backButton: backButton,
                   ),
                 ],
@@ -783,7 +787,7 @@ controller.selectedDate ??= DateTime.fromMillisecondsSinceEpoch(
       if (value == null) return null;
 
       switch (fieldType) {
-        case 'Percentage':
+        case 'Percent':
           double percentage;
           if (value is num) {
             percentage = value.toDouble();
@@ -902,7 +906,7 @@ controller.selectedDate ??= DateTime.fromMillisecondsSinceEpoch(
 
           case 'LongInteger':
           case 'Decimal':
-          case 'Percentage':
+          case 'Percent':
           case 'Amount':
             if (enteredValue != null) {
               if (enteredValue is num) {
@@ -971,7 +975,7 @@ controller.selectedDate ??= DateTime.fromMillisecondsSinceEpoch(
               }
               break;
 
-            case 'Percentage':
+            case 'Percent':
               double percentage;
               if (enteredValue is num) {
                 percentage = enteredValue.toDouble();
@@ -1865,7 +1869,7 @@ controller.selectedDate ??= DateTime.fromMillisecondsSinceEpoch(
                           );
                         }
                         // Bug #85: Add Percentage field
-                        else if (field['FieldType'] == 'Percentage') {
+                        else if (field['FieldType'] == 'Percent') {
                           inputField = TextFormField(
                             keyboardType: const TextInputType.numberWithOptions(
                               decimal: true,
@@ -2639,15 +2643,6 @@ controller.selectedDate ??= DateTime.fromMillisecondsSinceEpoch(
                       )
                     : const SizedBox(),
               ),
-              // ── FIX: show _showPercentageError in UI ──
-              if (_showPercentageError)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    'Percentage must be between 1 and 100',
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
-                  ),
-                ),
 
               if (showItemizeDetails) const SizedBox(height: 16),
 
@@ -3927,11 +3922,15 @@ controller.selectedDate ??= DateTime.fromMillisecondsSinceEpoch(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
-                                     Text(
-  controller.selectedDate == null
-      ? AppLocalizations.of(context)!.selectDate
-      : formatDate(controller.selectedDate!), // Use your formatDate function
-),
+                                      Text(
+                                        controller.selectedDate == null
+                                            ? AppLocalizations.of(
+                                                context,
+                                              )!.selectDate
+                                            : formatDate(
+                                                controller.selectedDate!,
+                                              ), // Use your formatDate function
+                                      ),
                                       const Icon(
                                         Icons.calendar_today,
                                         size: 20,
@@ -4804,11 +4803,13 @@ Widget _buildTextField({
 
 class CreateExpensePage extends StatefulWidget {
   final bool allowDocAttachments;
+  final bool docRequired;
   final VoidCallback backButton;
   const CreateExpensePage({
     super.key,
     required this.allowDocAttachments,
     required this.backButton,
+    required this.docRequired,
   });
 
   @override
@@ -5254,9 +5255,11 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
             key: _formKey, // Add form key for validation
             child: Column(
               children: [
-                if (widget.allowDocAttachments) _buildImageArea(),
-                if (widget.allowDocAttachments) const SizedBox(height: 20),
-                if (widget.allowDocAttachments)
+                if (widget.allowDocAttachments || widget.docRequired)
+                  _buildImageArea(),
+                if (widget.allowDocAttachments || widget.docRequired)
+                  const SizedBox(height: 20),
+                if (widget.allowDocAttachments || widget.docRequired)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -5416,7 +5419,20 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                 if (!(_formKey.currentState?.validate() ??
                                     false))
                                   return;
+                                print("docRequired${widget.docRequired}");
+                                if (widget.docRequired &&
+                                    controller.imageFiles.isEmpty) {
+                                  Fluttertoast.showToast(
+                                    msg: "Receipt is required",
+                                    toastLength: Toast.LENGTH_SHORT,
+                                    gravity: ToastGravity.BOTTOM,
+                                    backgroundColor: Colors.red,
+                                    textColor: Colors.white,
+                                    fontSize: 16.0,
+                                  );
 
+                                  return;
+                                }
                                 controller.setButtonLoading('submit', true);
                                 try {
                                   await controller.saveCashAdvance(
@@ -5460,7 +5476,19 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                       if (!(_formKey.currentState?.validate() ??
                                           false))
                                         return;
+                                        if (widget.docRequired &&
+                                            controller.imageFiles.isEmpty) {
+                                          Fluttertoast.showToast(
+                                            msg: "Receipt is required",
+                                            toastLength: Toast.LENGTH_SHORT,
+                                            gravity: ToastGravity.BOTTOM,
+                                            backgroundColor: Colors.red,
+                                            textColor: Colors.white,
+                                            fontSize: 16.0,
+                                          );
 
+                                          return;
+                                        }
                                       controller.setButtonLoading('save', true);
                                       controller.isPageLoading.value = true;
 

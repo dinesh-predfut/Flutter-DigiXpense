@@ -15,7 +15,16 @@ class ColorPickerGrid extends StatefulWidget {
 
 class _ColorPickerGridState extends State<ColorPickerGrid> {
   String? _selectedThemeKey; // temporary selection
-  final controller = Get.put(Controller());
+
+  // FIX: do NOT construct a new Controller during build.
+  // Reuse the already-registered instance; only create it once if missing.
+  // Constructing Controller() runs its `.obs` initializers, which notify
+  // listeners — doing that inside build() marks an Obx dirty mid-build
+  // and throws "setState/markNeedsBuild called during build".
+  final Controller controller = Get.isRegistered<Controller>()
+      ? Get.find<Controller>()
+      : Get.put(Controller());
+
   final Map<Color, String> lightThemeColors = {
     Colors.orange: "ORANGE_THEME",
     Colors.blue: "BLUE_THEME",
@@ -42,6 +51,7 @@ class _ColorPickerGridState extends State<ColorPickerGrid> {
 
   Future<void> _loadSavedSelection() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _selectedThemeKey = prefs.getString("ThemeColor");
       controller.themeColorCode = prefs.getString("ThemeColor");
@@ -67,18 +77,6 @@ class _ColorPickerGridState extends State<ColorPickerGrid> {
               ),
               _buildColorGrid(darkThemeColors),
               const SizedBox(height: 24),
-              // Center(
-              //   child: ElevatedButton.icon(
-              //     onPressed: () {
-              //       if (_selectedThemeKey != null) {
-              //         final color = ThemeNotifier.themeColorMap[_selectedThemeKey!]!;
-              //         themeNotifier.setColor(color, themeKey: _selectedThemeKey!);
-              //       }
-              //     },
-              //     icon: const Icon(Icons.save),
-              //     label: const Text("Apply Theme"),
-              //   ),
-              // ),
             ],
           ),
         );
@@ -97,15 +95,15 @@ class _ColorPickerGridState extends State<ColorPickerGrid> {
   }
 
   Widget _buildColorGrid(Map<Color, String> colors) {
-    final controller = Get.put(Controller());
-
+    // FIX: removed `final controller = Get.put(Controller());`
+    // Use the class-level `controller` field instead.
     return SizedBox(
-      height: 120, // reduced height
+      height: 120,
       child: GridView.count(
-        crossAxisCount: 5, // more columns = smaller boxes
+        crossAxisCount: 5,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         physics: const NeverScrollableScrollPhysics(),
-        childAspectRatio: 1.1, // slightly rectangular, tweak for shape
+        childAspectRatio: 1.1,
         children: colors.entries.map((entry) {
           final bool isSelected = _selectedThemeKey == entry.value;
 
@@ -121,7 +119,7 @@ class _ColorPickerGridState extends State<ColorPickerGrid> {
               print("🎨 Selected (not applied): ${entry.value}");
             },
             child: Card(
-              margin: const EdgeInsets.all(4), // smaller spacing between boxes
+              margin: const EdgeInsets.all(4),
               elevation: isSelected ? 6 : 1,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),

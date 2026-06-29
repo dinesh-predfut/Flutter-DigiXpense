@@ -90,7 +90,7 @@ class _DashboardPageState extends State<DashboardPage>
     PermissionHelper.loadPermissions();
     if (controller.selectedTimezonevalue.value.isEmpty) {
       print("Timezone value is null, loading from SharedPreferences...");
-      loadTimezoneValue();
+      // loadTimezoneValue();
     }
   }
 

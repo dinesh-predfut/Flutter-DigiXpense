@@ -40,16 +40,11 @@ class ViewEditLeavePage extends StatefulWidget {
 class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
   final controller = Get.find<Controller>();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-RxList<LeaveAnalytics> leaveAnalyticsCards =
-    <LeaveAnalytics>[].obs;
+  RxList<LeaveAnalytics> leaveAnalyticsCards = <LeaveAnalytics>[].obs;
 
+  RxList<UpcomingHoliday> upcomingHolidays = <UpcomingHoliday>[].obs;
 
-RxList<UpcomingHoliday> upcomingHolidays =
-    <UpcomingHoliday>[].obs;
-
-
-RxList<LastAppliedLeave> lastAppliedLeaves =
-    <LastAppliedLeave>[].obs;
+  RxList<LastAppliedLeave> lastAppliedLeaves = <LastAppliedLeave>[].obs;
   late Future<List<ExpenseHistory>> historyFuture;
 
   var isAllowPastDate = true.obs;
@@ -118,33 +113,20 @@ RxList<LastAppliedLeave> lastAppliedLeaves =
     }
   }
 
-Future<void> loadLeaveAnalytics() async {
+  Future<void> loadLeaveAnalytics() async {
+    final result = await controller.fetchLeaveAnalytics(
+      Params.employeeId,
+      Params.userToken,
+    );
 
- final result = await controller.fetchLeaveAnalytics(
-    Params.employeeId,
-    Params.userToken,
- );
+    if (result != null) {
+      leaveAnalyticsCards.assignAll(result.leaveCodeAnalytics);
 
+      upcomingHolidays.assignAll(result.upcomingHolidays);
 
- if(result != null){
-
-   leaveAnalyticsCards.assignAll(
-      result.leaveCodeAnalytics
-   );
-
-
-   upcomingHolidays.assignAll(
-      result.upcomingHolidays
-   );
-
-
-   lastAppliedLeaves.assignAll(
-      result.lastAppliedLeaves
-   );
-
- }
-
-}
+      lastAppliedLeaves.assignAll(result.lastAppliedLeaves);
+    }
+  }
 
   Future<void> loadEmployee() async {
     final result = await controller.fetchEmployees();
@@ -486,58 +468,65 @@ Future<void> loadLeaveAnalytics() async {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-SizedBox(
-  height: 150,
-  child: Obx(() {
-    final isLoading =
-        controller.isLoadingLeave.value || controller.isLoading.value;
+                        SizedBox(
+                          height: 150,
+                          child: Obx(() {
+                            final isLoading =
+                                controller.isLoadingLeave.value ||
+                                controller.isLoading.value;
 
-    if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+                            if (isLoading) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            }
 
-    final hasHolidays = upcomingHolidays.isNotEmpty;
-    final hasLeaves = lastAppliedLeaves.isNotEmpty;
+                            final hasHolidays = upcomingHolidays.isNotEmpty;
+                            final hasLeaves = lastAppliedLeaves.isNotEmpty;
 
-    final totalCount =
-        leaveAnalyticsCards.length +
-        (hasHolidays ? 1 : 0) +
-        (hasLeaves ? 1 : 0);
+                            final totalCount =
+                                leaveAnalyticsCards.length +
+                                (hasHolidays ? 1 : 0) +
+                                (hasLeaves ? 1 : 0);
 
-    if (totalCount == 0) {
-      return const Center(child: Text("No Data Found"));
-    }
+                            if (totalCount == 0) {
+                              return const Center(child: Text("No Data Found"));
+                            }
 
-    return ListView.separated(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: totalCount,
-      separatorBuilder: (_, __) => const SizedBox(width: 12),
-      itemBuilder: (context, index) {
-        // 🔹 Leave Analytics Cards
-        if (index < leaveAnalyticsCards.length) {
-          final card = leaveAnalyticsCards[index];
-          return _buildCard(card);
-        }
+                            return ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              itemCount: totalCount,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 12),
+                              itemBuilder: (context, index) {
+                                // 🔹 Leave Analytics Cards
+                                if (index < leaveAnalyticsCards.length) {
+                                  final card = leaveAnalyticsCards[index];
+                                  return _buildCard(card);
+                                }
 
-        int remaining = index - leaveAnalyticsCards.length;
+                                int remaining =
+                                    index - leaveAnalyticsCards.length;
 
-        // 🔹 Single card containing ALL upcoming holidays
-        if (hasHolidays) {
-          if (remaining == 0) {
-            return _buildHolidayCard(upcomingHolidays);
-          }
-          remaining -= 1;
-        }
+                                // 🔹 Single card containing ALL upcoming holidays
+                                if (hasHolidays) {
+                                  if (remaining == 0) {
+                                    return _buildHolidayCard(upcomingHolidays);
+                                  }
+                                  remaining -= 1;
+                                }
 
-        // 🔹 Single card containing ALL applied leaves
-        return _buildLastLeaveCard(lastAppliedLeaves);
-      },
-    );
-  }),
-),
-const SizedBox(height: 10,),
+                                // 🔹 Single card containing ALL applied leaves
+                                return _buildLastLeaveCard(lastAppliedLeaves);
+                              },
+                            );
+                          }),
+                        ),
+                        const SizedBox(height: 10),
                         // Header with status if editing
                         if (widget.leaveRequest != null && widget.status)
                           Row(
@@ -1917,7 +1906,7 @@ const SizedBox(height: 10,),
                                     );
                                   }
                                   // Percentage field
-                                  else if (field['FieldType'] == 'Percentage') {
+                                  else if (field['FieldType'] == 'Percent') {
                                     inputField = TextFormField(
                                       enabled:
                                           isEnabled, // Add enabled property
@@ -2612,122 +2601,125 @@ const SizedBox(height: 10,),
       ),
     );
   }
-Widget _buildHolidayCard(List<UpcomingHoliday> holidays) {
-  return Container(
-    width: 220,
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(12),
-      color: Colors.orange.shade50,
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Upcoming Holidays",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: ListView.separated(
-            padding: EdgeInsets.zero,
-            itemCount: holidays.length,
-            separatorBuilder: (_, __) => const Divider(height: 10),
-            itemBuilder: (context, i) {
-              final holiday = holidays[i];
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          holiday.name,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          holiday.holidayType,
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    DateFormat('dd MMM').format(holiday.date),
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                ],
-              );
-            },
+
+  Widget _buildHolidayCard(List<UpcomingHoliday> holidays) {
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.orange.shade50,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Upcoming Holidays",
+            style: TextStyle(fontWeight: FontWeight.bold),
           ),
-        ),
-      ],
-    ),
-  );
-}
- Widget _buildLastLeaveCard(List<LastAppliedLeave> leaves) {
-  return Container(
-    width: 220,
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(12),
-      color: Colors.blue.shade50,
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Applied Leaves",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: ListView.separated(
-            padding: EdgeInsets.zero,
-            itemCount: leaves.length,
-            separatorBuilder: (_, __) => const Divider(height: 10),
-            itemBuilder: (context, i) {
-              final leave = leaves[i];
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          leave.leaveId,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView.separated(
+              padding: EdgeInsets.zero,
+              itemCount: holidays.length,
+              separatorBuilder: (_, __) => const Divider(height: 10),
+              itemBuilder: (context, i) {
+                final holiday = holidays[i];
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            holiday.name,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        Text(
-                          "Duration: ${leave.duration}",
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                      ],
+                          Text(
+                            holiday.holidayType,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  Text(
-                    leave.approvalStatus,
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                ],
-              );
-            },
+                    Text(
+                      DateFormat('dd MMM').format(holiday.date),
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLastLeaveCard(List<LastAppliedLeave> leaves) {
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.blue.shade50,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Applied Leaves",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView.separated(
+              padding: EdgeInsets.zero,
+              itemCount: leaves.length,
+              separatorBuilder: (_, __) => const Divider(height: 10),
+              itemBuilder: (context, i) {
+                final leave = leaves[i];
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            leave.leaveId,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            "Duration: ${leave.duration}",
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      leave.approvalStatus,
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Color getIndicatorColor(String description) {
     switch (description) {
       case 'Total Team Members':
@@ -2993,14 +2985,21 @@ Widget _buildHolidayCard(List<UpcomingHoliday> holidays) {
                                                     ?.allowHalfDay ??
                                                 true;
 
-                                            final dayTypeItems = allowHalfDay
-                                                ? [
-                                                    'Full Day',
-                                                    'First Half',
-                                                    'Second Half',
-                                                  ]
-                                                : ['Full Day'];
+                                            final isPartiallyCancelled =
+                                                widget
+                                                    .leaveRequest
+                                                    ?.leaveStatus ==
+                                                "PartiallyCancelled";
 
+                                            final dayTypeItems =
+                                                (allowHalfDay &&
+                                                    !isPartiallyCancelled)
+                                                ? [
+                                                    'Cancel Full Day',
+                                                    'Cancel First Half',
+                                                    'Cancel Second Half',
+                                                  ]
+                                                : ['Cancel Full Day'];
                                             // If current value is half day but not allowed, reset to Full Day
                                             if (!allowHalfDay &&
                                                 (leaveDay.dayType.value ==
@@ -3017,21 +3016,25 @@ Widget _buildHolidayCard(List<UpcomingHoliday> holidays) {
                                             return SearchableMultiColumnDropdownField<
                                               String
                                             >(
-                                              enabled:
-                                                  
-                                                  !leaveDay.isHoliday,
+                                              readOnly: true,
+                                              enabled: !leaveDay.isHoliday,
                                               labelText: AppLocalizations.of(
                                                 context,
                                               )!.dayType,
                                               items:
                                                   dayTypeItems, // ← dynamic list
-                                              selectedValue:
-                                                  leaveDay.dayType.value,
+                                              selectedValue: leaveDay.isUserModified.value
+    ? leaveDay.dayType.value
+    : null,
                                               searchValue: (option) => option,
                                               displayText: (option) => option,
                                               onChanged: (option) {
                                                 leaveDay.dayType.value =
                                                     option!;
+                                                     leaveDay.isUserModified.value = true;  
+                                                controller.modifiedDays[leaveDay
+                                                        .recId!] =
+                                                    option;
                                               },
                                               rowBuilder: (option, searchQuery) {
                                                 return Padding(
@@ -3071,7 +3074,7 @@ Widget _buildHolidayCard(List<UpcomingHoliday> holidays) {
                       Expanded(
                         child: TextButton(
                           onPressed: () {
-                            controller.resetForm();
+                            // controller.resetForm();
                             Navigator.pop(context);
                           },
                           child: Text(AppLocalizations.of(context)!.cancel),
@@ -3897,7 +3900,7 @@ Widget _buildHolidayCard(List<UpcomingHoliday> holidays) {
               PermissionHelper.canUpdate("Leave Requisition") &&
               widget.leaveRequest!.approvalStatus == "Approved" &&
               (widget.leaveRequest!.leaveStatus == "Approved" ||
-                  widget.leaveRequest!.leaveStatus != "PartiallyCancelled" &&
+                  widget.leaveRequest!.leaveStatus == "PartiallyCancelled" &&
                       widget.leaveRequest!.leaveStatus != "Cancelled" ||
                   widget.leaveRequest!.leaveStatus == "Created") &&
               widget.leaveRequest?.leaveCancelId == null)

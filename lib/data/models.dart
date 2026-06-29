@@ -1392,7 +1392,8 @@ class PerdiemResponseModel {
   final String? stepType;
   final int? workitemrecid;
   final List<Map<String, dynamic>> expenseHeaderCustomFieldValues;
-  final List<Map<String, dynamic>> expenseHeaderExpensecategorycustomfieldvalues;
+  final List<Map<String, dynamic>>
+  expenseHeaderExpensecategorycustomfieldvalues;
   late List<AccountingDistribution> accountingDistributions;
   final List<AllocationLine> allocationLines;
 
@@ -2857,7 +2858,7 @@ class LeaveTransactionforLeave {
   final bool isHoliday;
   final String? approvalStatus;
   final DateTypeModel? dateType;
-
+  final isUserModified = false.obs;
   LeaveTransactionforLeave({
     this.leaveCancelId,
     this.recId,
@@ -2920,7 +2921,7 @@ class LeaveTransactionModel {
   final int? recId; // required for partial cancellation
   final String? approvalStatus;
   // final int? leaveCancelId;
-
+final isUserModified = false.obs;
   /// =======================
   /// UI / STATE FIELDS
   /// =======================
@@ -6579,9 +6580,7 @@ class BoardModel {
       areaId: json['AreaId'] ?? '',
       areaName: json['AreaName'] ?? '',
       boardOwnerName: json['BoardOwnerName'] is List
-          ? (json['BoardOwnerName'] as List)
-                .map((e) => e.toString())
-                .toList()
+          ? (json['BoardOwnerName'] as List).map((e) => e.toString()).toList()
           : [],
     );
   }
@@ -6746,13 +6745,13 @@ class TaskDetailModel {
           : null,
       customFields: json['customFields'] != null
           ? (json['customFields'] as List)
-              .map((e) => CustomFieldValue.fromJson(e))
-              .toList()
+                .map((e) => CustomFieldValue.fromJson(e))
+                .toList()
           : null,
       customFieldValues: json['customFieldValues'] != null
           ? (json['customFieldValues'] as List)
-              .map((e) => CustomFieldValue.fromJson(e))
-              .toList()
+                .map((e) => CustomFieldValue.fromJson(e))
+                .toList()
           : null,
       actualEndDate: json['ActualEndDate'] != null
           ? DateTime.fromMillisecondsSinceEpoch(
@@ -7311,7 +7310,7 @@ class KanbanBoard {
   final int? recId;
   final String? area;
   final String? backgroundImageUrl;
-   final List<String>? boardOwnerName;
+  final List<String>? boardOwnerName;
   final String? defaultSortingOrder;
 
   KanbanBoard({
@@ -7342,12 +7341,10 @@ class KanbanBoard {
           ? json['RecId']
           : int.tryParse(json['RecId']?.toString() ?? ''),
       area: json['Area'],
-     boardOwnerName: json['BoardOwnerName'] is List
-          ? (json['BoardOwnerName'] as List)
-                .map((e) => e.toString())
-                .toList()
+      boardOwnerName: json['BoardOwnerName'] is List
+          ? (json['BoardOwnerName'] as List).map((e) => e.toString()).toList()
           : null,
-  
+
       defaultSortingOrder: json['DefaultSortingOrder'],
       shelfs:
           (json['Shelfs'] as List?)?.map((e) => Shelf.fromJson(e)).toList() ??
@@ -7630,6 +7627,7 @@ FieldValue: $fieldValue
 ''';
   }
 }
+
 // TaskConfigModel has a list of TaskFieldConfig
 class TaskConfigModel {
   final bool? allowEstimatedHours;
@@ -7637,7 +7635,7 @@ class TaskConfigModel {
   final bool? allowCardTypes;
   final bool? mandatoryCardTypes;
   final List<TaskFieldConfig> taskData; // This is a List of TaskFieldConfig
-  
+
   TaskConfigModel({
     this.allowEstimatedHours,
     this.mandatoryEstimatedHours,
@@ -7646,7 +7644,6 @@ class TaskConfigModel {
     this.taskData = const [],
   });
 }
-
 
 class TaskFieldConfig {
   String? taskFieldId;
@@ -7674,24 +7671,24 @@ class TaskFieldConfig {
     this.listValues,
   });
 
- factory TaskFieldConfig.fromJson(Map<String, dynamic> json) {
-  return TaskFieldConfig(
-    taskFieldId: json["TaskFieldId"],
-    fieldName: json["FieldName"],
-    fieldLabel: json["FieldLabel"],
-    description: json["Description"],
-    fieldType: json["FieldType"],
-    fieldLinkedTable: json["FieldLinkedTable"],
-    allowMultiSelect: json["AllowMultiSelect"] ?? false,
-    isMandatory: json["IsMandatory"] ?? false,
-    value: json["Value"],
-    listValues: json["ListValues"] == null
-        ? []
-        : (json["ListValues"] as List)
-            .map((e) => ListValue.fromJson(e)) // e can be Map or String
-            .toList(),
-  );
-}
+  factory TaskFieldConfig.fromJson(Map<String, dynamic> json) {
+    return TaskFieldConfig(
+      taskFieldId: json["TaskFieldId"],
+      fieldName: json["FieldName"],
+      fieldLabel: json["FieldLabel"],
+      description: json["Description"],
+      fieldType: json["FieldType"],
+      fieldLinkedTable: json["FieldLinkedTable"],
+      allowMultiSelect: json["AllowMultiSelect"] ?? false,
+      isMandatory: json["IsMandatory"] ?? false,
+      value: json["Value"],
+      listValues: json["ListValues"] == null
+          ? []
+          : (json["ListValues"] as List)
+                .map((e) => ListValue.fromJson(e)) // e can be Map or String
+                .toList(),
+    );
+  }
 }
 
 class ListValue {
@@ -7700,12 +7697,7 @@ class ListValue {
   int? recId;
   String? value; // For simple string values
 
-  ListValue({
-    this.taskId,
-    this.taskName,
-    this.recId,
-    this.value,
-  });
+  ListValue({this.taskId, this.taskName, this.recId, this.value});
 
   factory ListValue.fromJson(dynamic json) {
     if (json is Map<String, dynamic>) {
@@ -7718,9 +7710,7 @@ class ListValue {
       );
     } else if (json is String) {
       // Handle simple string values like "High", "Medium", "Low"
-      return ListValue(
-        value: json,
-      );
+      return ListValue(value: json);
     } else {
       // Handle other types or null
       return ListValue();
@@ -7932,6 +7922,7 @@ class BoardSettings {
     );
   }
 }
+
 class TaskDocument {
   final String attachmentId;
   final String taskId;
