@@ -1497,14 +1497,16 @@ Widget buildValueInputByType({
                         //   ),
                         // Replace this block in _buildFilterRuleCard:
                         // if (rule.condition.isNotEmpty && rule.condition != "In Between" && ...)
-                        if (rule.condition.isNotEmpty ) ...[
-                          const SizedBox(height: 16),
-                          buildValueInputByType(
-                            rule: rule,
-                            groupIndex: groupIndex,
-                            ruleIndex: ruleIndex,
-                          ),
-                        ],
+                                       if (rule.condition.isNotEmpty &&
+    rule.condition != "Is Not Empty" &&
+    rule.condition != "Is Empty") ...[
+  const SizedBox(height: 16),
+  buildValueInputByType(
+    rule: rule,
+    groupIndex: groupIndex,
+    ruleIndex: ruleIndex,
+  ),
+],
                         // ],
                         // const SizedBox(height: 12),
                         if (isEditableField)

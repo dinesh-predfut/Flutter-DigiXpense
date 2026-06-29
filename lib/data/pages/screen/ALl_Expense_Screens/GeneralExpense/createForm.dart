@@ -1599,64 +1599,69 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                           );
                     }
                     // Percentage type - Make Reactive
-else if (fieldType == 'Percentage') {
-  if (field['_rxDoubleValue'] == null) {
-    field['_rxDoubleValue'] = Rx<double?>(
-      field['EnteredValue'] as double?,
-    );
-  }
+                    else if (fieldType == 'Percentage') {
+                      if (field['_rxDoubleValue'] == null) {
+                        field['_rxDoubleValue'] = Rx<double?>(
+                          field['EnteredValue'] as double?,
+                        );
+                      }
 
-  inputField = Obx(() {
-    final rxValue = field['_rxDoubleValue'] as Rx<double?>;
-    final textEditingController = TextEditingController(
-      text: rxValue.value?.toString() ?? '',
-    );
+                      inputField = Obx(() {
+                        final rxValue = field['_rxDoubleValue'] as Rx<double?>;
+                        final textEditingController = TextEditingController(
+                          text: rxValue.value?.toString() ?? '',
+                        );
 
-    textEditingController.addListener(() {
-      final value = textEditingController.text;
-      if (value.isEmpty) {
-        if (rxValue.value != null) {
-          rxValue.value = null;
-          field['EnteredValue'] = null;
-        }
-      } else {
-        final doubleValue = double.tryParse(value);
-        if (doubleValue != rxValue.value) {
-          rxValue.value = doubleValue;
-          field['EnteredValue'] = doubleValue;
-        }
-      }
-      field['Error'] = null;
-    });
+                        textEditingController.addListener(() {
+                          final value = textEditingController.text;
+                          if (value.isEmpty) {
+                            if (rxValue.value != null) {
+                              rxValue.value = null;
+                              field['EnteredValue'] = null;
+                            }
+                          } else {
+                            final doubleValue = double.tryParse(value);
+                            if (doubleValue != rxValue.value) {
+                              rxValue.value = doubleValue;
+                              field['EnteredValue'] = doubleValue;
+                            }
+                          }
+                          field['Error'] = null;
+                        });
 
-    return TextFormField(
-      enabled: controller.isEnable.value,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-      ],
-      controller: textEditingController,
-      decoration: InputDecoration(
-        labelText: '$label${isMandatory ? " *" : ""}',
-        border: const OutlineInputBorder(),
-        errorText: field['Error'],
-        suffixText: '%',
-      ),
-      validator: (value) {
-        if (isMandatory && (value == null || value.trim().isEmpty)) {
-          return '$label is required';
-        }
-        if (value != null && value.isNotEmpty) {
-          final p = double.tryParse(value);
-          if (p == null || p < 0 || p > 100) {
-            return 'Enter a value between 0 and 100';
-          }
-        }
-        return null;
-      },
-    );
-  });
-}
+                        return TextFormField(
+                          enabled: controller.isEnable.value,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d*'),
+                            ),
+                          ],
+                          controller: textEditingController,
+                          decoration: InputDecoration(
+                            labelText: '$label${isMandatory ? " *" : ""}',
+                            border: const OutlineInputBorder(),
+                            errorText: field['Error'],
+                            suffixText: '%',
+                          ),
+                          validator: (value) {
+                            if (isMandatory &&
+                                (value == null || value.trim().isEmpty)) {
+                              return '$label is required';
+                            }
+                            if (value != null && value.isNotEmpty) {
+                              final p = double.tryParse(value);
+                              if (p == null || p < 0 || p > 100) {
+                                return 'Enter a value between 0 and 100';
+                              }
+                            }
+                            return null;
+                          },
+                        );
+                      });
+                    }
                     // Date and DateTime types
                     else if (fieldType == 'Date' || fieldType == 'Date&Time') {
                       final bool isDateTime = fieldType == 'Date&Time';
@@ -2448,133 +2453,16 @@ else if (fieldType == 'Percentage') {
                         ),
                       ],
                     ),
-                  if (controller.lineAmount.text.isNotEmpty)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            final double lineAmount =
-                                double.tryParse(controller.lineAmount.text) ??
-                                0.0;
-
-                            // CRITICAL: Clear existing data properly
-                            controller.split.clear();
-
-                            // IMPORTANT: Remove duplicates from accountingDistributions
-                            // This prevents the duplicate EMP001 issue
-                            final uniqueDistributions =
-                                <AccountingDistribution>[];
-                            final seenDimensionValues = <String>{};
-
-                            for (var dist
-                                in controller.accountingDistributions) {
-                              if (dist != null &&
-                                  dist.dimensionValueId.isNotEmpty) {
-                                // Split the dimensionValueId string and check for duplicates
-                                final values = dist.dimensionValueId.split(',');
-                                final uniqueValues = values.toSet().toList();
-                                final cleanedValueId = uniqueValues.join(',');
-
-                                if (!seenDimensionValues.contains(
-                                  cleanedValueId,
-                                )) {
-                                  seenDimensionValues.add(cleanedValueId);
-                                  uniqueDistributions.add(
-                                    AccountingDistribution(
-                                      transAmount: dist.transAmount,
-                                      reportAmount: dist.reportAmount,
-                                      allocationFactor: dist.allocationFactor,
-                                      dimensionValueId: cleanedValueId,
-                                    ),
-                                  );
-                                }
-                              }
-                            }
-
-                            controller.accountingDistributions.clear();
-                            controller.accountingDistributions.addAll(
-                              uniqueDistributions,
-                            );
-
-                            if (controller.accountingDistributions.isNotEmpty) {
-                              controller.split.assignAll(
-                                controller.accountingDistributions.map((e) {
-                                  return AccountingSplit(
-                                    paidFor: e!.dimensionValueId,
-                                    percentage: e.allocationFactor,
-                                    amount: e.transAmount,
-                                  );
-                                }).toList(),
-                              );
-                            } else {
-                              controller.split.add(
-                                AccountingSplit(percentage: 100.0),
-                              );
-                            }
-
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(
-                                  top: Radius.circular(16),
-                                ),
-                              ),
-                              builder: (context) => Padding(
-                                padding: EdgeInsets.only(
-                                  bottom: MediaQuery.of(
-                                    context,
-                                  ).viewInsets.bottom,
-                                  left: 16,
-                                  right: 16,
-                                  top: 24,
-                                ),
-                                child: SingleChildScrollView(
-                                  child: AccountingDistributionWidget(
-                                    splits: controller.split
-                                        .map(
-                                          (s) => AccountingSplit(
-                                            paidFor: s.paidFor,
-                                            percentage: s.percentage,
-                                            amount: s.amount,
-                                          ),
-                                        )
-                                        .toList(),
-                                    lineAmount: lineAmount,
-                                    isEnable: true,
-                                    onChanged: (i, updatedSplit) {
-                                      if (!mounted) return;
-                                      controller.split[i] = updatedSplit;
-                                    },
-                                    onDistributionChanged: (newList) {
-                                      if (!mounted) return;
-                                      controller.accountingDistributions
-                                          .clear();
-                                      controller.accountingDistributions.addAll(
-                                        newList,
-                                      );
-
-                                      controller.split.clear();
-                                      controller.split.assignAll(
-                                        newList.map(
-                                          (e) => AccountingSplit(
-                                            paidFor: e.dimensionValueId,
-                                            percentage: e.allocationFactor,
-                                            amount: e.transAmount,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                          child: Text(loc.accountDistribution),
-                        ),
-                      ],
-                    ),
+                if (controller.lineAmount.text.isNotEmpty)
+  Row(
+    mainAxisAlignment: MainAxisAlignment.end,
+    children: [
+      TextButton(
+        onPressed: () => _openLineAmountDistribution(context),
+        child: Text(loc.accountDistribution),
+      ),
+    ],
+  ),
                   if (showItemizeDetails) ...[
                     const SizedBox(height: 16),
                     Container(
@@ -3162,7 +3050,84 @@ else if (fieldType == 'Percentage') {
       ),
     );
   }
+void _openLineAmountDistribution(BuildContext context) {
+  final double lineAmount =
+      double.tryParse(controller.lineAmount.text) ?? 0.0;
 
+  // De-duplicate saved distributions
+  final uniqueDistributions = <AccountingDistribution>[];
+  final seen = <String>{};
+  for (final dist in controller.accountingDistributions) {
+    if (dist != null && dist.dimensionValueId.isNotEmpty) {
+      final cleanedValueId =
+          dist.dimensionValueId.split(',').toSet().toList().join(',');
+      if (seen.add(cleanedValueId)) {
+        uniqueDistributions.add(
+          AccountingDistribution(
+            transAmount: dist.transAmount,
+            reportAmount: dist.reportAmount,
+            allocationFactor: dist.allocationFactor,
+            dimensionValueId: cleanedValueId,
+          ),
+        );
+      }
+    }
+  }
+
+  controller.accountingDistributions
+    ..clear()
+    ..addAll(uniqueDistributions);
+
+  // Seed split ONCE from the cleaned distributions
+  if (controller.accountingDistributions.isNotEmpty) {
+    controller.split.assignAll(
+      controller.accountingDistributions.map((e) {
+        return AccountingSplit(
+          paidFor: e!.dimensionValueId,
+          percentage: e.allocationFactor,
+          amount: e.transAmount,
+        );
+      }).toList(),
+    );
+  } else if (controller.split.isEmpty) {
+    controller.split.add(AccountingSplit(percentage: 100.0));
+  }
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (sheetContext) => Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+        left: 16,
+        right: 16,
+        top: 24,
+      ),
+      child: SingleChildScrollView(
+        child: AccountingDistributionWidget(
+          // ✅ pass the REAL list, not a copy
+          splits: controller.split,
+          lineAmount: lineAmount,
+          isEnable: true,
+          onChanged: (i, updatedSplit) {
+            if (i >= 0 && i < controller.split.length) {
+              controller.split[i] = updatedSplit;
+            }
+          },
+          onDistributionChanged: (newList) {
+            // ✅ only sync accountingDistributions; do NOT clear/rebuild split here
+            controller.accountingDistributions
+              ..clear()
+              ..addAll(newList);
+          },
+        ),
+      ),
+    ),
+  );
+}
   double _calculateTotalLineAmount(Controller controllers) {
     double total = 0.0;
 
@@ -3247,180 +3212,191 @@ else if (fieldType == 'Percentage') {
     };
   }
 
-  Widget _buildCategoryButton(
-    int index,
-    ExpenseCategory item,
-    String iD,
-    Color color,
-    Color textColor,
-    String? icon,
-    Controller controllers,
-  ) {
-    final isSelected = controllers.selectedCategoryId == item.categoryId;
+ Widget _buildCategoryButton(
+  int index,
+  ExpenseCategory item,
+  String iD,
+  Color color,
+  Color textColor,
+  String? icon,
+  Controller controllers,
+) {
+  final isSelected = controllers.selectedCategoryId == item.categoryId;
 
-    // 🔒 Static cache for base64-decoded images
-    final Map<String, Uint8List> _base64Cache = {};
+  // 🔒 Static cache for base64-decoded images
+  final Map<String, Uint8List> _base64Cache = {};
 
-    Widget _buildIcon(String? icon) {
-      const fallbackUrl =
-          "https://icons.veryicon.com/png/o/commerce-shopping/icon-of-lvshan-valley-mobile-terminal/home-category.png";
+  Widget _buildIcon(String? icon) {
+    const fallbackUrl =
+        "https://icons.veryicon.com/png/o/commerce-shopping/icon-of-lvshan-valley-mobile-terminal/home-category.png";
 
-      try {
-        if (icon != null && icon.isNotEmpty) {
-          if (icon.startsWith('data:image')) {
-            final base64Str = icon.split(',').last;
-            if (!_base64Cache.containsKey(base64Str)) {
-              _base64Cache[base64Str] = base64Decode(base64Str);
-            }
-            return Image.memory(
-              _base64Cache[base64Str]!,
-              width: 30,
-              height: 30,
-              gaplessPlayback: true,
-              errorBuilder: (context, error, stackTrace) =>
-                  const Icon(Icons.image_not_supported, size: 30),
-            );
-          } else if (RegExp(r'^[A-Za-z0-9+/=]+$').hasMatch(icon)) {
-            if (!_base64Cache.containsKey(icon)) {
-              _base64Cache[icon] = base64Decode(icon);
-            }
-            return Image.memory(
-              _base64Cache[icon]!,
-              width: 30,
-              height: 30,
-              gaplessPlayback: true,
-              errorBuilder: (context, error, stackTrace) =>
-                  const Icon(Icons.image_not_supported, size: 30),
-            );
-          } else {
-            return Image.asset(
-              icon,
-              width: 30,
-              height: 30,
-              errorBuilder: (context, error, stackTrace) =>
-                  const Icon(Icons.image_not_supported, size: 30),
-            );
+    try {
+      if (icon != null && icon.isNotEmpty) {
+        if (icon.startsWith('data:image')) {
+          final base64Str = icon.split(',').last;
+          if (!_base64Cache.containsKey(base64Str)) {
+            _base64Cache[base64Str] = base64Decode(base64Str);
           }
-        }
-      } catch (_) {}
-
-      return Image.network(
-        fallbackUrl,
-        width: 30,
-        height: 30,
-        gaplessPlayback: true,
-        errorBuilder: (context, error, stackTrace) =>
-            const Icon(Icons.image_not_supported, size: 30),
-      );
-    }
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedCategoryIndex = index;
-        });
-        controllers.showPaidForError.value = false;
-        controllers.selectedCategoryId = item.categoryId;
-        controller.selectedCategoryId = item.categoryId;
-        controller.categoryController.text = item.categoryId;
-
-        // ✅ FIX: Load custom fields with DefaultValue for this specific controller
-        if (item.customFields != null && item.customFields!.isNotEmpty) {
-          final categoryFields = item.customFields!.map((f) {
-            final Map<String, dynamic> field = Map<String, dynamic>.from(f);
-            field['ObjectName'] = 'ExpenseCategories';
-            field['ExpenseType'] = 'General Expenses';
-
-            // ✅ CRITICAL: Set Default Value properly
-            final defaultVal = field['DefaultValue']?.toString() ?? '';
-
-            // Store the actual entered value separately
-            field['EnteredValue'] = defaultVal;
-
-            // For dropdown/list types, store selected value separately
-            if (field['FieldType'] == 'List' ||
-                field['FieldType'] == 'CustomList' ||
-                field['FieldType'] == 'SystemList') {
-              // Find the matching option from Options list
-              final options = field['Options'] as List<CustomDropdownValue>?;
-              CustomDropdownValue? matchedOption;
-              if (options != null && defaultVal.isNotEmpty) {
-                matchedOption = options.firstWhere(
-                  (opt) =>
-                      opt.valueName == defaultVal || opt.valueId == defaultVal,
-                  // orElse: () => null,
-                );
-              }
-              field['SelectedValue'] = matchedOption;
-            }
-
-            field['_rxStringValue'] = Rx<String?>(defaultVal);
-            field['Error'] = null;
-            return field;
-          }).toList();
-
-          // ✅ Remove old category fields and add new ones for THIS controller only
-          controllers.customFieldsItems.removeWhere(
-            (f) => f['ObjectName'] == 'ExpenseCategories',
+          return Image.memory(
+            _base64Cache[base64Str]!,
+            width: 30,
+            height: 30,
+            gaplessPlayback: true,
+            errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.image_not_supported, size: 30),
           );
-          controllers.customFieldsItems.addAll(categoryFields);
-          controllers.customFieldsItems.refresh();
+        } else if (RegExp(r'^[A-Za-z0-9+/=]+$').hasMatch(icon)) {
+          if (!_base64Cache.containsKey(icon)) {
+            _base64Cache[icon] = base64Decode(icon);
+          }
+          return Image.memory(
+            _base64Cache[icon]!,
+            width: 30,
+            height: 30,
+            gaplessPlayback: true,
+            errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.image_not_supported, size: 30),
+          );
         } else {
-          // ✅ Clear category fields if category has none
-          controllers.customFieldsItems.removeWhere(
-            (f) => f['ObjectName'] == 'ExpenseCategories',
+          return Image.asset(
+            icon,
+            width: 30,
+            height: 30,
+            errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.image_not_supported, size: 30),
           );
-          controllers.customFieldsItems.refresh();
         }
+      }
+    } catch (_) {}
 
-        if (item.itemisationMandatory && showItemizeDetails == false) {
-          _addItemize();
-        }
-        controllers.itemisationMandatory.value = item.itemisationMandatory;
-        controller.minExpenseAmount.value = (item.minExpensesAmount ?? 0)
-            .toDouble();
-        controller.receiptRequiredLimit.value = (item.receiptRequiredLimit ?? 0)
-            .toDouble();
-        controller.maxExpenseAmount.value = (item.maxExpenseAmount ?? 0)
-            .toDouble();
-        controllers.minExpenseAmount.value = (item.minExpensesAmount ?? 0)
-            .toDouble();
-        controllers.maxExpenseAmount.value = (item.maxExpenseAmount ?? 0)
-            .toDouble();
-        controllers.receiptRequiredLimit.value =
-            (item.receiptRequiredLimit ?? 0).toDouble();
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(18),
-          border: isSelected
-              ? Border.all(
-                  width: 3,
-                  color: const Color.fromARGB(255, 150, 13, 3),
-                )
-              : null,
-        ),
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedOpacity(
-              opacity: _isTyping ? 0.0 : 1.0,
-              duration: const Duration(milliseconds: 250),
-              child: _buildIcon(icon),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              item.categoryId,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+    return Image.network(
+      fallbackUrl,
+      width: 30,
+      height: 30,
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stackTrace) =>
+          const Icon(Icons.image_not_supported, size: 30),
     );
   }
+
+  return GestureDetector(
+    onTap: () {
+      setState(() {
+        _selectedCategoryIndex = index;
+      });
+      controllers.showPaidForError.value = false;
+      controllers.selectedCategoryId = item.categoryId;
+      controller.selectedCategoryId = item.categoryId;
+      controller.categoryController.text = item.categoryId;
+
+      // ✅ Load custom fields with DefaultValue for this specific controller
+      if (item.customFields != null && item.customFields!.isNotEmpty) {
+        final categoryFields = item.customFields!.map((f) {
+          final Map<String, dynamic> field = Map<String, dynamic>.from(f);
+          field['ObjectName'] = 'ExpenseCategories';
+          field['ExpenseType'] = 'General Expenses';
+
+          // ✅ CRITICAL: Set Default Value properly
+          final defaultVal = field['DefaultValue']?.toString() ?? '';
+
+          // Store the actual entered value separately
+          field['EnteredValue'] = defaultVal;
+
+          // For dropdown/list types, store selected value separately
+          if (field['FieldType'] == 'List' ||
+              field['FieldType'] == 'CustomList' ||
+              field['FieldType'] == 'SystemList') {
+            // Find the matching option from Options list
+            final options = field['Options'] as List<CustomDropdownValue>?;
+            CustomDropdownValue? matchedOption;
+            if (options != null && defaultVal.isNotEmpty) {
+              matchedOption = options.firstWhereOrNull(
+                (opt) =>
+                    opt.valueName == defaultVal || opt.valueId == defaultVal,
+              );
+            }
+            field['SelectedValue'] = matchedOption;
+          }
+
+          field['_rxStringValue'] = Rx<String?>(defaultVal);
+          field['Error'] = null;
+          return field;
+        }).toList();
+
+        // ── Per-item list (holds the VALUES) ──
+        controllers.customFieldsItems
+            .removeWhere((f) => f['ObjectName'] == 'ExpenseCategories');
+        controllers.customFieldsItems.addAll(categoryFields);
+        controllers.customFieldsItems.refresh();
+
+        // 🔧 FIX: keep the list the render Obx watches in sync,
+        // otherwise the new category's fields never appear on screen.
+        controllerItems.customFields
+            .removeWhere((f) => f['ObjectName'] == 'ExpenseCategories');
+        controllerItems.customFields.addAll(categoryFields);
+        controllerItems.customFields.refresh();
+      } else {
+        // ✅ Clear category fields if category has none
+        controllers.customFieldsItems.removeWhere(
+          (f) => f['ObjectName'] == 'ExpenseCategories',
+        );
+        controllers.customFieldsItems.refresh();
+
+        // 🔧 FIX: clear from the watched list too
+        controllerItems.customFields.removeWhere(
+          (f) => f['ObjectName'] == 'ExpenseCategories',
+        );
+        controllerItems.customFields.refresh();
+      }
+
+      if (item.itemisationMandatory && showItemizeDetails == false) {
+        _addItemize();
+      }
+      controllers.itemisationMandatory.value = item.itemisationMandatory;
+      controller.minExpenseAmount.value = (item.minExpensesAmount ?? 0)
+          .toDouble();
+      controller.receiptRequiredLimit.value = (item.receiptRequiredLimit ?? 0)
+          .toDouble();
+      controller.maxExpenseAmount.value = (item.maxExpenseAmount ?? 0)
+          .toDouble();
+      controllers.minExpenseAmount.value = (item.minExpensesAmount ?? 0)
+          .toDouble();
+      controllers.maxExpenseAmount.value = (item.maxExpenseAmount ?? 0)
+          .toDouble();
+      controllers.receiptRequiredLimit.value =
+          (item.receiptRequiredLimit ?? 0).toDouble();
+    },
+    child: Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(18),
+        border: isSelected
+            ? Border.all(
+                width: 3,
+                color: const Color.fromARGB(255, 150, 13, 3),
+              )
+            : null,
+      ),
+      padding: const EdgeInsets.all(10),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AnimatedOpacity(
+            opacity: _isTyping ? 0.0 : 1.0,
+            duration: const Duration(milliseconds: 250),
+            child: _buildIcon(icon),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            item.categoryId,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
   Widget _buildTextInput(
     String label,
@@ -3585,6 +3561,9 @@ else if (fieldType == 'Percentage') {
                                 controller.employeeDropDownController.text =
                                     emp!.employeeId;
                               });
+                              loadAndAppendCashAdvanceList();
+                              controller.fetchExpenseCategory();
+                              controller.fetchProjectName();
                             },
                             rowBuilder: (emp, searchQuery) {
                               bool isMatch = false;
@@ -5385,10 +5364,11 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                           controller.paidAmount.text,
                                         ) ??
                                         0.0;
-                                    if (controller.split.isEmpty &&
-                                        controller
-                                            .accountingDistributions
-                                            .isNotEmpty) {
+
+                                    // Always rebuild split from the saved distributions so nothing is lost
+                                    if (controller
+                                        .accountingDistributions
+                                        .isNotEmpty) {
                                       controller.split.assignAll(
                                         controller.accountingDistributions.map((
                                           e,
@@ -5405,7 +5385,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                         AccountingSplit(percentage: 100.0),
                                       );
                                     }
-                                    print(lineAmount);
+
                                     showModalBottomSheet(
                                       context: context,
                                       isScrollControlled: true,
@@ -5428,34 +5408,16 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                             splits: controller.split,
                                             lineAmount: lineAmount,
                                             onChanged: (i, updatedSplit) {
-                                              if (!mounted) return;
-                                              controller.split[i] =
-                                                  updatedSplit;
+                                              if (i >= 0 &&
+                                                  i < controller.split.length) {
+                                                controller.split[i] =
+                                                    updatedSplit;
+                                              }
                                             },
                                             onDistributionChanged: (newList) {
-                                              if (!mounted) return;
-
-                                              // 🔥 Print each item in newList for debugging
-                                              for (var dist in newList) {
-                                                print("onDistributionChanged:");
-                                                print(
-                                                  "  TransAmount: ${dist.transAmount}",
-                                                );
-                                                print(
-                                                  "  ReportAmount: ${dist.reportAmount}",
-                                                );
-                                                print(
-                                                  "  AllocationFactor: ${dist.allocationFactor}",
-                                                );
-                                                print(
-                                                  "  DimensionValueId: ${dist.dimensionValueId}",
-                                                );
-                                              }
-
                                               controller.accountingDistributions
-                                                  .clear();
-                                              controller.accountingDistributions
-                                                  .addAll(newList);
+                                                ..clear()
+                                                ..addAll(newList);
                                             },
                                           ),
                                         ),
@@ -5471,7 +5433,6 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                         ],
                       );
                     }),
-
                     // Amount in INR (readonly)
                     TextFormField(
                       controller: controller.amountINR,

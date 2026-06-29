@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:diginexa/core/comman/widgets/loaderbutton.dart';
-import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart'
+    show PermissionHelper;
 import 'package:diginexa/core/constant/Parames/params.dart';
 import 'package:diginexa/core/constant/url.dart';
 import 'package:diginexa/data/models.dart';
@@ -14,8 +15,8 @@ import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 
-import '../../../../core/constant/url.dart';
-import '../../../../../l10n/app_localizations.dart';
+import '../../../../../core/constant/url.dart';
+import '../../../../../../l10n/app_localizations.dart';
 
 class CashAdvanceReportCreateScreen extends StatefulWidget {
   final Map<String, dynamic>? existingReport;
@@ -30,12 +31,10 @@ class CashAdvanceReportCreateScreen extends StatefulWidget {
   });
 
   @override
-  _CashAdvanceReportCreateScreenState createState() =>
-      _CashAdvanceReportCreateScreenState();
+  _AttendanceRequisitionState createState() => _AttendanceRequisitionState();
 }
 
-class _CashAdvanceReportCreateScreenState
-    extends State<CashAdvanceReportCreateScreen> {
+class _AttendanceRequisitionState extends State<CashAdvanceReportCreateScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _initialized = false;
   bool showCheckBox = false;
@@ -43,7 +42,6 @@ class _CashAdvanceReportCreateScreenState
   bool isPreviousData = false;
   final controller = Get.find<Controller>();
   final Map<String, TextEditingController> _dateValueControllers = {};
-
   late final reportModel = Provider.of<ReportModel>(context, listen: false);
   @override
   void initState() {
@@ -54,15 +52,11 @@ class _CashAdvanceReportCreateScreenState
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (widget.existingReport != null) {
-        // ✅ Use existing report value
-
-        // reportModel.updateFunctionalArea(_mapFA(existingFA));
-
         await _fetchDatasets();
         _initializeWithExistingData();
       } else {
         // ✅ Default only for new report
-        reportModel.updateFunctionalArea("Cash Advance Requisition");
+        reportModel.updateFunctionalArea('Cash Advance Requisition');
         await _fetchDatasets();
       }
     });
@@ -87,65 +81,32 @@ class _CashAdvanceReportCreateScreenState
     'CashAdvanceRequisition': 'Cash Advance Requisition',
     'LeaveRequisition': 'Leave Requisition',
     'TimeSheetRequisition': 'TimeSheet Requisition',
+    'AttendanceRequisition': 'Attendance Requisition',
   };
   Future<void> _initializeWithExistingData() async {
     final reportModel = Provider.of<ReportModel>(context, listen: false);
     final report = widget.existingReport is List
         ? (widget.existingReport as List).first
         : widget.existingReport;
-
     reportModel.resrecID = report['RecId'].toString();
     reportModel.updateReportName(report['Name'] ?? '');
     reportModel.updateFunctionalArea(
       functionalAreaDisplayMap[report?['FunctionalArea']] ??
-          'Cash Advance Requisition',
+          'Expense Requisition',
     );
-
-    // First, fetch datasets and populate matchedDatasets
-    await _fetchDatasets();
-
-    // Set the dataset ID and load the specific dataset
-    final dataSetId = report?['DataSet']?.toString() ?? '';
-    reportModel.updateDataSet(dataSetId);
-
-    // IMPORTANT: Load datasets to populate matchedDatasets and tableLabels
-    await _loadDatasets();
-
-    // Now populate tableLabels from matchedDatasets
-    // The finedRecIdValuefunction already populates tableLabels, but we need to ensure it's called
-    // with the correct data. _loadDatasets calls finedRecIdValuefunction internally.
-
+    final recId = report['RecId'].toString();
+    reportModel.updateDataSet(recId);
+    _loadDatasets();
     if (!showCheckBox) {
       reportModel.addFilterRuleToGroup(0);
     }
-
+    reportModel.updateDataSet(report?['DataSet']?.toString() ?? '');
     reportModel.updateDescription(report?['Description'] ?? '');
     reportModel.updateTags(report?['AvailableFor'] ?? '');
     reportModel.updateApplicableFor(report?['ReportAvailability'] ?? 'Public');
 
+    await _fetchDatasets();
     final metaData = report['ReportMetaData'];
-
-    // ✅ IMPORTANT: Populate tableColumnTypes and tableLabels before initializing filter groups
-    if (metaData != null && metaData is List) {
-      for (var group in metaData) {
-        final rules = group['rules'] as List;
-        for (var rule in rules) {
-          final table = rule['selectedTable'];
-          if (table != null && table.isNotEmpty) {
-            // This will populate tableColumnTypes
-            final columns = reportModel.getColumnsForTableLabelExpens(table);
-            print("Fetched columns for table $table: ${columns.length}");
-
-            // Also add table to tableLabels if not already there
-            if (!reportModel.tableLabels.contains(table)) {
-              reportModel.tableLabels.add(table);
-            }
-          }
-        }
-      }
-    }
-
-    // Now initialize filter groups with populated data
     reportModel.initializeFilterGroups(metaData);
 
     final columnChooser = report['ColumnChooser'];
@@ -180,14 +141,12 @@ class _CashAdvanceReportCreateScreenState
   }
 
   Future<void> _loadDatasets() async {
-    if (!isEditableField && widget.existingReport == null) return;
+    if (!isEditableField) return; // Don't load if not editable
 
     final reportModel = Provider.of<ReportModel>(context, listen: false);
     try {
       final data = await reportModel.fetchDatasetsDropDown();
-      print("Fetched datasets count: ${data.length}");
       reportModel.finedRecIdValuefunction(data);
-      print("Table labels after load: ${reportModel.tableLabels}");
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -303,27 +262,27 @@ class _CashAdvanceReportCreateScreenState
           title: Text(
             widget.isEdit
                 ? isEditableField
-                      ? '${AppLocalizations.of(context)!.edit} ${AppLocalizations.of(context)!.cashAdvance} ${AppLocalizations.of(context)!.reports}'
-                      : '${AppLocalizations.of(context)!.viewCashAdvanceReturn} ${AppLocalizations.of(context)!.cashAdvance} ${AppLocalizations.of(context)!.reports}'
+                      ? '${AppLocalizations.of(context)!.edit} ${AppLocalizations.of(context)!.attendance} ${AppLocalizations.of(context)!.reports}'
+                      : '${AppLocalizations.of(context)!.view} ${AppLocalizations.of(context)!.attendance} ${AppLocalizations.of(context)!.reports}'
                 : AppLocalizations.of(context)!.createReport,
           ),
           elevation: 1,
           // backgroundColor: Colors.white,
           actions: [
             if (widget.existingReport != null &&
-                PermissionHelper.canUpdate("Cash Advance Reports"))
+                PermissionHelper.canUpdate("Leave Reports"))
               Obx(() {
                 return IconButton(
                   icon: Icon(
                     controller.isEnable.value
-                        ? // View mode
-                          Icons.edit_document
-                        : Icons.remove_red_eye, // Edit mode
+                        ? Icons
+                              .remove_red_eye // View mode
+                        : Icons.edit_document, // Edit mode
                   ),
                   onPressed: () {
                     controller.isEnable.value = !controller.isEnable.value;
                     setState(() {
-                      isEditableField = !isEditableField;
+                      isEditableField = true;
                     });
                   },
                 );
@@ -357,17 +316,15 @@ class _CashAdvanceReportCreateScreenState
                   //   labelText:
                   //       '${AppLocalizations.of(context)!.functionalArea} *',
                   //   items: const [
-                  //     // 'Expense Requisition',
-                  //     'Cash Advance Requisition',
-                  //     // 'Leave Requisition',
-                  //     // 'TimeSheet Requisition',
+                  //     'Expense Requisition',
+
                   //   ],
                   //   value: reportModel.functionalArea,
                   //   onChanged: isEditableField
                   //       ? (value) {
                   //           print("value$value");
 
-                  //           reportModel.updateFunctionalArea("Cash Advance Requisition");
+                  //           reportModel.updateFunctionalArea(value);
                   //           _fetchDatasets();
                   //         }
                   //       : null,
@@ -475,7 +432,7 @@ class _CashAdvanceReportCreateScreenState
                               onPressed: () => reportModel.addFilterGroup(),
                               icon: const Icon(Icons.add, size: 16),
                               label: Text(
-                                AppLocalizations.of(context)!.addGroup,
+                                AppLocalizations.of(context)!.addRule,
                               ),
                               style: ElevatedButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
@@ -571,7 +528,7 @@ class _CashAdvanceReportCreateScreenState
                                     .addFilterRuleToGroup(groupIndex),
                                 icon: const Icon(Icons.add, size: 16),
                                 label: Text(
-                                  AppLocalizations.of(context)!.addRuleToGroup,
+                                  AppLocalizations.of(context)!.addGroup,
                                 ),
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(
@@ -675,13 +632,13 @@ class _CashAdvanceReportCreateScreenState
                                     context,
                                     AppRoutes.reportsAssignUser,
                                     arguments: {
-                                      'page': "CashAdvanceRequisition",
+                                      'page': "AttendanceRequisition",
                                     },
                                   );
                                 } else {
                                   await reportModel.saveReport(
                                     context,
-                                    "CashAdvanceRequisition",
+                                    "AttendanceRequisition",
                                   );
                                 }
                               }
@@ -784,34 +741,17 @@ class _CashAdvanceReportCreateScreenState
       final fromDateCtrl = _dateValueControllers[fromControllerKey]!;
       final toDateCtrl = _dateValueControllers[toControllerKey]!;
 
-      // ✅ Convert YYYY-MM-DD to formatted display date (DD/MM/YYYY)
-      String formatDisplayDate(String yyyyMmDd) {
-        if (yyyyMmDd.isEmpty) return '';
+      // ✅ Convert milliseconds to formatted date string
+      String getFormattedDateFromMillis(String millisStr) {
+        if (millisStr.isEmpty) return '';
         try {
-          final parts = yyyyMmDd.split('-');
-          if (parts.length == 3) {
-            return '${parts[2]}/${parts[1]}/${parts[0]}';
-          }
-          return yyyyMmDd;
+          final millis = int.parse(millisStr);
+          final dt = DateTime.fromMillisecondsSinceEpoch(millis);
+          return '${dt.day.toString().padLeft(2, '0')}/'
+              '${dt.month.toString().padLeft(2, '0')}/'
+              '${dt.year}';
         } catch (_) {
-          return yyyyMmDd;
-        }
-      }
-
-      // ✅ Convert display date (DD/MM/YYYY) to YYYY-MM-DD for storage
-      String convertToYyyyMmDd(String displayDate) {
-        if (displayDate.isEmpty) return '';
-        try {
-          final parts = displayDate.split('/');
-          if (parts.length == 3) {
-            final year = int.parse(parts[2]);
-            final month = int.parse(parts[1]);
-            final day = int.parse(parts[0]);
-            return '$year-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
-          }
-          return displayDate;
-        } catch (_) {
-          return displayDate;
+          return millisStr;
         }
       }
 
@@ -826,14 +766,14 @@ class _CashAdvanceReportCreateScreenState
             : '';
 
         if (fromValue.isNotEmpty) {
-          final formatted = formatDisplayDate(fromValue);
+          final formatted = getFormattedDateFromMillis(fromValue);
           if (fromDateCtrl.text != formatted) fromDateCtrl.text = formatted;
         } else {
           if (fromDateCtrl.text.isNotEmpty) fromDateCtrl.clear();
         }
 
         if (toValue.isNotEmpty) {
-          final formatted = formatDisplayDate(toValue);
+          final formatted = getFormattedDateFromMillis(toValue);
           if (toDateCtrl.text != formatted) toDateCtrl.text = formatted;
         } else {
           if (toDateCtrl.text.isNotEmpty) toDateCtrl.clear();
@@ -848,14 +788,9 @@ class _CashAdvanceReportCreateScreenState
                       DateTime initialDate = DateTime.now();
                       if (fromValue.isNotEmpty) {
                         try {
-                          final parts = fromValue.split('-');
-                          if (parts.length == 3) {
-                            initialDate = DateTime(
-                              int.parse(parts[0]),
-                              int.parse(parts[1]),
-                              int.parse(parts[2]),
-                            );
-                          }
+                          initialDate = DateTime.fromMillisecondsSinceEpoch(
+                            int.parse(fromValue),
+                          );
                         } catch (_) {}
                       }
 
@@ -867,18 +802,18 @@ class _CashAdvanceReportCreateScreenState
                       );
 
                       if (picked != null) {
-                        // ✅ Store as YYYY-MM-DD
-                        final yyyyMmDd =
-                            '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                        final millis = picked.millisecondsSinceEpoch.toString();
                         final formatted =
-                            '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+                            '${picked.day.toString().padLeft(2, '0')}/'
+                            '${picked.month.toString().padLeft(2, '0')}/'
+                            '${picked.year}';
 
                         fromDateCtrl.text = formatted;
 
                         final updatedValues = [...rule.inBetweenValues];
                         if (updatedValues.isEmpty) updatedValues.add('');
                         if (updatedValues.length < 2) updatedValues.add('');
-                        updatedValues[0] = yyyyMmDd;
+                        updatedValues[0] = millis;
 
                         reportModel.updateFilterRule(
                           groupIndex,
@@ -917,14 +852,9 @@ class _CashAdvanceReportCreateScreenState
                       DateTime initialDate = DateTime.now();
                       if (toValue.isNotEmpty) {
                         try {
-                          final parts = toValue.split('-');
-                          if (parts.length == 3) {
-                            initialDate = DateTime(
-                              int.parse(parts[0]),
-                              int.parse(parts[1]),
-                              int.parse(parts[2]),
-                            );
-                          }
+                          initialDate = DateTime.fromMillisecondsSinceEpoch(
+                            int.parse(toValue),
+                          );
                         } catch (_) {}
                       }
 
@@ -936,18 +866,18 @@ class _CashAdvanceReportCreateScreenState
                       );
 
                       if (picked != null) {
-                        // ✅ Store as YYYY-MM-DD
-                        final yyyyMmDd =
-                            '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                        final millis = picked.millisecondsSinceEpoch.toString();
                         final formatted =
-                            '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+                            '${picked.day.toString().padLeft(2, '0')}/'
+                            '${picked.month.toString().padLeft(2, '0')}/'
+                            '${picked.year}';
 
                         toDateCtrl.text = formatted;
 
                         final updatedValues = [...rule.inBetweenValues];
                         if (updatedValues.isEmpty) updatedValues.add('');
                         if (updatedValues.length < 2) updatedValues.add('');
-                        updatedValues[1] = yyyyMmDd;
+                        updatedValues[1] = millis;
 
                         reportModel.updateFilterRule(
                           groupIndex,
@@ -983,7 +913,7 @@ class _CashAdvanceReportCreateScreenState
       } else {
         // Single date picker mode
         if (rule.value.isNotEmpty) {
-          final formatted = formatDisplayDate(rule.value);
+          final formatted = getFormattedDateFromMillis(rule.value);
           if (fromDateCtrl.text != formatted) fromDateCtrl.text = formatted;
         } else {
           if (fromDateCtrl.text.isNotEmpty) fromDateCtrl.clear();
@@ -995,14 +925,9 @@ class _CashAdvanceReportCreateScreenState
                   DateTime initialDate = DateTime.now();
                   if (rule.value.isNotEmpty) {
                     try {
-                      final parts = rule.value.split('-');
-                      if (parts.length == 3) {
-                        initialDate = DateTime(
-                          int.parse(parts[0]),
-                          int.parse(parts[1]),
-                          int.parse(parts[2]),
-                        );
-                      }
+                      initialDate = DateTime.fromMillisecondsSinceEpoch(
+                        int.parse(rule.value),
+                      );
                     } catch (_) {}
                   }
 
@@ -1014,11 +939,11 @@ class _CashAdvanceReportCreateScreenState
                   );
 
                   if (picked != null) {
-                    // ✅ Store as YYYY-MM-DD
-                    final yyyyMmDd =
-                        '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                    final millis = picked.millisecondsSinceEpoch.toString();
                     final formatted =
-                        '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+                        '${picked.day.toString().padLeft(2, '0')}/'
+                        '${picked.month.toString().padLeft(2, '0')}/'
+                        '${picked.year}';
 
                     fromDateCtrl.text = formatted;
 
@@ -1026,7 +951,7 @@ class _CashAdvanceReportCreateScreenState
                       groupIndex,
                       ruleIndex,
                       'value',
-                      yyyyMmDd,
+                      millis,
                     );
                   }
                 }
@@ -1340,8 +1265,6 @@ class _CashAdvanceReportCreateScreenState
 
   Widget _buildFilterRuleCard(FilterRule rule, int groupIndex, int ruleIndex) {
     final reportModel = Provider.of<ReportModel>(context, listen: false);
-
-    // ❌ REMOVE THIS BLOCK - it's causing the build error
     // if (widget.existingReport != null) {
     //   reportModel.selectTableForFilterAppendData(
     //     groupIndex,
@@ -1350,7 +1273,6 @@ class _CashAdvanceReportCreateScreenState
     //     rule.column,
     //   );
     // }
-
     print("rule.column&${rule.column}");
     return Container(
       child: Padding(
@@ -1399,6 +1321,14 @@ class _CashAdvanceReportCreateScreenState
 
                         Builder(
                           builder: (context) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              // Ensure any model updates happen after build
+                              if (rule.availableColumns.isEmpty &&
+                                  widget.existingReport == null) {
+                                // Do nothing
+                              }
+                            });
+
                             if (rule.availableColumns.isNotEmpty ||
                                 widget.existingReport != null) {
                               return CustomDropdown(
@@ -1407,25 +1337,29 @@ class _CashAdvanceReportCreateScreenState
                                 value: rule.column,
                                 onChanged: isEditableField
                                     ? (value) {
-                                        if (value != null) {
-                                          reportModel.updateFilterRule(
+                                        if (widget.existingReport != null) {
+                                          reportModel.selectTableForFilter(
                                             groupIndex,
                                             ruleIndex,
-                                            'column',
-                                            value,
+                                            rule.table,
                                           );
                                         }
+                                        reportModel.updateFilterRule(
+                                          groupIndex,
+                                          ruleIndex,
+                                          'column',
+                                          value,
+                                        );
                                       }
                                     : null,
                                 isEditable: isEditableField,
                               );
                             }
-                            return const SizedBox.shrink();
+
+                            return SizedBox.shrink();
                           },
                         ),
-
                         if (rule.column.isNotEmpty) const SizedBox(height: 16),
-
                         if (rule.column.isNotEmpty)
                           CustomDropdown(
                             labelText: AppLocalizations.of(context)!.condition,
@@ -1437,6 +1371,12 @@ class _CashAdvanceReportCreateScreenState
                                 ? (value) {
                                     if (value != null) {
                                       print("Selected condition: $value");
+                                      print(
+                                        "Available conditions: ${rule.conditionItems}",
+                                      );
+                                      print(
+                                        "Current rule.condition: ${rule.condition}",
+                                      );
                                       reportModel.updateFilterRule(
                                         groupIndex,
                                         ruleIndex,
@@ -1449,15 +1389,158 @@ class _CashAdvanceReportCreateScreenState
                             isEditable: isEditableField,
                           ),
 
-                        if (rule.condition.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          buildValueInputByType(
-                            rule: rule,
-                            groupIndex: groupIndex,
-                            ruleIndex: ruleIndex,
-                          ),
-                        ],
-
+                        // if (rule.condition.isNotEmpty &&
+                        //     rule.condition != "In Between")
+                        //   const SizedBox(height: 16),
+                        // if (rule.condition.isNotEmpty &&
+                        //     rule.condition != "In Between" &&
+                        //     rule.condition != "Is Not Empty" &&
+                        //     rule.condition != "Is Empty")
+                        //   SizedBox(
+                        //     width: double.infinity,
+                        //     child: TextFormField(
+                        //       initialValue: rule.value,
+                        //       decoration: InputDecoration(
+                        //         labelText: AppLocalizations.of(context)!.value,
+                        //         hintText: AppLocalizations.of(
+                        //           context,
+                        //         )!.enterValueToMatch,
+                        //         border: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //         ),
+                        //         enabledBorder: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //           borderSide: const BorderSide(
+                        //             color: Colors.grey,
+                        //           ),
+                        //         ),
+                        //         focusedBorder: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //           borderSide: BorderSide(
+                        //             color: Colors.blue.shade400,
+                        //           ),
+                        //         ),
+                        //         contentPadding: const EdgeInsets.symmetric(
+                        //           horizontal: 12,
+                        //           vertical: 14,
+                        //         ),
+                        //       ),
+                        //       onChanged: (value) {
+                        //         reportModel.updateFilterRule(
+                        //           groupIndex,
+                        //           ruleIndex,
+                        //           'value',
+                        //           value,
+                        //         );
+                        //       },
+                        //     ),
+                        //   ),
+                        // if (rule.condition.isNotEmpty &&
+                        //     rule.condition == "In Between") ...[
+                        //   const SizedBox(height: 12),
+                        //   SizedBox(
+                        //     width: double.infinity,
+                        //     child: TextFormField(
+                        //       initialValue: rule.inBetweenValues.isNotEmpty
+                        //           ? rule.inBetweenValues[0]
+                        //           : '',
+                        //       decoration: InputDecoration(
+                        //         labelText: AppLocalizations.of(context)!.from,
+                        //         hintText: AppLocalizations.of(
+                        //           context,
+                        //         )!.enterStartingValue,
+                        //         border: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //         ),
+                        //         enabledBorder: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //           borderSide: const BorderSide(
+                        //             color: Colors.grey,
+                        //           ),
+                        //         ),
+                        //         focusedBorder: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //           borderSide: BorderSide(
+                        //             color: Colors.blue.shade400,
+                        //           ),
+                        //         ),
+                        //         contentPadding: const EdgeInsets.symmetric(
+                        //           horizontal: 12,
+                        //           vertical: 14,
+                        //         ),
+                        //       ),
+                        //       onChanged: (val) {
+                        //         var list = [...rule.inBetweenValues];
+                        //         if (list.length < 2) list = ['', ''];
+                        //         list[0] = val;
+                        //         reportModel.updateFilterRule(
+                        //           groupIndex,
+                        //           ruleIndex,
+                        //           'inBetweenValues',
+                        //           list,
+                        //         );
+                        //       },
+                        //     ),
+                        //   ),
+                        //   const SizedBox(height: 12),
+                        //   SizedBox(
+                        //     width: double.infinity,
+                        //     child: TextFormField(
+                        //       initialValue: rule.inBetweenValues.length > 1
+                        //           ? rule.inBetweenValues[1]
+                        //           : '',
+                        //       decoration: InputDecoration(
+                        //         labelText: AppLocalizations.of(context)!.to,
+                        //         hintText: AppLocalizations.of(
+                        //           context,
+                        //         )!.enterEndingValue,
+                        //         border: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //         ),
+                        //         enabledBorder: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //           borderSide: const BorderSide(
+                        //             color: Colors.grey,
+                        //           ),
+                        //         ),
+                        //         focusedBorder: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //           borderSide: BorderSide(
+                        //             color: Colors.blue.shade400,
+                        //           ),
+                        //         ),
+                        //         contentPadding: const EdgeInsets.symmetric(
+                        //           horizontal: 12,
+                        //           vertical: 14,
+                        //         ),
+                        //       ),
+                        //       onChanged: (val) {
+                        //         var list = [...rule.inBetweenValues];
+                        //         if (list.length < 2) list = ['', ''];
+                        //         list[1] = val;
+                        //         reportModel.updateFilterRule(
+                        //           groupIndex,
+                        //           ruleIndex,
+                        //           'inBetweenValues',
+                        //           list,
+                        //         );
+                        //       },
+                        //     ),
+                        //   ),
+                        // Replace this block in _buildFilterRuleCard:
+                        // if (rule.condition.isNotEmpty && rule.condition != "In Between" && ...)
+                       if (rule.condition.isNotEmpty &&
+    rule.condition != "Is Not Empty" &&
+    rule.condition != "Is Empty") ...[
+  const SizedBox(height: 16),
+  buildValueInputByType(
+    rule: rule,
+    groupIndex: groupIndex,
+    ruleIndex: ruleIndex,
+  ),
+],
+                        // ],
+                        // const SizedBox(height: 12),
                         if (isEditableField)
                           Align(
                             alignment: Alignment.centerRight,
@@ -1517,6 +1600,10 @@ class CustomDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Add debug print to check items
+    print("CustomDropdown - $labelText items: ${items.length}");
+    print("CustomDropdown - $labelText isEditable: $isEditable");
+
     return TextFormField(
       decoration: InputDecoration(
         labelText: labelText,
@@ -1524,23 +1611,31 @@ class CustomDropdown extends StatelessWidget {
         border: const OutlineInputBorder(),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12),
         filled: !isEditable,
-        // fillColor: !isEditable ? Colors.grey[200] : null,
       ),
-      readOnly: !isEditable,
+      readOnly: true, // Always readOnly, we handle tap manually
       enabled: isEditable,
-      onTap: isEditable
+      controller: TextEditingController(text: value ?? ''),
+      onTap: isEditable && items.isNotEmpty
           ? () {
-              if (items.isEmpty) return;
               FocusScope.of(context).unfocus();
               _showPopupMenu(context);
             }
           : null,
-      controller: TextEditingController(text: value ?? ''),
     );
   }
 
   void _showPopupMenu(BuildContext context) {
-    if (items.isEmpty) return;
+    print("Showing popup menu - items: ${items.length}");
+
+    if (items.isEmpty) {
+      print("Items is empty, cannot show popup");
+      // Show a snackbar to inform user
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No items available to select')),
+      );
+      return;
+    }
+
     final RenderBox button = context.findRenderObject() as RenderBox;
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
@@ -1551,26 +1646,35 @@ class CustomDropdown extends StatelessWidget {
     final double y = position.dy + button.size.height;
 
     showMenu<String>(
-      context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromPoints(
-          Offset(position.dx, y),
-          Offset(position.dx + button.size.width, y + 1),
-        ),
-        Offset.zero & overlay.size,
-      ),
-      items: items
-          .map((item) => PopupMenuItem(value: item, child: Text(item)))
-          .toList(),
-      elevation: 8,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        // side: BorderSide(color: Colors.grey.shade300),
-      ),
-      constraints: BoxConstraints(maxHeight: 200, minWidth: button.size.width),
-    ).then((selectedValue) {
-      if (selectedValue != null && onChanged != null) onChanged!(selectedValue);
-    });
+          context: context,
+          position: RelativeRect.fromRect(
+            Rect.fromPoints(
+              Offset(position.dx, y),
+              Offset(position.dx + button.size.width, y + 1),
+            ),
+            Offset.zero & overlay.size,
+          ),
+          items: items
+              .map((item) => PopupMenuItem(value: item, child: Text(item)))
+              .toList(),
+          elevation: 8,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          constraints: BoxConstraints(
+            maxHeight: 200,
+            minWidth: button.size.width,
+          ),
+        )
+        .then((selectedValue) {
+          if (selectedValue != null && onChanged != null) {
+            print("Selected value: $selectedValue");
+            onChanged!(selectedValue);
+          }
+        })
+        .catchError((error) {
+          print("Error showing popup: $error");
+        });
   }
 }
 
@@ -1717,6 +1821,14 @@ class _CompactColumnSelectorState extends State<CompactColumnSelector> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // Filter out invalid items
+    final validColumns = widget.columns.where((col) {
+      if (col is! Map) return false;
+      final colname = col['Colname'];
+      final label = col['Label'];
+      return colname != null && label != null && colname.toString().isNotEmpty;
+    }).toList();
+
     return Stack(
       children: [
         /// ✅ Card Background
@@ -1742,78 +1854,93 @@ class _CompactColumnSelectorState extends State<CompactColumnSelector> {
               /// ✅ Scrollable List
               SizedBox(
                 height: 200,
-                child: Scrollbar(
-                  controller: _scrollController,
-                  thumbVisibility: true,
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    itemCount: widget.columns.length,
-                    itemBuilder: (ctx, index) {
-                      final col = widget.columns[index];
-                      final colname = col['Colname'] as String;
-                      final label = col['Label'] as String;
-                      final isSelected = widget.selectedColumns.contains(
-                        colname,
-                      );
+                child: validColumns.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No valid columns available',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
+                    : Scrollbar(
+                        controller: _scrollController,
+                        thumbVisibility: true,
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          itemCount: validColumns.length,
+                          itemBuilder: (ctx, index) {
+                            final col = validColumns[index];
+                            // Safe cast with null checks
+                            final colname = col['Colname']?.toString() ?? '';
+                            final label = col['Label']?.toString() ?? colname;
+                            final isSelected = widget.selectedColumns.contains(
+                              colname,
+                            );
 
-                      return Container(
-                        margin: const EdgeInsets.symmetric(vertical: 3),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? theme.colorScheme.primary.withOpacity(0.08)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
+                            // Skip if no valid column name
+                            if (colname.isEmpty) return const SizedBox.shrink();
+
+                            return Container(
+                              margin: const EdgeInsets.symmetric(vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? theme.colorScheme.primary.withOpacity(
+                                        0.08,
+                                      )
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: CheckboxListTile(
+                                dense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
+                                title: Text(
+                                  label,
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                                value: isSelected,
+                                onChanged:
+                                    widget.isEditable && widget.onToggle != null
+                                    ? (_) => widget.onToggle!(colname)
+                                    : null,
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                              ),
+                            );
+                          },
                         ),
-                        child: CheckboxListTile(
-                          dense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                          ),
-                          title: Text(
-                            label,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          value: isSelected,
-                          onChanged:
-                              widget.isEditable && widget.onToggle != null
-                              ? (_) => widget.onToggle!(colname)
-                              : null,
-                          controlAffinity: ListTileControlAffinity.leading,
-                        ),
-                      );
-                    },
-                  ),
-                ),
+                      ),
               ),
             ],
           ),
         ),
 
         /// ✅ Scroll Toggle Button (Right Bottom)
-        Positioned(
-          right: 6,
-          bottom: 6,
-          child: Material(
-            elevation: 4,
-            shape: const CircleBorder(),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: _scrollToggle,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: theme.colorScheme.primary,
-                ),
-                child: Icon(
-                  _isAtBottom ? Icons.arrow_upward : Icons.arrow_downward,
-                  color: Colors.white,
-                  size: 18,
+        if (validColumns.isNotEmpty)
+          Positioned(
+            right: 6,
+            bottom: 6,
+            child: Material(
+              elevation: 4,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _scrollToggle,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: theme.colorScheme.primary,
+                  ),
+                  child: Icon(
+                    _isAtBottom ? Icons.arrow_upward : Icons.arrow_downward,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
               ),
             ),
           ),
-        ),
       ],
     );
   }

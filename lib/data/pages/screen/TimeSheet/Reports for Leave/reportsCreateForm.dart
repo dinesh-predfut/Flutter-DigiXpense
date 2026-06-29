@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:diginexa/core/comman/widgets/loaderbutton.dart';
-import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart'
+    show PermissionHelper;
 import 'package:diginexa/core/constant/Parames/params.dart';
 import 'package:diginexa/core/constant/url.dart';
 import 'package:diginexa/data/models.dart';
@@ -34,14 +35,15 @@ class TimeSheetsReportCreateScreen extends StatefulWidget {
       _TimeSheetsReportCreateScreenState();
 }
 
-class _TimeSheetsReportCreateScreenState
-    extends State<TimeSheetsReportCreateScreen> {
+class _TimeSheetsReportCreateScreenState extends State<TimeSheetsReportCreateScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _initialized = false;
   bool showCheckBox = false;
   bool isEditableField = false;
   bool isPreviousData = false;
   final controller = Get.find<Controller>();
+    final Map<String, TextEditingController> _dateValueControllers = {};
+
   late final reportModel = Provider.of<ReportModel>(context, listen: false);
   @override
   void initState() {
@@ -261,15 +263,15 @@ class _TimeSheetsReportCreateScreenState
           title: Text(
             widget.isEdit
                 ? isEditableField
-                      ? '${AppLocalizations.of(context)!.edit} ${AppLocalizations.of(context)!.timesheet} ${AppLocalizations.of(context)!.reports}'
-                      : '${AppLocalizations.of(context)!.view} ${AppLocalizations.of(context)!.timesheet} ${AppLocalizations.of(context)!.reports}'
+                      ? '${AppLocalizations.of(context)!.edit} ${AppLocalizations.of(context)!.leave} ${AppLocalizations.of(context)!.reports}'
+                      : '${AppLocalizations.of(context)!.view} ${AppLocalizations.of(context)!.leave} ${AppLocalizations.of(context)!.reports}'
                 : AppLocalizations.of(context)!.createReport,
           ),
           elevation: 1,
           // backgroundColor: Colors.white,
           actions: [
             if (widget.existingReport != null &&
-                PermissionHelper.canWrite("Timesheet Reports"))
+                PermissionHelper.canUpdate("Leave Reports"))
               Obx(() {
                 return IconButton(
                   icon: Icon(
@@ -431,7 +433,7 @@ class _TimeSheetsReportCreateScreenState
                               onPressed: () => reportModel.addFilterGroup(),
                               icon: const Icon(Icons.add, size: 16),
                               label: Text(
-                                AppLocalizations.of(context)!.addGroup,
+                                AppLocalizations.of(context)!.addRule,
                               ),
                               style: ElevatedButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
@@ -527,7 +529,7 @@ class _TimeSheetsReportCreateScreenState
                                     .addFilterRuleToGroup(groupIndex),
                                 icon: const Icon(Icons.add, size: 16),
                                 label: Text(
-                                  AppLocalizations.of(context)!.addRuleToGroup,
+                                  AppLocalizations.of(context)!.addGroup,
                                 ),
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(
@@ -630,12 +632,12 @@ class _TimeSheetsReportCreateScreenState
                                   Navigator.pushNamed(
                                     context,
                                     AppRoutes.reportsAssignUser,
-                                    arguments: {'page': "TimeSheetRequisition"},
+                                    arguments: {'page': "LeaveRequisition"},
                                   );
                                 } else {
                                   await reportModel.saveReport(
                                     context,
-                                    "TimeSheetRequisition",
+                                    "LeaveRequisition",
                                   );
                                 }
                               }
@@ -706,7 +708,526 @@ class _TimeSheetsReportCreateScreenState
       enabled: isEditable,
     );
   }
+Widget buildValueInputByType({
+  required FilterRule rule,
+  required int groupIndex,
+  required int ruleIndex,
+}) {
+  final reportModel = Provider.of<ReportModel>(context, listen: false);
 
+  // ✅ Get column type from tableColumnTypes map
+  final colType =
+      reportModel.tableColumnTypes[rule.table]?[rule.column]?.toLowerCase() ??
+      'string';
+
+  // ✅ Check if condition is "In Between"
+  final isInBetween = rule.condition.toLowerCase() == 'in between';
+
+  // ✅ DATE type → show date picker
+  if (colType == 'date') {
+    // ✅ Unique keys for controllers
+    final fromControllerKey = '$groupIndex-$ruleIndex-from';
+    final toControllerKey = '$groupIndex-$ruleIndex-to';
+
+    if (!_dateValueControllers.containsKey(fromControllerKey)) {
+      _dateValueControllers[fromControllerKey] = TextEditingController();
+    }
+    if (!_dateValueControllers.containsKey(toControllerKey)) {
+      _dateValueControllers[toControllerKey] = TextEditingController();
+    }
+
+    final fromDateCtrl = _dateValueControllers[fromControllerKey]!;
+    final toDateCtrl = _dateValueControllers[toControllerKey]!;
+
+    // ✅ Convert milliseconds to formatted date string
+    String getFormattedDateFromMillis(String millisStr) {
+      if (millisStr.isEmpty) return '';
+      try {
+        final millis = int.parse(millisStr);
+        final dt = DateTime.fromMillisecondsSinceEpoch(millis);
+        return '${dt.day.toString().padLeft(2, '0')}/'
+            '${dt.month.toString().padLeft(2, '0')}/'
+            '${dt.year}';
+      } catch (_) {
+        return millisStr;
+      }
+    }
+
+    // ✅ Update from date display
+    if (isInBetween) {
+      // In Between mode - show two date pickers
+      final fromValue = rule.inBetweenValues.isNotEmpty ? rule.inBetweenValues[0] : '';
+      final toValue = rule.inBetweenValues.length > 1 ? rule.inBetweenValues[1] : '';
+      
+      if (fromValue.isNotEmpty) {
+        final formatted = getFormattedDateFromMillis(fromValue);
+        if (fromDateCtrl.text != formatted) fromDateCtrl.text = formatted;
+      } else {
+        if (fromDateCtrl.text.isNotEmpty) fromDateCtrl.clear();
+      }
+      
+      if (toValue.isNotEmpty) {
+        final formatted = getFormattedDateFromMillis(toValue);
+        if (toDateCtrl.text != formatted) toDateCtrl.text = formatted;
+      } else {
+        if (toDateCtrl.text.isNotEmpty) toDateCtrl.clear();
+      }
+
+      return Column(
+        children: [
+          // From Date
+          GestureDetector(
+            onTap: isEditableField
+                ? () async {
+                    DateTime initialDate = DateTime.now();
+                    if (fromValue.isNotEmpty) {
+                      try {
+                        initialDate = DateTime.fromMillisecondsSinceEpoch(
+                          int.parse(fromValue),
+                        );
+                      } catch (_) {}
+                    }
+
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: initialDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+
+                    if (picked != null) {
+                      final millis = picked.millisecondsSinceEpoch.toString();
+                      final formatted =
+                          '${picked.day.toString().padLeft(2, '0')}/'
+                          '${picked.month.toString().padLeft(2, '0')}/'
+                          '${picked.year}';
+
+                      fromDateCtrl.text = formatted;
+                      
+                      final updatedValues = [...rule.inBetweenValues];
+                      if (updatedValues.isEmpty) updatedValues.add('');
+                      if (updatedValues.length < 2) updatedValues.add('');
+                      updatedValues[0] = millis;
+                      
+                      reportModel.updateFilterRule(
+                        groupIndex,
+                        ruleIndex,
+                        'inBetweenValues',
+                        updatedValues,
+                      );
+                    }
+                  }
+                : null,
+            child: AbsorbPointer(
+              child: TextFormField(
+                controller: fromDateCtrl,
+                readOnly: true,
+                enabled: isEditableField,
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)!.from,
+                  hintText: 'Select from date',
+                  suffixIcon: const Icon(Icons.calendar_today),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // To Date
+          GestureDetector(
+            onTap: isEditableField
+                ? () async {
+                    DateTime initialDate = DateTime.now();
+                    if (toValue.isNotEmpty) {
+                      try {
+                        initialDate = DateTime.fromMillisecondsSinceEpoch(
+                          int.parse(toValue),
+                        );
+                      } catch (_) {}
+                    }
+
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: initialDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+
+                    if (picked != null) {
+                      final millis = picked.millisecondsSinceEpoch.toString();
+                      final formatted =
+                          '${picked.day.toString().padLeft(2, '0')}/'
+                          '${picked.month.toString().padLeft(2, '0')}/'
+                          '${picked.year}';
+
+                      toDateCtrl.text = formatted;
+                      
+                      final updatedValues = [...rule.inBetweenValues];
+                      if (updatedValues.isEmpty) updatedValues.add('');
+                      if (updatedValues.length < 2) updatedValues.add('');
+                      updatedValues[1] = millis;
+                      
+                      reportModel.updateFilterRule(
+                        groupIndex,
+                        ruleIndex,
+                        'inBetweenValues',
+                        updatedValues,
+                      );
+                    }
+                  }
+                : null,
+            child: AbsorbPointer(
+              child: TextFormField(
+                controller: toDateCtrl,
+                readOnly: true,
+                enabled: isEditableField,
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)!.to,
+                  hintText: 'Select to date',
+                  suffixIcon: const Icon(Icons.calendar_today),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      // Single date picker mode
+      if (rule.value.isNotEmpty) {
+        final formatted = getFormattedDateFromMillis(rule.value);
+        if (fromDateCtrl.text != formatted) fromDateCtrl.text = formatted;
+      } else {
+        if (fromDateCtrl.text.isNotEmpty) fromDateCtrl.clear();
+      }
+
+      return GestureDetector(
+        onTap: isEditableField
+            ? () async {
+                DateTime initialDate = DateTime.now();
+                if (rule.value.isNotEmpty) {
+                  try {
+                    initialDate = DateTime.fromMillisecondsSinceEpoch(
+                      int.parse(rule.value),
+                    );
+                  } catch (_) {}
+                }
+
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: initialDate,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                );
+
+                if (picked != null) {
+                  final millis = picked.millisecondsSinceEpoch.toString();
+                  final formatted =
+                      '${picked.day.toString().padLeft(2, '0')}/'
+                      '${picked.month.toString().padLeft(2, '0')}/'
+                      '${picked.year}';
+
+                  fromDateCtrl.text = formatted;
+
+                  reportModel.updateFilterRule(
+                    groupIndex,
+                    ruleIndex,
+                    'value',
+                    millis,
+                  );
+                }
+              }
+            : null,
+        child: AbsorbPointer(
+          child: TextFormField(
+            controller: fromDateCtrl,
+            readOnly: true,
+            enabled: isEditableField,
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.value,
+              hintText: 'Select date',
+              suffixIcon: const Icon(Icons.calendar_today),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 14,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  // ✅ NUMBER type
+  if (colType == 'number') {
+    if (isInBetween) {
+      return Column(
+        children: [
+          TextFormField(
+            initialValue: rule.inBetweenValues.isNotEmpty ? rule.inBetweenValues[0] : '',
+            enabled: isEditableField,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.from,
+              hintText: AppLocalizations.of(context)!.enterStartingValue,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 14,
+              ),
+            ),
+            onChanged: (value) {
+              final updatedValues = [...rule.inBetweenValues];
+              if (updatedValues.isEmpty) updatedValues.add('');
+              if (updatedValues.length < 2) updatedValues.add('');
+              updatedValues[0] = value;
+              reportModel.updateFilterRule(
+                groupIndex,
+                ruleIndex,
+                'inBetweenValues',
+                updatedValues,
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            initialValue: rule.inBetweenValues.length > 1 ? rule.inBetweenValues[1] : '',
+            enabled: isEditableField,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.to,
+              hintText: AppLocalizations.of(context)!.enterEndingValue,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 14,
+              ),
+            ),
+            onChanged: (value) {
+              final updatedValues = [...rule.inBetweenValues];
+              if (updatedValues.isEmpty) updatedValues.add('');
+              if (updatedValues.length < 2) updatedValues.add('');
+              updatedValues[1] = value;
+              reportModel.updateFilterRule(
+                groupIndex,
+                ruleIndex,
+                'inBetweenValues',
+                updatedValues,
+              );
+            },
+          ),
+        ],
+      );
+    } else {
+      return TextFormField(
+        initialValue: rule.value,
+        enabled: isEditableField,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(
+          labelText: AppLocalizations.of(context)!.value,
+          hintText: AppLocalizations.of(context)!.enterValueToMatch,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 14,
+          ),
+        ),
+        onChanged: (value) {
+          reportModel.updateFilterRule(groupIndex, ruleIndex, 'value', value);
+        },
+      );
+    }
+  }
+
+  // ✅ BOOLEAN type → dropdown True/False (In Between not applicable)
+  if (colType == 'boolean') {
+    return CustomDropdown(
+      labelText: AppLocalizations.of(context)!.value,
+      items: const ['True', 'False'],
+      value: rule.value.isEmpty ? null : rule.value,
+      onChanged: isEditableField
+          ? (val) {
+              reportModel.updateFilterRule(
+                groupIndex,
+                ruleIndex,
+                'value',
+                val,
+              );
+            }
+          : null,
+      isEditable: isEditableField,
+    );
+  }
+
+  // ✅ ENUM type
+  if (colType == 'enum') {
+    if (isInBetween) {
+      return Column(
+        children: [
+          TextFormField(
+            initialValue: rule.inBetweenValues.isNotEmpty ? rule.inBetweenValues[0] : '',
+            enabled: isEditableField,
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.from,
+              hintText: AppLocalizations.of(context)!.enterStartingValue,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 14,
+              ),
+            ),
+            onChanged: (value) {
+              final updatedValues = [...rule.inBetweenValues];
+              if (updatedValues.isEmpty) updatedValues.add('');
+              if (updatedValues.length < 2) updatedValues.add('');
+              updatedValues[0] = value;
+              reportModel.updateFilterRule(
+                groupIndex,
+                ruleIndex,
+                'inBetweenValues',
+                updatedValues,
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            initialValue: rule.inBetweenValues.length > 1 ? rule.inBetweenValues[1] : '',
+            enabled: isEditableField,
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.to,
+              hintText: AppLocalizations.of(context)!.enterEndingValue,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 14,
+              ),
+            ),
+            onChanged: (value) {
+              final updatedValues = [...rule.inBetweenValues];
+              if (updatedValues.isEmpty) updatedValues.add('');
+              if (updatedValues.length < 2) updatedValues.add('');
+              updatedValues[1] = value;
+              reportModel.updateFilterRule(
+                groupIndex,
+                ruleIndex,
+                'inBetweenValues',
+                updatedValues,
+              );
+            },
+          ),
+        ],
+      );
+    } else {
+      return TextFormField(
+        initialValue: rule.value,
+        enabled: isEditableField,
+        decoration: InputDecoration(
+          labelText: AppLocalizations.of(context)!.value,
+          hintText: AppLocalizations.of(context)!.enterValueToMatch,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 14,
+          ),
+        ),
+        onChanged: (value) {
+          reportModel.updateFilterRule(groupIndex, ruleIndex, 'value', value);
+        },
+      );
+    }
+  }
+
+  // ✅ DEFAULT: STRING → plain text
+  if (isInBetween) {
+    return Column(
+      children: [
+        TextFormField(
+          initialValue: rule.inBetweenValues.isNotEmpty ? rule.inBetweenValues[0] : '',
+          enabled: isEditableField,
+          decoration: InputDecoration(
+            labelText: AppLocalizations.of(context)!.from,
+            hintText: AppLocalizations.of(context)!.enterStartingValue,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 14,
+            ),
+          ),
+          onChanged: (value) {
+            final updatedValues = [...rule.inBetweenValues];
+            if (updatedValues.isEmpty) updatedValues.add('');
+            if (updatedValues.length < 2) updatedValues.add('');
+            updatedValues[0] = value;
+            reportModel.updateFilterRule(
+              groupIndex,
+              ruleIndex,
+              'inBetweenValues',
+              updatedValues,
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          initialValue: rule.inBetweenValues.length > 1 ? rule.inBetweenValues[1] : '',
+          enabled: isEditableField,
+          decoration: InputDecoration(
+            labelText: AppLocalizations.of(context)!.to,
+            hintText: AppLocalizations.of(context)!.enterEndingValue,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 14,
+            ),
+          ),
+          onChanged: (value) {
+            final updatedValues = [...rule.inBetweenValues];
+            if (updatedValues.isEmpty) updatedValues.add('');
+            if (updatedValues.length < 2) updatedValues.add('');
+            updatedValues[1] = value;
+            reportModel.updateFilterRule(
+              groupIndex,
+              ruleIndex,
+              'inBetweenValues',
+              updatedValues,
+            );
+          },
+        ),
+      ],
+    );
+  } else {
+    return TextFormField(
+      initialValue: rule.value,
+      enabled: isEditableField,
+      decoration: InputDecoration(
+        labelText: AppLocalizations.of(context)!.value,
+        hintText: AppLocalizations.of(context)!.enterValueToMatch,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 14,
+        ),
+      ),
+      onChanged: (value) {
+        reportModel.updateFilterRule(groupIndex, ruleIndex, 'value', value);
+      },
+    );
+  }
+}
   Widget _buildFilterRuleCard(FilterRule rule, int groupIndex, int ruleIndex) {
     final reportModel = Provider.of<ReportModel>(context, listen: false);
     // if (widget.existingReport != null) {
@@ -788,14 +1309,12 @@ class _TimeSheetsReportCreateScreenState
                                             rule.table,
                                           );
                                         }
-                                        if (value != null) {
-                                          reportModel.updateFilterRule(
-                                            groupIndex,
-                                            ruleIndex,
-                                            'column',
-                                            value,
-                                          );
-                                        }
+                                        reportModel.updateFilterRule(
+                                          groupIndex,
+                                          ruleIndex,
+                                          'column',
+                                          value,
+                                        );
                                       }
                                     : null,
                                 isEditable: isEditableField,
@@ -835,175 +1354,18 @@ class _TimeSheetsReportCreateScreenState
                             isEditable: isEditableField,
                           ),
 
-                        if (rule.condition.isNotEmpty &&
-                            rule.condition != "In Between")
-                          const SizedBox(height: 16),
-                        if (rule.condition.isNotEmpty &&
-                            rule.condition != "In Between" &&
-                            rule.condition != "Is Not Empty" &&
-                            rule.condition != "Is Empty")
-                          SizedBox(
-                            width: double.infinity,
-                            child: TextFormField(
-                              initialValue: rule.value,
-                              decoration: InputDecoration(
-                                labelText: AppLocalizations.of(context)!.value,
-                                hintText: AppLocalizations.of(
-                                  context,
-                                )!.enterValueToMatch,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.blue.shade400,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 14,
-                                ),
-                              ),
-                              onChanged: (value) {
-                                reportModel.updateFilterRule(
-                                  groupIndex,
-                                  ruleIndex,
-                                  'value',
-                                  value,
-                                );
-                              },
-                            ),
-                          ),
-                        if (rule.condition.isNotEmpty &&
-                            rule.condition == "In Between") ...[
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: TextFormField(
-                              initialValue: rule.inBetweenValues.isNotEmpty
-                                  ? rule.inBetweenValues[0]
-                                  : '',
-                              decoration: InputDecoration(
-                                labelText: AppLocalizations.of(context)!.from,
-                                hintText: AppLocalizations.of(
-                                  context,
-                                )!.enterStartingValue,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.blue.shade400,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 14,
-                                ),
-                              ),
-                              onChanged: (val) {
-                                var list = [...rule.inBetweenValues];
-                                if (list.length < 2) list = ['', ''];
-                                list[0] = val;
-                                reportModel.updateFilterRule(
-                                  groupIndex,
-                                  ruleIndex,
-                                  'inBetweenValues',
-                                  list,
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: TextFormField(
-                              initialValue: rule.inBetweenValues.length > 1
-                                  ? rule.inBetweenValues[1]
-                                  : '',
-                              decoration: InputDecoration(
-                                labelText: AppLocalizations.of(context)!.to,
-                                hintText: AppLocalizations.of(
-                                  context,
-                                )!.enterEndingValue,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.blue.shade400,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 14,
-                                ),
-                              ),
-                              onChanged: (val) {
-                                var list = [...rule.inBetweenValues];
-                                if (list.length < 2) list = ['', ''];
-                                list[1] = val;
-                                reportModel.updateFilterRule(
-                                  groupIndex,
-                                  ruleIndex,
-                                  'inBetweenValues',
-                                  list,
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                        // const SizedBox(height: 12),
-                        if (isEditableField)
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton.icon(
-                              icon: const Icon(
-                                Icons.delete,
-                                color: Colors.red,
-                                size: 18,
-                              ),
-                              label: Text(
-                                AppLocalizations.of(context)!.removeRule,
-                                style: const TextStyle(color: Colors.red),
-                              ),
-                              onPressed: () {
-                                reportModel.removeFilterRuleFromGroup(
-                                  groupIndex,
-                                  ruleIndex,
-                                );
-                              },
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                        
+                                      if (rule.condition.isNotEmpty &&
+    rule.condition != "Is Not Empty" &&
+    rule.condition != "Is Empty") ...[
+  const SizedBox(height: 16),
+  buildValueInputByType(
+    rule: rule,
+    groupIndex: groupIndex,
+    ruleIndex: ruleIndex,
+  ),
+],
+          ]),
                   ),
                 );
               },
@@ -1034,6 +1396,10 @@ class CustomDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Add debug print to check items
+    print("CustomDropdown - $labelText items: ${items.length}");
+    print("CustomDropdown - $labelText isEditable: $isEditable");
+    
     return TextFormField(
       decoration: InputDecoration(
         labelText: labelText,
@@ -1041,26 +1407,33 @@ class CustomDropdown extends StatelessWidget {
         border: const OutlineInputBorder(),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12),
         filled: !isEditable,
-        // fillColor: !isEditable ? Colors.grey[200] : null,
       ),
-      readOnly: !isEditable,
+      readOnly: true, // Always readOnly, we handle tap manually
       enabled: isEditable,
-      onTap: isEditable
+      controller: TextEditingController(text: value ?? ''),
+      onTap: isEditable && items.isNotEmpty
           ? () {
-              if (items.isEmpty) return;
               FocusScope.of(context).unfocus();
               _showPopupMenu(context);
             }
           : null,
-      controller: TextEditingController(text: value ?? ''),
     );
   }
 
   void _showPopupMenu(BuildContext context) {
-    if (items.isEmpty) return;
+    print("Showing popup menu - items: ${items.length}");
+    
+    if (items.isEmpty) {
+      print("Items is empty, cannot show popup");
+      // Show a snackbar to inform user
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No items available to select')),
+      );
+      return;
+    }
+    
     final RenderBox button = context.findRenderObject() as RenderBox;
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final Offset position = button.localToGlobal(
       Offset.zero,
       ancestor: overlay,
@@ -1077,16 +1450,26 @@ class CustomDropdown extends StatelessWidget {
         Offset.zero & overlay.size,
       ),
       items: items
-          .map((item) => PopupMenuItem(value: item, child: Text(item)))
+          .map((item) => PopupMenuItem(
+                value: item, 
+                child: Text(item),
+              ))
           .toList(),
       elevation: 8,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        // side: BorderSide(color: Colors.grey.shade300),
       ),
-      constraints: BoxConstraints(maxHeight: 200, minWidth: button.size.width),
+      constraints: BoxConstraints(
+        maxHeight: 200, 
+        minWidth: button.size.width,
+      ),
     ).then((selectedValue) {
-      if (selectedValue != null && onChanged != null) onChanged!(selectedValue);
+      if (selectedValue != null && onChanged != null) {
+        print("Selected value: $selectedValue");
+        onChanged!(selectedValue);
+      }
+    }).catchError((error) {
+      print("Error showing popup: $error");
     });
   }
 }

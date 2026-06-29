@@ -3950,6 +3950,16 @@ Future<void> mergeLeaveBalances() async {
   }
 
   void clearFormFields() {
+     final todayOrg = todayInOrgTimezone();
+
+    // Convert to UTC milliseconds
+    final fromMs = toStartOfDayUtc(todayOrg);
+
+    // Store as UTC DateTime (always keep isUtc: true)
+    selectedDate ??= DateTime.fromMillisecondsSinceEpoch(
+      fromMs,
+      isUtc: true, // IMPORTANT: Keep this as true
+    );
     expenseIdController.clear();
     //  // print("Cleared ALL2");
     selectedTimesheetIds.clear();
@@ -4007,7 +4017,7 @@ Future<void> mergeLeaveBalances() async {
     selectedTax = null;
     selectedProject = null;
     selectedCategory = null;
-    selectedDate = null;
+
     imageFiles.clear();
     finalItems.clear();
     finalItemsSpecific.clear();
@@ -4727,11 +4737,10 @@ Future<void> mergeLeaveBalances() async {
   periodType.value = '';
 
   /// Custom fields
-  headerCustomFields.clear();
   lineCustomFields.clear();
   headerCustomFields.refresh();
   lineCustomFields.refresh();
-    for (final field in customFields) {
+    for (final field in headerCustomFields) {
       if (field['FieldType'] == 'List' ||
           field['FieldType'] == 'CustomList' ||
           field['FieldType'] == 'SystemList') {
@@ -4946,7 +4955,53 @@ Future<void> mergeLeaveBalances() async {
     toDateUtc.millisecondsSinceEpoch + offsetMs,
     isUtc: true,
   );
+/// HEADER CUSTOM FIELDS — merge saved values into headerCustomFields
+final List<dynamic> headerSaved = data['TimesheetCustomFieldValues'] ?? [];
 
+for (final saved in headerSaved) {
+  final savedId = saved['FieldId'];
+  final savedValue = saved['FieldValue'] ?? '';
+
+  final idx = headerCustomFields.indexWhere((f) => f['FieldId'] == savedId);
+
+  if (idx != -1) {
+    // field already exists in the master list → just set its value
+    headerCustomFields[idx]['FieldValue'] = savedValue;
+    headerCustomFields[idx]['EnteredValue'] = savedValue;
+
+    // for list types, resolve the SelectedValue object from Options
+    final type =
+        (headerCustomFields[idx]['FieldType'] ?? '').toString().toLowerCase();
+    if (['list', 'customlist', 'systemlist'].contains(type)) {
+      final options =
+          List<CustomDropdownValue>.from(headerCustomFields[idx]['Options'] ?? []);
+      try {
+        headerCustomFields[idx]['SelectedValue'] = options.firstWhere(
+          (o) =>
+              o.valueId == savedValue.toString() ||
+              o.valueName == savedValue.toString(),
+        );
+      } catch (_) {}
+    }
+  } else {
+    // field not in master list → add it so it still renders
+    headerCustomFields.add({
+      "FieldId": saved['FieldId'],
+      "FieldName": saved['FieldName'],
+      "FieldLabel": saved['FieldLabel'] ?? saved['FieldName'],
+      "FieldValue": savedValue,
+      "EnteredValue": savedValue,
+      "CustomFieldEntity": saved['CustomFieldEntity'],
+      "FieldType": _mapFieldType(saved['FieldType'] ?? 'text'),
+      "IsMandatory": saved['IsMandatory'] ?? false,
+      "IsVisible": saved['IsVisible'] ?? true,
+      "Options": _mapOptions(saved['Options']),
+      "DefaultValue": saved['DefaultValue'] ?? "",
+    });
+  }
+}
+
+headerCustomFields.refresh();
   // Store org-local range (used by the date picker + grid)
   dateRange = DateTimeRange(start: fromDateOrg, end: toDateOrg);
 
@@ -5763,19 +5818,23 @@ Future<void> mergeLeaveBalances() async {
 
   Future<void> fetchCashAdvanceExpenseCategory() async {
     expenseCategory.clear();
-    final dateToUse = selectedDate ?? DateTime.now();
-    //  // print("fetchExpenseCategory${selectedProject?.code}");
-    //  // print("fetchExpenseCategory$selectedDate");
+final dateToUse = selectedDate;
+    print("fetchExpenseCategory$selectedDate");
     isLoading.value = true;
+
+    // Format the date for display (if needed)
     final formatted = DateFormat(
       selectedFormat?.key ?? 'dd/MM/yyyy',
-    ).format(dateToUse);
-    final fromDate = parseDateToEpoch(formatted);
+    ).format(dateToUse!);
+    print("fetchExpenseCategory formatted display: $formatted");
+
+    // ✅ CORRECT: Get milliseconds since epoch from the DateTime object
+    final millisecondsSinceEpoch = dateToUse.millisecondsSinceEpoch.toString();
     //  // print("fetchExpenseCategory$fromDate");
     try {
       // Safely construct query parameters
       final queryParams = <String, String>{
-        'TransactionDate': fromDate!.toStringAsFixed(2),
+        'TransactionDate': millisecondsSinceEpoch,
       };
 
       if (selectedProject?.code != null && selectedProject!.code.isNotEmpty) {
@@ -6859,17 +6918,14 @@ Future<void> mergeLeaveBalances() async {
   Future<List<Project>> fetchProjectName() async {
     final dateToUse = selectedDate ?? DateTime.now();
 
-    final formatted = DateFormat(
-      selectedFormat?.key ?? 'dd/MM/yyyy',
-    ).format(dateToUse);
-    final fromDate = parseDateToEpoch(formatted);
+        
+   final fromDateMillis = toStartOfDayUtc(dateToUse);
     final employeeId = Params.employeeId;
     isLoadingGE1.value = true;
     isLoadingGE2.value = true;
     final url = Uri.parse(
-      '${Urls.getProjectDropdown}?EmployeeId=${employeeDropDownController.text}&TransactionDate=$fromDate',
+      '${Urls.getProjectDropdown}?EmployeeId=${employeeDropDownController.text}&TransactionDate=$fromDateMillis',
     );
-
     try {
       final response = await ApiService.get(url);
 
@@ -14168,39 +14224,58 @@ Fluttertoast.showToast(
       return false;
     }
   }
-// Add this method to your Controller class (Controller.dart)
+// // Add this method to your Controller class (Controller.dart)
+// Future<bool> moveTaskToShelf({
+//   required int taskRecId,
+//   required int targetShelfRecId,
+//   required String boardId,
+// }) async {
+//   try {
+//     final url = Uri.parse(
+//       "${Urls.baseURL}/api/v1/kanban/tasks/tasks/tasks"
+//       "?RecId=$taskRecId"
+//       "&target_shelf_Recid=$targetShelfRecId"
+//       "&screen_name=KANTasks"
+//     );
+
+//     final response = await ApiService.put(
+//       url,
+//       body: jsonEncode({}), // Empty body as parameters are in URL
+//     );
+
+//     if (response.statusCode == 200 || response.statusCode == 201) {
+//       // Refresh the board data
+//       await fetchKanbanBoardAndNavigate(
+//         Get.context!,
+//         boardId,
+//         true,
+//       );
+//       return true;
+//     } else {
+//       print('Failed to move task: ${response.body}');
+//       return false;
+//     }
+//   } catch (e) {
+//     print('Error moving task: $e');
+//     return false;
+//   }
+// }
 Future<bool> moveTaskToShelf({
   required int taskRecId,
   required int targetShelfRecId,
-  required String boardId,
 }) async {
   try {
-    final url = Uri.parse(
-      "${Urls.baseURL}/api/v1/kanban/tasks/tasks/tasks"
-      "?RecId=$taskRecId"
-      "&target_shelf_Recid=$targetShelfRecId"
-      "&screen_name=KANTasks"
+    final res = await ApiService.put(
+      Uri.parse(
+        "${Urls.baseURL}/api/v1/kanban/tasks/tasks/tasks"
+        "?RecId=$taskRecId"
+        "&target_shelf_Recid=$targetShelfRecId"
+        "&screen_name=KANTasks",
+      ),
     );
-
-    final response = await ApiService.put(
-      url,
-      body: jsonEncode({}), // Empty body as parameters are in URL
-    );
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      // Refresh the board data
-      await fetchKanbanBoardAndNavigate(
-        Get.context!,
-        boardId,
-        true,
-      );
-      return true;
-    } else {
-      print('Failed to move task: ${response.body}');
-      return false;
-    }
+    return res.statusCode == 200 || res.statusCode == 201 || res.statusCode == 280;
   } catch (e) {
-    print('Error moving task: $e');
+    debugPrint("moveTaskToShelf error: $e");
     return false;
   }
 }
@@ -17939,10 +18014,17 @@ print("URL => $url");
 
   Future<List<CashAdvanceDropDownModel>> fetchExpenseCashAdvanceList() async {
     //  //  // print("currencyDropDowncontroller2${selectedLocation?.city}");
+     final dateToUse = selectedDate;
     viewCashAdvanceLoader.value = true;
-    int receiptDateMillis = toStartOfDayUtc(selectedDate ?? DateTime.now());
+  final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateToUse!);
+    print("fetchExpenseCategory formatted display: $formatted");
+
+    // ✅ CORRECT: Get milliseconds since epoch from the DateTime object
+    final millisecondsSinceEpoch = dateToUse.millisecondsSinceEpoch.toString();
     final url = Uri.parse(
-      '${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvreqids?EmployeeId=${employeeDropDownController.text}&ProjectId=${selectedProject?.code ?? ''}&Location=${selectedLocation?.city ?? ''}&ExpenseCategoryId=&PaymentMethod=${paymentMethodeID ?? ''}&Currency=${currencyDropDowncontroller2.text ?? ""}&ReceiptDate=${receiptDateMillis ?? ''}',
+      '${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvreqids?EmployeeId=${employeeDropDownController.text}&ProjectId=${selectedProject?.code ?? ''}&Location=${selectedLocation?.city ?? ''}&ExpenseCategoryId=&PaymentMethod=${paymentMethodeID ?? ''}&Currency=${currencyDropDowncontroller2.text ?? ""}&ReceiptDate=${millisecondsSinceEpoch ?? ''}',
     );
 
     final response = await ApiService.get(url);
@@ -23383,50 +23465,49 @@ Future<void>  loadAllMillageCategotyCustomFieldValues({
     return str[0].toLowerCase() + str.substring(1);
   }
 
-  // Create custom field map
-  Map<String, dynamic>? _createCustomField(
-    Map<String, dynamic> fieldData,
-    String entityType,
-  ) {
-    try {
-      final fieldId = _getStringValue(fieldData, 'FieldId') ?? '';
-      final fieldName =
-          _getStringValue(fieldData, 'FieldName') ?? 'Unnamed Field';
-      final fieldType = (_getStringValue(fieldData, 'FieldType') ?? 'text')
-          .toLowerCase();
-      final defaultValue = _getStringValue(fieldData, 'DefaultValue') ?? '';
+ Map<String, dynamic>? _createCustomField(
+  Map<String, dynamic> fieldData,
+  String entityType,
+) {
+  try {
+    final fieldId = _getStringValue(fieldData, 'FieldId') ?? '';
+    final fieldName =
+        _getStringValue(fieldData, 'FieldName') ?? 'Unnamed Field';
+    // FIX: read FieldLabel, fall back to FieldName when absent
+    final fieldLabel =
+        _getStringValue(fieldData, 'FieldLabel') ?? fieldName;
+    final fieldType = (_getStringValue(fieldData, 'FieldType') ?? 'text')
+        .toLowerCase();
+    final defaultValue = _getStringValue(fieldData, 'DefaultValue') ?? '';
 
-      // Parse boolean values
-      final isMandatory = _parseBool(_getStringValue(fieldData, 'IsMandatory'));
-      final isVisible = _parseBool(
-        _getStringValue(fieldData, 'IsVisible'),
-        true,
-      );
+    final isMandatory = _parseBool(_getStringValue(fieldData, 'IsMandatory'));
+    final isVisible = _parseBool(
+      _getStringValue(fieldData, 'IsVisible'),
+      true,
+    );
 
-      // Get options for dropdown
-      List<String> options = [];
-      final optionsData = fieldData['Options'] ?? fieldData['options'];
-      if (optionsData is List) {
-        options = optionsData.map((o) => o.toString()).toList();
-      }
-
-      return {
-        'CustomFieldEntity': entityType,
-        'FieldId': fieldId,
-        'FieldName': fieldName,
-        'FieldType': fieldType,
-        'DefaultValue': defaultValue,
-        'FieldValue': defaultValue, // Initialize with default value
-        'IsMandatory': isMandatory,
-        'IsVisible': isVisible,
-        'Options': options,
-      };
-    } catch (e) {
-      // print('Error creating custom field: $e');
-      return null;
+    List<String> options = [];
+    final optionsData = fieldData['Options'] ?? fieldData['options'];
+    if (optionsData is List) {
+      options = optionsData.map((o) => o.toString()).toList();
     }
-  }
 
+    return {
+      'CustomFieldEntity': entityType,
+      'FieldId': fieldId,
+      'FieldName': fieldName,
+      'FieldLabel': fieldLabel, // FIX: now included
+      'FieldType': fieldType,
+      'DefaultValue': defaultValue,
+      'FieldValue': defaultValue,
+      'IsMandatory': isMandatory,
+      'IsVisible': isVisible,
+      'Options': options,
+    };
+  } catch (e) {
+    return null;
+  }
+}
   // Parse boolean value
   bool _parseBool(dynamic value, [bool defaultValue = false]) {
     if (value == null) return defaultValue;
@@ -23690,6 +23771,7 @@ Future<void>  loadAllMillageCategotyCustomFieldValues({
         'FieldId': field['FieldId'] as String,
         'FieldValue': field['FieldValue'] as String,
         'FieldName': field['FieldName'] as String,
+        'FieldLabel': field['FieldLabel'] as String,
       };
     }).toList();
   }
@@ -23700,7 +23782,7 @@ Future<void>  loadAllMillageCategotyCustomFieldValues({
       return {
         'CustomFieldEntity': field['CustomFieldEntity'] as String,
         'FieldId': field['FieldId'] as String,
-        'FieldValue': field['FieldValue'] as String,
+        'FieldValue': field['FieldValue'],
         'FieldName': field['FieldName'] as String,
       };
     }).toList();

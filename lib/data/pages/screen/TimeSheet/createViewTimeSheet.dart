@@ -417,7 +417,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           fontSize: 16.0,
         );
       }
-    } catch (e) {
+    } catch (e, stry) {
       Fluttertoast.showToast(
         msg: 'Timesheet Submit Error',
         toastLength: Toast.LENGTH_SHORT,
@@ -427,6 +427,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
         fontSize: 16.0,
       );
       print("2222dd$e");
+      print("statry$stry");
       // Close loading dialog if still open
     }
   }
@@ -568,7 +569,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
         // final startDate = DateTime(now.year, now.month, 1);
 
         // // 7th day of current month
-        // final endDate = DateTime(now.year, now.month, 7);
+        // final endDate = DateTiAme(now.year, now.month, 7);
 
         // controller.dateRange = DateTimeRange(start: startDate, end: endDate);
       }
@@ -622,16 +623,13 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
 
       print("FIXED START: $safeStart");
       print("FIXED START millis: ${safeStart.millisecondsSinceEpoch}");
-      if (widget.status) {
+      if (!widget.status) {
         controller.loadTimeSheetRange(
           fromDate: toStartOfDayUtc(safeStart),
           toDate: toEndOfDayUtc(safeEnd),
         );
       }
-      // controller.loadTimeSheetRange(
-      //   fromDate: toMillisecondsWithTimezone(safeStart),
-      //   toDate: toMillisecondsWithTimezone(safeEnd),
-      // );
+
       // print("fromDate: $fromDate");
       // print("fromDate millis: ${fromDate.millisecondsSinceEpoch}");
       print("Expected:          ${start.toLocal().millisecondsSinceEpoch}");
@@ -850,13 +848,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
     }
   }
 
-  @override
-  void dispose() {
-    for (final c in _headerFieldControllers.values) {
-      c.dispose();
-    }
-    super.dispose();
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -910,8 +902,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                 widget.status &&
                 PermissionHelper.canRead("Timesheet Requisition") &&
                 controller.statusApproval != "Approved" &&
-                controller.statusApproval != "Cancelled"
-                &&
+                controller.statusApproval != "Cancelled" &&
                 controller.statusApproval != "Pending"
             // &&
             // controller.statusApproval != "Pending"
@@ -1231,10 +1222,11 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
     return Column(
       children: [
         ...controller.headerCustomFields.map((field) {
+          print('FeildLable${field['FieldLabel']}');
           final isMandatory =
               field['IsMandatory'] == true ||
               field['IsMandatory']?.toString().toLowerCase() == 'true';
-          final label = '${field['FieldName']}${isMandatory ? ' *' : ''}';
+          final label = '${field['FieldLabel']}${isMandatory ? ' *' : ''}';
           final fieldType =
               field['FieldType']?.toString().toLowerCase() ?? 'text';
           final enable = controller.sheetEnable.value;
@@ -2154,491 +2146,491 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   }
 
   // ─── Resolve what to show in the card ─────────────────────────────────────────
- Widget _buildInlineCustomField(int lineIndex, Map<String, dynamic> field) {
-  final String fieldType = (field['FieldType'] ?? '')
-      .toString()
-      .toLowerCase();
+  Widget _buildInlineCustomField(int lineIndex, Map<String, dynamic> field) {
+    final String fieldType = (field['FieldType'] ?? '')
+        .toString()
+        .toLowerCase();
 
-  final bool isMandatory =
-      field['IsMandatory'] == true ||
-      field['IsMandatory']?.toString().toLowerCase() == 'true';
-  final String label = field['FieldLabel'] ?? field['FieldName'] ?? 'Field';
+    final bool isMandatory =
+        field['IsMandatory'] == true ||
+        field['IsMandatory']?.toString().toLowerCase() == 'true';
+    final String label = field['FieldLabel'] ?? field['FieldName'] ?? 'Field';
 
-  void updateFieldValue(dynamic newValue, {bool needsRefresh = true}) {
-    field['EnteredValue'] = newValue;
-    field['FieldValue'] = newValue;
-    if (needsRefresh) controller.lineCustomFields.refresh();
-  }
-
-  void clearError() {
-    if (field['Error'] != null) {
-      field['Error'] = null;
-      controller.lineCustomFields.refresh();
+    void updateFieldValue(dynamic newValue, {bool needsRefresh = true}) {
+      field['EnteredValue'] = newValue;
+      field['FieldValue'] = newValue;
+      if (needsRefresh) controller.lineCustomFields.refresh();
     }
-  }
 
-  dynamic value = field['EnteredValue'] ?? field['FieldValue'];
-  final parsedDate = parseCustomDate(value);
+    void clearError() {
+      if (field['Error'] != null) {
+        field['Error'] = null;
+        controller.lineCustomFields.refresh();
+      }
+    }
 
-  if (value == null || (value is String && value.trim().isEmpty)) {
-    value = field['DefaultValue'];
-    updateFieldValue(value, needsRefresh: false);
-  }
+    dynamic value = field['EnteredValue'] ?? field['FieldValue'];
+    final parsedDate = parseCustomDate(value);
 
-  final String dateFmt = controller.selectedFormat?.key ?? 'dd/MM/yyyy';
+    if (value == null || (value is String && value.trim().isEmpty)) {
+      value = field['DefaultValue'];
+      updateFieldValue(value, needsRefresh: false);
+    }
 
-  // ── shared validator (format checks) ───────────────────────────────
-  String? validateValue(String? raw) {
-    final v = (raw ?? '').trim();
-    if (isMandatory && v.isEmpty) return '$label is required';
-    if (v.isEmpty) return null;
+    final String dateFmt = controller.selectedFormat?.key ?? 'dd/MM/yyyy';
+
+    // ── shared validator (format checks) ───────────────────────────────
+    String? validateValue(String? raw) {
+      final v = (raw ?? '').trim();
+      if (isMandatory && v.isEmpty) return '$label is required';
+      if (v.isEmpty) return null;
+
+      switch (fieldType) {
+        case 'email':
+          if (!RegExp(
+            r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+          ).hasMatch(v)) {
+            return 'Enter a valid email';
+          }
+          break;
+        case 'mobilenumber':
+          if (!RegExp(r'^\d{6,12}$').hasMatch(v)) {
+            return 'Enter a valid mobile number (6–12 digits)';
+          }
+          break;
+        case 'longinteger':
+        case 'number':
+          if (int.tryParse(v) == null) return 'Enter a whole number';
+          break;
+        case 'decimal':
+        case 'amount':
+          if (double.tryParse(v) == null) return 'Enter a valid number';
+          break;
+        case 'percent':
+          final p = double.tryParse(v);
+          if (p == null || p < 0 || p > 100) return 'Enter 0–100';
+          break;
+        case 'url':
+          if (!RegExp(
+            r'^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$',
+            caseSensitive: false,
+          ).hasMatch(v)) {
+            return 'Enter a valid URL';
+          }
+          break;
+      }
+      return null;
+    }
+
+    InputDecoration fieldDecoration({
+      String? labelText,
+      Widget? suffix,
+      String? suffixText,
+      String? prefixText,
+      String? errorText,
+      String? hint,
+    }) {
+      return InputDecoration(
+        labelText: labelText,
+        hintText: hint,
+        suffixIcon: suffix,
+        suffixText: suffixText,
+        prefixText: prefixText,
+        errorText: errorText,
+        isDense: true,
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 10,
+        ),
+        counterText: '',
+      );
+    }
+
+    Widget expand(Widget child) =>
+        SizedBox(width: double.infinity, child: child);
 
     switch (fieldType) {
+      // ── TEXT / TEXTAREA / EMAIL / URL ──────────────────────────────────
+      case 'text':
+      case 'textarea':
       case 'email':
-        if (!RegExp(
-          r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-        ).hasMatch(v)) {
-          return 'Enter a valid email';
-        }
-        break;
-      case 'mobilenumber':
-        if (!RegExp(r'^\d{6,12}$').hasMatch(v)) {
-          return 'Enter a valid mobile number (6–12 digits)';
-        }
-        break;
-      case 'longinteger':
-      case 'number':
-        if (int.tryParse(v) == null) return 'Enter a whole number';
-        break;
-      case 'decimal':
-      case 'amount':
-        if (double.tryParse(v) == null) return 'Enter a valid number';
-        break;
-      case 'percent':
-        final p = double.tryParse(v);
-        if (p == null || p < 0 || p > 100) return 'Enter 0–100';
-        break;
       case 'url':
-        if (!RegExp(
-          r'^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$',
-          caseSensitive: false,
-        ).hasMatch(v)) {
-          return 'Enter a valid URL';
-        }
-        break;
-    }
-    return null;
-  }
-
-  InputDecoration fieldDecoration({
-    String? labelText,
-    Widget? suffix,
-    String? suffixText,
-    String? prefixText,
-    String? errorText,
-    String? hint,
-  }) {
-    return InputDecoration(
-      labelText: labelText,
-      hintText: hint,
-      suffixIcon: suffix,
-      suffixText: suffixText,
-      prefixText: prefixText,
-      errorText: errorText,
-      isDense: true,
-      border: const OutlineInputBorder(),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 10,
-      ),
-      counterText: '',
-    );
-  }
-
-  Widget expand(Widget child) =>
-      SizedBox(width: double.infinity, child: child);
-
-  switch (fieldType) {
-    // ── TEXT / TEXTAREA / EMAIL / URL ──────────────────────────────────
-    case 'text':
-    case 'textarea':
-    case 'email':
-    case 'url':
-      final tc = TextEditingController(text: value?.toString() ?? '');
-      tc.addListener(() {
-        if (tc.text != field['EnteredValue']) {
-          field['EnteredValue'] = tc.text;
-          field['FieldValue'] = tc.text;
-          clearError();
-        }
-      });
-      return expand(
-        TextFormField(
-          controller: tc,
-          enabled: controller.sheetEnable.value,
-          maxLines: fieldType == 'textarea' ? 3 : 1,
-          keyboardType: fieldType == 'email'
-              ? TextInputType.emailAddress
-              : fieldType == 'url'
-              ? TextInputType.url
-              : TextInputType.text,
-          decoration: fieldDecoration(
-            labelText: '$label${isMandatory ? " *" : ""}',
-            errorText: field['Error'],
-          ),
-          validator: validateValue,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          onEditingComplete: () => controller.lineCustomFields.refresh(),
-          onTapOutside: (_) => controller.lineCustomFields.refresh(),
-        ),
-      );
-
-    // ── MOBILE NUMBER ──────────────────────────────────────────────────
-    case 'mobilenumber':
-      final phoneKey = ValueKey(
-        'phone_${field['FieldId']}_${lineIndex}_${controller.sheetEnable.value}',
-      );
-      return SizedBox(
-        width: double.infinity,
-        child: IntlPhoneField(
-          key: phoneKey,
-          initialValue: value?.toString() ?? '',
-          enabled: controller.sheetEnable.value,
-          decoration: fieldDecoration(
-            labelText: '$label${isMandatory ? " *" : ""}',
-            errorText: field['Error'],
-          ),
-          initialCountryCode: controller.getIsoCodeFromDialCode(
-            field['CountryCode']?.toString() ?? '+91',
-          ),
-          keyboardType: TextInputType.phone,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          onChanged: (phone) {
-            field['CountryCode'] = phone.countryCode;
-            updateFieldValue(phone.number, needsRefresh: false);
+        final tc = TextEditingController(text: value?.toString() ?? '');
+        tc.addListener(() {
+          if (tc.text != field['EnteredValue']) {
+            field['EnteredValue'] = tc.text;
+            field['FieldValue'] = tc.text;
             clearError();
-          },
-          onCountryChanged: (c) => field['CountryCode'] = '+${c.dialCode}',
-          validator: (phone) {
-            if (isMandatory &&
-                (phone == null || phone.number.trim().isEmpty)) {
-              return '$label is required';
-            }
-            if (phone != null &&
-                phone.number.isNotEmpty &&
-                phone.number.length < 6) {
-              return 'Enter a valid mobile number';
-            }
-            return null;
-          },
-        ),
-      );
+          }
+        });
+        return expand(
+          TextFormField(
+            controller: tc,
+            enabled: controller.sheetEnable.value,
+            maxLines: fieldType == 'textarea' ? 3 : 1,
+            keyboardType: fieldType == 'email'
+                ? TextInputType.emailAddress
+                : fieldType == 'url'
+                ? TextInputType.url
+                : TextInputType.text,
+            decoration: fieldDecoration(
+              labelText: '$label${isMandatory ? " *" : ""}',
+              errorText: field['Error'],
+            ),
+            validator: validateValue,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            onEditingComplete: () => controller.lineCustomFields.refresh(),
+            onTapOutside: (_) => controller.lineCustomFields.refresh(),
+          ),
+        );
 
-    // ── DATE ────────────────────────────────────────────────────────────
-    case 'date':
-      final isEnabled = controller.sheetEnable.value;
-      return expand(
-        InkWell(
-          key: ValueKey('date_${field['FieldId']}_$lineIndex'),
-          onTap: !isEnabled
-              ? null
-              : () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate:
-                        DateTime.tryParse(value?.toString() ?? '') ??
-                        DateTime.now(),
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) {
-                    updateFieldValue(
-                      DateFormat('yyyy-MM-dd').format(picked),
-                      needsRefresh: true,
+      // ── MOBILE NUMBER ──────────────────────────────────────────────────
+      case 'mobilenumber':
+        final phoneKey = ValueKey(
+          'phone_${field['FieldId']}_${lineIndex}_${controller.sheetEnable.value}',
+        );
+        return SizedBox(
+          width: double.infinity,
+          child: IntlPhoneField(
+            key: phoneKey,
+            initialValue: value?.toString() ?? '',
+            enabled: controller.sheetEnable.value,
+            decoration: fieldDecoration(
+              labelText: '$label${isMandatory ? " *" : ""}',
+              errorText: field['Error'],
+            ),
+            initialCountryCode: controller.getIsoCodeFromDialCode(
+              field['CountryCode']?.toString() ?? '+91',
+            ),
+            keyboardType: TextInputType.phone,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            onChanged: (phone) {
+              field['CountryCode'] = phone.countryCode;
+              updateFieldValue(phone.number, needsRefresh: false);
+              clearError();
+            },
+            onCountryChanged: (c) => field['CountryCode'] = '+${c.dialCode}',
+            validator: (phone) {
+              if (isMandatory &&
+                  (phone == null || phone.number.trim().isEmpty)) {
+                return '$label is required';
+              }
+              if (phone != null &&
+                  phone.number.isNotEmpty &&
+                  phone.number.length < 6) {
+                return 'Enter a valid mobile number';
+              }
+              return null;
+            },
+          ),
+        );
+
+      // ── DATE ────────────────────────────────────────────────────────────
+      case 'date':
+        final isEnabled = controller.sheetEnable.value;
+        return expand(
+          InkWell(
+            key: ValueKey('date_${field['FieldId']}_$lineIndex'),
+            onTap: !isEnabled
+                ? null
+                : () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate:
+                          DateTime.tryParse(value?.toString() ?? '') ??
+                          DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
                     );
-                    clearError();
-                  }
-                },
-          child: InputDecorator(
-            decoration: fieldDecoration(
-              errorText: field['Error'],
-              suffix: Icon(
-                Icons.calendar_today,
-                size: 18,
-                color: isEnabled ? null : Colors.grey,
-              ),
-            ),
-            child: Text(
-              parsedDate != null
-                  ? DateFormat(dateFmt).format(parsedDate)
-                  : 'Select Date',
-              style: TextStyle(
-                fontSize: 14,
-                color: parsedDate != null
-                    ? (isEnabled ? null : Colors.grey)
-                    : Theme.of(context).hintColor,
-              ),
-            ),
-          ),
-        ),
-      );
-
-    // ── DATE & TIME ─────────────────────────────────────────────────────
-    case 'date&time':
-      final isEnabled = controller.sheetEnable.value;
-      final bool dtEmpty = value == null || value.toString().isEmpty;
-      return expand(
-        InkWell(
-          key: ValueKey('datetime_${field['FieldId']}_$lineIndex'),
-          onTap: !isEnabled
-              ? null
-              : () async {
-                  final base =
-                      DateTime.tryParse(value?.toString() ?? '') ??
-                      DateTime.now();
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: base,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                  );
-                  if (date == null) return;
-                  final time = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.fromDateTime(base),
-                  );
-                  if (time == null) return;
-                  final dt = DateTime(
-                    date.year,
-                    date.month,
-                    date.day,
-                    time.hour,
-                    time.minute,
-                  );
-                  updateFieldValue(dt.toIso8601String(), needsRefresh: true);
-                  clearError();
-                },
-          child: InputDecorator(
-            decoration: fieldDecoration(
-              errorText: field['Error'],
-              suffix: Icon(
-                Icons.access_time,
-                size: 18,
-                color: isEnabled ? null : Colors.grey,
-              ),
-            ),
-            child: Text(
-              dtEmpty
-                  ? 'Select Date & Time'
-                  : DateFormat(
-                      '$dateFmt hh:mm a',
-                    ).format(DateTime.parse(value.toString())),
-              style: TextStyle(
-                fontSize: 14,
-                color: dtEmpty
-                    ? Theme.of(context).hintColor
-                    : (isEnabled ? null : Colors.grey),
-              ),
-            ),
-          ),
-        ),
-      );
-
-    // ── INTEGER / NUMBER (INT ONLY) ─────────────────────────────────────
-    case 'longinteger':
-    case 'number':
-      final nc = TextEditingController(text: value?.toString() ?? '');
-      nc.addListener(() {
-        if (nc.text != field['EnteredValue']) {
-          field['EnteredValue'] = nc.text;
-          field['FieldValue'] = nc.text;
-          clearError();
-        }
-      });
-      return expand(
-        TextFormField(
-          controller: nc,
-          enabled: controller.sheetEnable.value,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: fieldDecoration(
-            labelText: '$label${isMandatory ? " *" : ""}',
-            errorText: field['Error'],
-          ),
-          validator: validateValue,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          onEditingComplete: () => controller.lineCustomFields.refresh(),
-          onTapOutside: (_) => controller.lineCustomFields.refresh(),
-        ),
-      );
-
-    // ── DECIMAL / AMOUNT / PERCENT ───────────────────────────────────
-    case 'decimal':
-    case 'amount':
-    case 'percent':
-      final dc = TextEditingController(text: value?.toString() ?? '');
-      dc.addListener(() {
-        if (dc.text != field['EnteredValue']) {
-          field['EnteredValue'] = dc.text;
-          field['FieldValue'] = dc.text;
-          clearError();
-        }
-      });
-      return expand(
-        TextFormField(
-          controller: dc,
-          enabled: controller.sheetEnable.value,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          // FIX: was digitsOnly, which blocked the "." so decimals/amounts
-          // like 4.5 could never be typed. Allow one optional decimal point.
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-          ],
-          decoration: fieldDecoration(
-            labelText: '$label${isMandatory ? " *" : ""}',
-            errorText: field['Error'],
-            suffixText: fieldType == 'percent' ? '%' : null,
-            prefixText: fieldType == 'amount'
-                ? (controller.organizationDefaultCurrencySymbol ?? '')
-                : null,
-          ),
-          validator: validateValue,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          onEditingComplete: () => controller.lineCustomFields.refresh(),
-          onTapOutside: (_) => controller.lineCustomFields.refresh(),
-        ),
-      );
-
-    // ── CHECKBOX ────────────────────────────────────────────────────────
-    case 'checkbox':
-      final checked =
-          value == true || value?.toString().toLowerCase() == 'true';
-      final String? cbError = field['Error'];
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Checkbox(
-              value: checked,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              side: cbError != null
-                  ? const BorderSide(color: Colors.red, width: 2)
-                  : null,
-              onChanged: controller.sheetEnable.value
-                  ? (val) {
-                      updateFieldValue(val, needsRefresh: true);
+                    if (picked != null) {
+                      updateFieldValue(
+                        DateFormat('yyyy-MM-dd').format(picked),
+                        needsRefresh: true,
+                      );
                       clearError();
                     }
-                  : null,
-            ),
-          ),
-          if (cbError != null)
-            Padding(
-              padding: const EdgeInsets.only(left: 4, top: 2),
-              child: Text(
-                cbError,
-                style: const TextStyle(color: Colors.red, fontSize: 11),
-              ),
-            ),
-        ],
-      );
-
-    // ── LIST / DROPDOWN ─────────────────────────────────────────────────
-    case 'list':
-    case 'customlist':
-    case 'systemlist':
-      final options = List<CustomDropdownValue>.from(field['Options'] ?? []);
-      CustomDropdownValue? selected = field['SelectedValue'];
-
-      if (selected == null && field['DefaultValue'] != null) {
-        try {
-          selected = options.firstWhere(
-            (e) =>
-                e.valueId == field['DefaultValue'].toString() ||
-                e.valueName == field['DefaultValue'].toString(),
-          );
-          field['SelectedValue'] = selected;
-          updateFieldValue(selected.valueId, needsRefresh: false);
-        } catch (_) {}
-      }
-
-      return expand(
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SearchableMultiColumnDropdownField<CustomDropdownValue>(
-              labelText: '$label${isMandatory ? " *" : ""}',
-              items: options,
-              selectedValue: selected,
-              searchValue: (v) => v.valueName,
-              displayText: (v) => v.valueName,
-              columnHeaders: const ['Value ID', 'Value Name'],
-              inputDecoration: InputDecoration(
-                labelText: '$label${isMandatory ? " *" : ""}',
-                border: const OutlineInputBorder(),
-                isDense: true,
+                  },
+            child: InputDecorator(
+              decoration: fieldDecoration(
                 errorText: field['Error'],
-              ),
-              validator: (val) {
-                if (isMandatory && field['SelectedValue'] == null) {
-                  return '$label is required';
-                }
-                return null;
-              },
-              rowBuilder: (v, _) => Padding(
-                padding: const EdgeInsets.all(8),
-                child: Row(
-                  children: [
-                    Expanded(child: Text(v.valueId)),
-                    Expanded(child: Text(v.valueName)),
-                  ],
+                suffix: Icon(
+                  Icons.calendar_today,
+                  size: 18,
+                  color: isEnabled ? null : Colors.grey,
                 ),
               ),
-              onChanged: (val) {
-                field['SelectedValue'] = val;
-                updateFieldValue(val?.valueId ?? '', needsRefresh: true);
-                clearError();
-              },
+              child: Text(
+                parsedDate != null
+                    ? DateFormat(dateFmt).format(parsedDate)
+                    : 'Select Date',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: parsedDate != null
+                      ? (isEnabled ? null : Colors.grey)
+                      : Theme.of(context).hintColor,
+                ),
+              ),
             ),
-            if (field['Error'] != null)
+          ),
+        );
+
+      // ── DATE & TIME ─────────────────────────────────────────────────────
+      case 'date&time':
+        final isEnabled = controller.sheetEnable.value;
+        final bool dtEmpty = value == null || value.toString().isEmpty;
+        return expand(
+          InkWell(
+            key: ValueKey('datetime_${field['FieldId']}_$lineIndex'),
+            onTap: !isEnabled
+                ? null
+                : () async {
+                    final base =
+                        DateTime.tryParse(value?.toString() ?? '') ??
+                        DateTime.now();
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: base,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+                    if (date == null) return;
+                    final time = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay.fromDateTime(base),
+                    );
+                    if (time == null) return;
+                    final dt = DateTime(
+                      date.year,
+                      date.month,
+                      date.day,
+                      time.hour,
+                      time.minute,
+                    );
+                    updateFieldValue(dt.toIso8601String(), needsRefresh: true);
+                    clearError();
+                  },
+            child: InputDecorator(
+              decoration: fieldDecoration(
+                errorText: field['Error'],
+                suffix: Icon(
+                  Icons.access_time,
+                  size: 18,
+                  color: isEnabled ? null : Colors.grey,
+                ),
+              ),
+              child: Text(
+                dtEmpty
+                    ? 'Select Date & Time'
+                    : DateFormat(
+                        '$dateFmt hh:mm a',
+                      ).format(DateTime.parse(value.toString())),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: dtEmpty
+                      ? Theme.of(context).hintColor
+                      : (isEnabled ? null : Colors.grey),
+                ),
+              ),
+            ),
+          ),
+        );
+
+      // ── INTEGER / NUMBER (INT ONLY) ─────────────────────────────────────
+      case 'longinteger':
+      case 'number':
+        final nc = TextEditingController(text: value?.toString() ?? '');
+        nc.addListener(() {
+          if (nc.text != field['EnteredValue']) {
+            field['EnteredValue'] = nc.text;
+            field['FieldValue'] = nc.text;
+            clearError();
+          }
+        });
+        return expand(
+          TextFormField(
+            controller: nc,
+            enabled: controller.sheetEnable.value,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: fieldDecoration(
+              labelText: '$label${isMandatory ? " *" : ""}',
+              errorText: field['Error'],
+            ),
+            validator: validateValue,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            onEditingComplete: () => controller.lineCustomFields.refresh(),
+            onTapOutside: (_) => controller.lineCustomFields.refresh(),
+          ),
+        );
+
+      // ── DECIMAL / AMOUNT / PERCENT ───────────────────────────────────
+      case 'decimal':
+      case 'amount':
+      case 'percent':
+        final dc = TextEditingController(text: value?.toString() ?? '');
+        dc.addListener(() {
+          if (dc.text != field['EnteredValue']) {
+            field['EnteredValue'] = dc.text;
+            field['FieldValue'] = dc.text;
+            clearError();
+          }
+        });
+        return expand(
+          TextFormField(
+            controller: dc,
+            enabled: controller.sheetEnable.value,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            // FIX: was digitsOnly, which blocked the "." so decimals/amounts
+            // like 4.5 could never be typed. Allow one optional decimal point.
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+            ],
+            decoration: fieldDecoration(
+              labelText: '$label${isMandatory ? " *" : ""}',
+              errorText: field['Error'],
+              suffixText: fieldType == 'percent' ? '%' : null,
+              prefixText: fieldType == 'amount'
+                  ? (controller.organizationDefaultCurrencySymbol ?? '')
+                  : null,
+            ),
+            validator: validateValue,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            onEditingComplete: () => controller.lineCustomFields.refresh(),
+            onTapOutside: (_) => controller.lineCustomFields.refresh(),
+          ),
+        );
+
+      // ── CHECKBOX ────────────────────────────────────────────────────────
+      case 'checkbox':
+        final checked =
+            value == true || value?.toString().toLowerCase() == 'true';
+        final String? cbError = field['Error'];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Checkbox(
+                value: checked,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                side: cbError != null
+                    ? const BorderSide(color: Colors.red, width: 2)
+                    : null,
+                onChanged: controller.sheetEnable.value
+                    ? (val) {
+                        updateFieldValue(val, needsRefresh: true);
+                        clearError();
+                      }
+                    : null,
+              ),
+            ),
+            if (cbError != null)
               Padding(
                 padding: const EdgeInsets.only(left: 4, top: 2),
                 child: Text(
-                  field['Error'],
+                  cbError,
                   style: const TextStyle(color: Colors.red, fontSize: 11),
                 ),
               ),
           ],
-        ),
-      );
+        );
 
-    // ── DEFAULT ─────────────────────────────────────────────────────────
-    default:
-      final def = TextEditingController(text: value?.toString() ?? '');
-      def.addListener(() {
-        if (def.text != field['EnteredValue']) {
-          field['EnteredValue'] = def.text;
-          field['FieldValue'] = def.text;
-          clearError();
+      // ── LIST / DROPDOWN ─────────────────────────────────────────────────
+      case 'list':
+      case 'customlist':
+      case 'systemlist':
+        final options = List<CustomDropdownValue>.from(field['Options'] ?? []);
+        CustomDropdownValue? selected = field['SelectedValue'];
+
+        if (selected == null && field['DefaultValue'] != null) {
+          try {
+            selected = options.firstWhere(
+              (e) =>
+                  e.valueId == field['DefaultValue'].toString() ||
+                  e.valueName == field['DefaultValue'].toString(),
+            );
+            field['SelectedValue'] = selected;
+            updateFieldValue(selected.valueId, needsRefresh: false);
+          } catch (_) {}
         }
-      });
-      return expand(
-        TextFormField(
-          controller: def,
-          enabled: controller.sheetEnable.value,
-          decoration: fieldDecoration(
-            labelText: '$label${isMandatory ? " *" : ""}',
-            errorText: field['Error'],
+
+        return expand(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SearchableMultiColumnDropdownField<CustomDropdownValue>(
+                labelText: '$label${isMandatory ? " *" : ""}',
+                items: options,
+                selectedValue: selected,
+                searchValue: (v) => v.valueName,
+                displayText: (v) => v.valueName,
+                columnHeaders: const ['Value ID', 'Value Name'],
+                inputDecoration: InputDecoration(
+                  labelText: '$label${isMandatory ? " *" : ""}',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                  errorText: field['Error'],
+                ),
+                validator: (val) {
+                  if (isMandatory && field['SelectedValue'] == null) {
+                    return '$label is required';
+                  }
+                  return null;
+                },
+                rowBuilder: (v, _) => Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(v.valueId)),
+                      Expanded(child: Text(v.valueName)),
+                    ],
+                  ),
+                ),
+                onChanged: (val) {
+                  field['SelectedValue'] = val;
+                  updateFieldValue(val?.valueId ?? '', needsRefresh: true);
+                  clearError();
+                },
+              ),
+              if (field['Error'] != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, top: 2),
+                  child: Text(
+                    field['Error'],
+                    style: const TextStyle(color: Colors.red, fontSize: 11),
+                  ),
+                ),
+            ],
           ),
-          validator: validateValue,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          onEditingComplete: () => controller.lineCustomFields.refresh(),
-          onTapOutside: (_) => controller.lineCustomFields.refresh(),
-        ),
-      );
+        );
+
+      // ── DEFAULT ─────────────────────────────────────────────────────────
+      default:
+        final def = TextEditingController(text: value?.toString() ?? '');
+        def.addListener(() {
+          if (def.text != field['EnteredValue']) {
+            field['EnteredValue'] = def.text;
+            field['FieldValue'] = def.text;
+            clearError();
+          }
+        });
+        return expand(
+          TextFormField(
+            controller: def,
+            enabled: controller.sheetEnable.value,
+            decoration: fieldDecoration(
+              labelText: '$label${isMandatory ? " *" : ""}',
+              errorText: field['Error'],
+            ),
+            validator: validateValue,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            onEditingComplete: () => controller.lineCustomFields.refresh(),
+            onTapOutside: (_) => controller.lineCustomFields.refresh(),
+          ),
+        );
+    }
   }
-}
   // ─── Inline card value widget ─────────────────────────────────────────────────
 
   Widget _buildInlineValueDisplay(
@@ -3996,7 +3988,6 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                 final isAnyLoading = controller.buttonLoaders.values.any(
                   (loading) => loading,
                 );
-                final formValid = _formKey.currentState?.validate() ?? false;
                 return SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -4055,8 +4046,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                     final isAnyLoading = controller.buttonLoaders.values.any(
                       (loading) => loading,
                     );
-                    final formValid =
-                        _formKey.currentState?.validate() ?? false;
+
                     return Expanded(
                       child: ElevatedButton(
                         onPressed: (isSaveLoading || isAnyLoading)
@@ -4474,17 +4464,17 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
     }
     // ================= SEMI-MONTHLY =================
     // ================= SEMI-MONTHLY =================
-  else if (type == "semimonth" || type == "semimonthly") {
-  print("SEMIMONTH branch: type=$type, date=$date, date.day=${date.day}");
-  if (date.day <= 15) {
-    startDate = DateTime(date.year, date.month, 1);
-    endDate = DateTime(date.year, date.month, 15);
-  } else {
-    startDate = DateTime(date.year, date.month, 16);
-    endDate = DateTime(date.year, date.month + 1, 0);
-  }
-  print("SEMIMONTH result: $startDate -> $endDate");
-}
+    else if (type == "semimonth" || type == "semimonthly") {
+      print("SEMIMONTH branch: type=$type, date=$date, date.day=${date.day}");
+      if (date.day <= 15) {
+        startDate = DateTime(date.year, date.month, 1);
+        endDate = DateTime(date.year, date.month, 15);
+      } else {
+        startDate = DateTime(date.year, date.month, 16);
+        endDate = DateTime(date.year, date.month + 1, 0);
+      }
+      print("SEMIMONTH result: $startDate -> $endDate");
+    }
     // ================= DEFAULT =================
     else {
       startDate = date;
@@ -5037,18 +5027,18 @@ class _HourItem extends StatelessWidget {
       }
     }
     // ================= SEMI-MONTHLY =================
- // In _TimeSheetRequestPageState._getDateRangeByPeriod:
-else if (type == "semimonth" || type == "semimonthly") {
-  print("SEMIMONTH branch: type=$type, date=$date, date.day=${date.day}");
-  if (date.day <= 15) {
-    startDate = DateTime(date.year, date.month, 1);
-    endDate = DateTime(date.year, date.month, 15);
-  } else {
-    startDate = DateTime(date.year, date.month, 16);
-    endDate = DateTime(date.year, date.month + 1, 0);
-  }
-  print("SEMIMONTH result: $startDate -> $endDate");
-}
+    // In _TimeSheetRequestPageState._getDateRangeByPeriod:
+    else if (type == "semimonth" || type == "semimonthly") {
+      print("SEMIMONTH branch: type=$type, date=$date, date.day=${date.day}");
+      if (date.day <= 15) {
+        startDate = DateTime(date.year, date.month, 1);
+        endDate = DateTime(date.year, date.month, 15);
+      } else {
+        startDate = DateTime(date.year, date.month, 16);
+        endDate = DateTime(date.year, date.month + 1, 0);
+      }
+      print("SEMIMONTH result: $startDate -> $endDate");
+    }
     // ================= DEFAULT =================
     else {
       startDate = date;
@@ -5773,7 +5763,7 @@ class TimeDetailsSheet extends StatefulWidget {
 }
 
 class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>(); // ✅ find not put
   // In your State class:
   String? _totalHoursError;
   final timeFromCtrl = TextEditingController();

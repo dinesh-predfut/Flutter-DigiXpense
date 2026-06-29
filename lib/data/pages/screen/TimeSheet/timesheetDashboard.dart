@@ -100,9 +100,9 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
       controller.searchQuery.value = '';
       controller.selectedTimeSheetStatusDropDown.value = "Un Reported";
     });
-
+controller.fetchCustomFieldsTimeSheet();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      controller.fetchCustomFieldsTimeSheet();
+      
       await init();
       controller.fetchUnreadNotifications();
       controller.getPersonalDetails(context);
