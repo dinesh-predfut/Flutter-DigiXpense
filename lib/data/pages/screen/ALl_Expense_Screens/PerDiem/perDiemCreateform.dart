@@ -27,7 +27,7 @@ class CreatePerDiemPage extends StatefulWidget {
   State<CreatePerDiemPage> createState() => _CreatePerDiemPageState();
 }
 
-class _CreatePerDiemPageState extends State<CreatePerDiemPage>
+class  _CreatePerDiemPageState extends State<CreatePerDiemPage>
     with SingleTickerProviderStateMixin {
   final controller = Get.find<Controller>();
   final Map<String, TextEditingController> fieldControllers = {};
@@ -438,6 +438,30 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
       controller.cashAdvanceListDropDown,
       backendSelectedIds,
     );
+  }
+
+    Future<bool> _showDistributionWarning() async {
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text("Warning"),
+            content: const Text(
+              "Changing the  Date will clear all Account Distribution data. Do you want to continue?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text("Continue"),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   @override
@@ -1964,6 +1988,21 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                             );
                                             try {
                                               if (validateForm()) {
+                                                 // Validate No. of Days
+  final hasZeroDays = controller.allocationLines.any(
+    (line) => (line.quantity ?? 0 ) <= 0,
+  );
+
+  if (hasZeroDays) {
+    Fluttertoast.showToast(
+      msg: "No. of Days cannot be 0.",
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.red,
+      textColor: Colors.white,
+    );
+    return;
+  }
                                                 await controller
                                                     .updatePerDiemDetails(
                                                       context,
@@ -2409,6 +2448,23 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                         ? null
                                         : () {
                                             if (validateForm()) {
+                                               // Validate No. of Days
+  final hasZeroDays = controller.allocationLines.any(
+    (line) => (line.quantity ?? 0 ) <= 0,
+  );
+
+  if (hasZeroDays) {
+    Fluttertoast.showToast(
+      msg: "No. of Days cannot be 0.",
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.red,
+      textColor: Colors.white,
+          fontSize: 16.0,
+
+    );
+    return;
+  }
                                               controller.setButtonLoading(
                                                 'submit',
                                                 true,
@@ -2485,6 +2541,23 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                             ? null
                                             : () {
                                                 if (validateForm()) {
+
+ // Validate No. of Days
+  final hasZeroDays = controller.allocationLines.any(
+    (line) => (line.quantity ?? 0 ) <= 0,
+  );
+
+  if (hasZeroDays) {
+    Fluttertoast.showToast(
+      msg: "No. of Days cannot be 0.",
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.red,
+      textColor: Colors.white,
+    );
+    return;
+  }
+
                                                   controller.setButtonLoading(
                                                     'save',
                                                     true,
@@ -2612,6 +2685,21 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                             ? null
                                             : () {
                                                 if (validateForm()) {
+                                                   // Validate No. of Days
+  final hasZeroDays = controller.allocationLines.any(
+    (line) => (line.quantity ?? 0 ) <= 0,
+  );
+
+  if (hasZeroDays) {
+    Fluttertoast.showToast(
+      msg: "No. of Days cannot be 0.",
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.red,
+      textColor: Colors.white,
+    );
+    return;
+  }
                                                   controller.setButtonLoading(
                                                     'resubmit',
                                                     true,
@@ -2685,6 +2773,21 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                                 ? null
                                                 : () {
                                                     if (validateForm()) {
+                                                       // Validate No. of Days
+  final hasZeroDays = controller.allocationLines.any(
+    (line) => (line.quantity ?? 0 ) <= 0,
+  );
+
+  if (hasZeroDays) {
+    Fluttertoast.showToast(
+      msg: "No. of Days cannot be 0.",
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.red,
+      textColor: Colors.white,
+    );
+    return;
+  }
                                                       controller
                                                           .setButtonLoading(
                                                             'update',
@@ -3083,6 +3186,16 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
       child: GestureDetector(
         onTap: enabled
             ? () async {
+
+ if (isFromDate &&
+            (controller.accountingDistributions.isNotEmpty ||
+             controller.split.isNotEmpty)) {
+
+          final proceed = await _showDistributionWarning();
+
+          if (!proceed) return;
+        }
+
                 // Get current date from controller text (which is in org-local format)
                 DateTime initialDate = DateTime.now();
 
@@ -3117,6 +3230,16 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                 );
 
                 if (picked != null) {
+
+                  final oldValue = controllers.text;
+
+  final newValue = DateFormat(
+    controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+  ).format(picked);
+
+
+
+
                   if (!isFromDate &&
                       controller.fromDateController.text.isNotEmpty) {
                     final fromDateDisplay = DateFormat(
@@ -3134,6 +3257,13 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                       return;
                     }
                   }
+
+
+if (isFromDate && oldValue != newValue) {
+    controller.accountingDistributions.clear();
+    controller.split.clear();
+  }
+
 
                   // Store the picked date (will be converted to UTC when saving)
                   controllers.text = DateFormat(

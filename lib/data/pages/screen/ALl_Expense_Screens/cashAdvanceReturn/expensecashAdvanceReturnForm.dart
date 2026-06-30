@@ -1410,6 +1410,31 @@ final todayOrg = todayInOrgTimezone();
     return isValid;
   }
 
+  Future<bool> _showDistributionWarning() async {
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text("Warning"),
+            content: const Text(
+              "Changing the  Date will clear all Account Distribution data. Do you want to continue?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text("Continue"),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -3425,7 +3450,23 @@ else {
                             children: [
                               InkWell(
                                 onTap: () async {
+
+                                  // Show warning only if Account Distribution has data
+  if (controller.accountingDistributions.isNotEmpty ||
+      controller.split.isNotEmpty) {
+    final proceed = await _showDistributionWarning();
+
+    if (!proceed) return;
+  }
+   final oldDate = controller.selectedDate;
                                   await _selectDate(context);
+                                  // Clear only if the date actually changed
+  if (oldDate != null &&
+      controller.selectedDate != null &&
+      oldDate != controller.selectedDate) {
+    controller.accountingDistributions.clear();
+    controller.split.clear();
+  }
                                   field.didChange(controller.selectedDate);
                                 },
                                 child: InputDecorator(

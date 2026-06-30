@@ -3104,6 +3104,31 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
     );
   }
 
+
+  Future<bool> _showDistributionWarning() async {
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text("Warning"),
+            content: const Text(
+              "Changing the  Date will clear all Account Distribution data. Do you want to continue?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text("Continue"),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   double _calculateTotalLineAmount(Controller controllers) {
     double total = 0.0;
 
@@ -3460,9 +3485,45 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
 
                                 InkWell(
                                   onTap: () async {
-                                    await _selectDate(context);
-                                    field.didChange(controller.selectedDate);
-                                  },
+  bool canChangeDate = true;
+
+  if (controller.accountingDistributions.isNotEmpty ||
+      controller.split.isNotEmpty) {
+    canChangeDate = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Warning"),
+            content: const Text(
+              "Changing the receipt date will clear the Account Distribution. Do you want to continue?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text("Continue"),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  if (!canChangeDate) return;
+
+  final oldDate = controller.selectedDate;
+
+  await _selectDate(context);
+
+  if (oldDate != controller.selectedDate) {
+    controller.accountingDistributions.clear();
+    controller.split.clear();
+  }
+
+  field.didChange(controller.selectedDate);
+},
                                   child: InputDecorator(
                                     decoration: InputDecoration(
                                       labelText: '${loc.receiptDate} *',

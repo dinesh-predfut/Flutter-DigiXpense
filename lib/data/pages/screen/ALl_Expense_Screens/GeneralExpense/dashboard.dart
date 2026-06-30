@@ -289,7 +289,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                       ],
                     ),
                   ),
-                if (primaryColor == const Color(0xFF1e4db7))
+                if (primaryColor == const Color(0xFF1e4db7)) 
                   Container(
                     width: double.infinity,
                     height: 100,
@@ -315,7 +315,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                               IconButton(
                                 onPressed: _openMenu,
                                 icon: Icon(
-                                  Icons.menu,
+                                  Icons.menu,  
                                   color: Colors.black,
                                   size: 20,
                                 ),

@@ -4876,7 +4876,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                             const SizedBox(height: 14),
                                             SearchableMultiColumnDropdownField<
                                               Unit
-                                            >(
+                                            >( 
                                               labelText:
                                                   '${AppLocalizations.of(context)!.unit} *',
                                               enabled:
@@ -5159,7 +5159,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                             ),
                                             const SizedBox(height: 8),
                                             _buildTextField(
-                                              label:
+                                              label: 
                                                   '${AppLocalizations.of(context)!.lineAmountInInr} '
                                                   '${controller.organizationCurrency}',
                                               controller:
@@ -6007,7 +6007,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                         if (widget.isReadOnly &&
                             widget.items.approvalStatus == "Pending")
                           Row(
-                            children: [
+                            children: [ 
                               Obx(() {
                                 final isLoading =
                                     controller.buttonLoaders['cancel'] ?? false;

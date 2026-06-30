@@ -674,8 +674,7 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
                   ),
                 ),
 
-                SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.47,
+                Expanded(
                   child: Obx(() {
                     return controller.isLoadingGE1.value
                         ? const SkeletonLoaderPage()
@@ -1257,6 +1256,7 @@ void _openExpenseDetails(
     controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
     controller.fetchExpenseHistory(item.recId);
   } else if (item.expenseType == "Mileage") {
+    print("milerge $item");
     controller.fetchMileageDetailsApproval(context, item.workitemrecid, true);
   } else if (item.expenseType == "CashAdvanceReturn") {
     controller.fetchSecificCashAdvanceReturnApproval(

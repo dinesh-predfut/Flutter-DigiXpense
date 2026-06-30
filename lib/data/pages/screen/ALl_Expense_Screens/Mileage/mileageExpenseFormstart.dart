@@ -74,7 +74,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       loadAndAppendCashAdvanceList();
       initializeCashAdvanceSelection();
       setupCustomFieldValidation(); // ✅ Add validation listeners
-controller.loadAllMillageCategotyCustomFieldValues(
+ controller.loadAllMillageCategotyCustomFieldValues(
         savedValues: [],
       );
       if (widget.mileageId != null) {
@@ -550,6 +550,30 @@ void scrollToFirstError() {
       controller.dispose();
     }
     super.dispose();
+  }
+
+    Future<bool> _showDistributionWarning() async {
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text("Warning"),
+            content: const Text(
+              "Changing the  Date will clear all Account Distribution data. Do you want to continue?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text("Continue"),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   @override
@@ -2562,6 +2586,15 @@ Obx(() {
       suffix: IconButton(
         icon: const Icon(Icons.calendar_today),
         onPressed: () async {
+
+if (controller.accountingDistributions.isNotEmpty ||
+      controller.split.isNotEmpty) {
+
+    final proceed = await _showDistributionWarning();
+
+    if (!proceed) return;
+  }
+          
           DateTime initialDate = DateTime.now();
           if (controllers.text.isNotEmpty) {
             try {
@@ -2582,6 +2615,20 @@ Obx(() {
           );
 
           if (picked != null) {
+final oldValue = controllers.text;
+
+    final newValue = DateFormat(
+      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(picked);
+
+    // Clear only if the date actually changed
+    if (oldValue != newValue) {
+      controller.accountingDistributions.clear();
+      controller.split.clear();
+    }
+
+
+
             controller.selectedDateMileage = picked;
             controllers.text = DateFormat(
               controller.selectedFormat?.key ?? 'dd/MM/yyyy',
