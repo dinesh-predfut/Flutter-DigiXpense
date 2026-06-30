@@ -273,7 +273,7 @@ controller.fetchMileageRates();
         case 'decimal':
         case 'amount':
         case 'percent':
-        case 'percentage':
+        
           final value = field['EnteredValue'];
           // ✅ Check both null and zero for mandatory numeric fields
           if (value == null || (value is double && value == 0.0)) {
@@ -497,7 +497,7 @@ void scrollToFirstError() {
       case 'decimal':
       case 'amount':
       case 'percent':
-      case 'percentage':
+      case 'percent':
         if (value is double) {
           return value.toStringAsFixed(
             value.truncateToDouble() == value ? 0 : 2,
@@ -1017,7 +1017,66 @@ Obx(() {
                                               },
                                             );
                                           });
-                                        } else if (fieldType == 'Checkbox') {
+                                        } // Percentage type - Make Reactive
+else if (fieldType == 'Percentage') {
+  if (field['_rxDoubleValue'] == null) {
+    field['_rxDoubleValue'] = Rx<double?>(
+      field['EnteredValue'] as double?,
+    );
+  }
+
+  inputField = Obx(() {
+    final rxValue = field['_rxDoubleValue'] as Rx<double?>;
+    final textEditingController = TextEditingController(
+      text: rxValue.value?.toString() ?? '',
+    );
+
+    textEditingController.addListener(() {
+      final value = textEditingController.text;
+      if (value.isEmpty) {
+        if (rxValue.value != null) {
+          rxValue.value = null;
+          field['EnteredValue'] = null;
+        }
+      } else {
+        final doubleValue = double.tryParse(value);
+        if (doubleValue != rxValue.value) {
+          rxValue.value = doubleValue;
+          field['EnteredValue'] = doubleValue;
+        }
+      }
+      field['Error'] = null;
+    });
+
+    return TextFormField(
+      enabled: controller.isEnable.value,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+      ],
+      controller: textEditingController,
+      decoration: InputDecoration(
+        labelText: '$label${isMandatory ? " *" : ""}',
+        border: const OutlineInputBorder(),
+        errorText: field['Error'],
+        suffixText: '%',
+      ),
+      validator: (value) {
+        if (isMandatory && (value == null || value.trim().isEmpty)) {
+          return '$label is required';
+        }
+        if (value != null && value.isNotEmpty) {
+          final p = double.tryParse(value);
+          if (p == null || p < 0 || p > 100) {
+            return 'Enter a value between 0 and 100';
+          }
+        }
+        return null;
+      },
+    );
+  });
+}
+                                        else if (fieldType == 'Checkbox') {
                                           if (field['_rxCheckboxValue'] ==
                                               null) {
                                             field['_rxCheckboxValue'] =
@@ -1632,7 +1691,66 @@ Obx(() {
                                               },
                                             );
                                           });
-                                        } else if (fieldType == 'Checkbox') {
+                                        } // Percentage type - Make Reactive
+else if (fieldType == 'Percentage') {
+  if (field['_rxDoubleValue'] == null) {
+    field['_rxDoubleValue'] = Rx<double?>(
+      field['EnteredValue'] as double?,
+    );
+  }
+
+  inputField = Obx(() {
+    final rxValue = field['_rxDoubleValue'] as Rx<double?>;
+    final textEditingController = TextEditingController(
+      text: rxValue.value?.toString() ?? '',
+    );
+
+    textEditingController.addListener(() {
+      final value = textEditingController.text;
+      if (value.isEmpty) {
+        if (rxValue.value != null) {
+          rxValue.value = null;
+          field['EnteredValue'] = null;
+        }
+      } else {
+        final doubleValue = double.tryParse(value);
+        if (doubleValue != rxValue.value) {
+          rxValue.value = doubleValue;
+          field['EnteredValue'] = doubleValue;
+        }
+      }
+      field['Error'] = null;
+    });
+
+    return TextFormField(
+      enabled: controller.isEnable.value,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+      ],
+      controller: textEditingController,
+      decoration: InputDecoration(
+        labelText: '$label${isMandatory ? " *" : ""}',
+        border: const OutlineInputBorder(),
+        errorText: field['Error'],
+        suffixText: '%',
+      ),
+      validator: (value) {
+        if (isMandatory && (value == null || value.trim().isEmpty)) {
+          return '$label is required';
+        }
+        if (value != null && value.isNotEmpty) {
+          final p = double.tryParse(value);
+          if (p == null || p < 0 || p > 100) {
+            return 'Enter a value between 0 and 100';
+          }
+        }
+        return null;
+      },
+    );
+  });
+}
+                                        else if (fieldType == 'Checkbox') {
                                           if (field['_rxCheckboxValue'] ==
                                               null) {
                                             field['_rxCheckboxValue'] =

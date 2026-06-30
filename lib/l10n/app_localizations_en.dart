@@ -912,7 +912,7 @@ String get modifiedDatetime => 'Modified Date';
   @override
   String get cashAdvanceRequestForm => 'Cash Advance Request Form';
   @override
-  String get requestedPercentage => ' Requested Percentage';
+  String get requestedPercentage => 'Line Requested Percentage';
   @override
   String get attendance => 'Attendance';
   @override

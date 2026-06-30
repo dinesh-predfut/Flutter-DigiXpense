@@ -1,124 +1,148 @@
-import 'dart:convert';
-import 'package:diginexa/core/comman/widgets/internetProvider.dart' show InternetProvider;
-import 'package:diginexa/core/comman/widgets/internetWrap.dart';
-import 'package:diginexa/core/comman/widgets/noInternetPage.dart';
-import 'package:diginexa/core/constant/Parames/params.dart';
-import 'package:diginexa/data/pages/screen/screenLoader.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 
-// Local imports
 import 'firebase_options.dart';
-import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Reports/notifiarModels.dart';
-import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+
 import 'package:diginexa/theme/theme.dart';
+
 import 'package:diginexa/l10n/app_localizations.dart';
+
 import 'package:diginexa/core/constant/Parames/params.dart';
 
-/// Locale Notifier
+import 'package:diginexa/core/comman/widgets/internetProvider.dart';
+import 'package:diginexa/core/comman/widgets/internetWrap.dart';
+
+import 'package:diginexa/data/pages/screen/screenLoader.dart';
+
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Reports/notifiarModels.dart';
+
+// Navigator Key
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+// ================= Locale =================
+
 class LocaleNotifier extends ChangeNotifier {
   Locale _locale;
-  Locale get locale => _locale;
 
-  LocaleNotifier() : _locale = const Locale('en') {
-    _loadLocale();
-  }
+  Locale get locale => _locale;
 
   LocaleNotifier.initial(this._locale);
 
-  Future<void> _loadLocale() async {
-    final prefs = await SharedPreferences.getInstance();
-    final langId = prefs.getString('LanguageID') ?? 'LUG-01';
-    _locale = Locale(getLocaleCodeFromId(langId));
-    notifyListeners();
-  }
-
   Future<void> setLocale(Locale locale) async {
     _locale = locale;
+
     notifyListeners();
+
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('LanguageID', getIdFromLocale(locale));
+
+    await prefs.setString("LanguageID", getIdFromLocale(locale));
   }
 
   String getIdFromLocale(Locale locale) {
     switch (locale.languageCode) {
-      case 'ar':
-        return 'LUG-02';
-      case 'zh':
-        return 'LUG-03';
-      case 'fr':
-        return 'LUG-04';
-      case 'en':
+      case "ar":
+        return "LUG-02";
+
+      case "zh":
+        return "LUG-03";
+
+      case "fr":
+        return "LUG-04";
+
       default:
-        return 'LUG-01';
+        return "LUG-01";
     }
   }
 }
 
 String getLocaleCodeFromId(String id) {
   switch (id) {
-    case 'LUG-02':
-      return 'ar';
-    case 'LUG-03':
-      return 'zh';
-    case 'LUG-04':
-      return 'fr';
-    case 'LUG-01':
+    case "LUG-02":
+      return "ar";
+
+    case "LUG-03":
+      return "zh";
+
+    case "LUG-04":
+      return "fr";
+
     default:
-      return 'en';
+      return "en";
   }
 }
 
-/// Theme Colors Map
+// ================= Theme Colors =================
+
 final Map<String, Color> themeColorMap = {
   "RED_THEME": Colors.pinkAccent,
+
   "GREEN_THEME": Colors.green,
+
   "BLUE_THEME": Colors.blue,
+
   "ORANGE_THEME": Colors.orange,
+
   "PURPLE_THEME": Colors.purple,
+
   "INDIGO_THEME": Colors.indigo,
-  "DARK_RED_THEME": const Color.fromARGB(255, 250, 60, 155),
-  "DARK_GREEN_THEME": const Color(0xFF1B5E20),
-  "DARK_BLUE_THEME": const Color(0xFF0D47A1),
-  "DARK_INDIGO_THEME": const Color(0xFF1A237E),
-  "DARK_PURPLE_THEME": const Color(0xFF6A1B9A),
-  "DARK_ORANGE_THEME": const Color(0xFFE65100),
 };
 
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+// ================= App Init =================
+
+class AppInitData {
+  final ThemeNotifier themeNotifier;
+
+  final LocaleNotifier localeNotifier;
+
+  final String initialRoute;
+
+  AppInitData({
+    required this.themeNotifier,
+
+    required this.localeNotifier,
+
+    required this.initialRoute,
+  });
+}
 
 class AppInitializer {
   static Future<AppInitData> initialize() async {
     WidgetsFlutterBinding.ensureInitialized();
 
-    // Initialize Firebase
+    // Firebase
+
     try {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      }
     } catch (e) {
-      print("Firebase initialization error (continuing anyway): $e");
+      print("Firebase Error $e");
     }
 
-    // Load SharedPreferences and other data
     final prefs = await SharedPreferences.getInstance();
+
     final themeKey = prefs.getString("ThemeColor");
+
     final langId = prefs.getString("LanguageID") ?? "LUG-01";
-    final refreshToken = prefs.getString('refresh_token');
-    final initialRoute = await _getInitialRoute(refreshToken);
-    print("initialRoute$initialRoute");
-    // Initialize SetSharedPref
+
+    final refreshToken = prefs.getString("refresh_token");
+
+    final route = await getInitialRoute(refreshToken);
+
+    // final initialColor = themeColorMap[themeKey] ?? const Color(0xff1A237E);
     try {
       await SetSharedPref().getData();
     } catch (e) {
       print("SetSharedPref.getData error: $e");
     }
-
-    // Initialize theme
     final Color initialColor =
         themeColorMap[themeKey] ?? const Color(0xFF1A237E);
     final themeNotifier = ThemeNotifier(
@@ -127,83 +151,47 @@ class AppInitializer {
         colorScheme: ColorScheme.fromSeed(seedColor: initialColor),
         scaffoldBackgroundColor: Colors.grey[50]!,
       ),
+
       null,
     );
     if (themeKey != null) {
       themeNotifier.setColor(initialColor, themeKey: themeKey);
     }
-
-    // Initialize locale
     final localeNotifier = LocaleNotifier.initial(
       Locale(getLocaleCodeFromId(langId)),
     );
 
     return AppInitData(
       themeNotifier: themeNotifier,
+
       localeNotifier: localeNotifier,
-      initialRoute: initialRoute,
+
+      initialRoute: route,
     );
   }
 
-static Future<String> _getInitialRoute(String? refreshToken) async {
-  final prefs = await SharedPreferences.getInstance();
-  final lastRoute = prefs.getString('last_route');
+  static Future<String> getInitialRoute(String? token) async {
+    final prefs = await SharedPreferences.getInstance();
 
-  print("lastRoute $lastRoute");
-  print("refreshToken $refreshToken");
+    final lastRoute = prefs.getString("last_route");
 
-  // ✅ SHOW ALERT HERE
-  Future.delayed(Duration.zero, () {
-    final context = navigatorKey.currentContext;
-    if (context != null) {
-      showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: const Text("Debug Info"),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text("lastRoute: $lastRoute"),
-                const SizedBox(height: 8),
-                Text("refreshToken: $refreshToken"),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("OK"),
-              ),
-            ],
-          );
-        },
-      );
+    print("Last Route $lastRoute");
+
+    print("Token $token");
+
+    if (lastRoute == "Login") {
+      return AppRoutes.signin;
     }
-  });
 
-  if (lastRoute == "Login") {
-    return AppRoutes.signin;
-  } else if (refreshToken == null ||
-      refreshToken.isEmpty ||
-      refreshToken == "null") {
-    return AppRoutes.entryScreen;
-  } else {
+    if (token == null || token.isEmpty || token == "null") {
+      return AppRoutes.entryScreen;
+    }
+
     return AppRoutes.dashboard_Main;
   }
 }
-}
 
-class AppInitData {
-  final ThemeNotifier themeNotifier;
-  final LocaleNotifier localeNotifier;
-  final String initialRoute;
-
-  AppInitData({
-    required this.themeNotifier,
-    required this.localeNotifier,
-    required this.initialRoute,
-  });
-}
+// ================= MAIN =================
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -211,247 +199,95 @@ void main() {
   runApp(
     FutureBuilder<AppInitData>(
       future: AppInitializer.initialize(),
+
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done) {
-          if (snapshot.hasData) {
-            final initData = snapshot.data!;
-            return MultiProvider(
-              providers: [
-                ChangeNotifierProvider<ThemeNotifier>.value(
-                  value: initData.themeNotifier,
-                ),
-
-                ChangeNotifierProvider<LocaleNotifier>.value(
-                  value: initData.localeNotifier,
-                ),
-
-                ChangeNotifierProvider<ReportModel>(
-                  create: (_) => ReportModel(),
-                ),
-
-                /// ✅ INTERNET PROVIDER ADDED
-                ChangeNotifierProvider(create: (_) => InternetProvider()),
-              ],
-              child: MyApp(initialRoute: initData.initialRoute),
-            );
-          } else {
-            // Fallback if initialization fails
-            return MaterialApp(
-              debugShowCheckedModeBanner: false,
-              home: Scaffold(
-                body: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      FlutterLogo(size: 100),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Digi Xpense',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text('Initialization failed, please restart'),
-                      const SizedBox(height: 20),
-                      ElevatedButton(
-                        onPressed: () {
-                          runApp(
-                            MaterialApp(
-                              debugShowCheckedModeBanner: false,
-                              home: Scaffold(
-                                body: Center(child: Text('Retry failed')),
-                              ),
-                            ),
-                          );
-                        },
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }
-        } else {
-          // Show loading screen while initializing
-          return MaterialApp(
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const MaterialApp(
             debugShowCheckedModeBanner: false,
+
             home: Logo_ScreenLanding(),
           );
         }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return const MaterialApp(
+            home: Scaffold(body: Center(child: Text("Initialization Failed"))),
+          );
+        }
+
+        final data = snapshot.data!;
+
+        return MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: data.themeNotifier),
+
+            ChangeNotifierProvider.value(value: data.localeNotifier),
+
+            ChangeNotifierProvider(create: (_) => ReportModel()),
+
+            ChangeNotifierProvider(create: (_) => InternetProvider()),
+          ],
+
+          child: MyApp(initialRoute: data.initialRoute),
+        );
       },
     ),
   );
 }
 
-class MyApp extends StatefulWidget {
+// ================= APP =================
+
+class MyApp extends StatelessWidget {
   final String initialRoute;
+
   const MyApp({super.key, required this.initialRoute});
 
   @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  late Widget _homeScreen;
-  final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
-
-  @override
-  void initState() {
-    super.initState();
-
-    // Create a temporary home screen that will navigate to the initial route
-    _homeScreen = _buildTempHomeScreen();
-
-    // Delay navigation to ensure MaterialApp is built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _navigateToInitialRoute();
-    });
-  }
-
-  Widget _buildTempHomeScreen() {
-    return Scaffold(
-      body: Container(
-        color: Colors.white,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 20),
-              const Text('Loading DigiNexa...'),
-              const SizedBox(height: 10),
-              Text(
-                'Route: ${widget.initialRoute}',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _navigateToInitialRoute() {
-    if (mounted) {
-      Future.delayed(Duration.zero, () {
-        Navigator.pushNamed(context, widget.initialRoute);
-      });
-    }
-  }
-
-  void restartApp() {
-    appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
-      AppRoutes.dashboard_Main, // or login
-      (route) => false,
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final themeNotifier = Provider.of<ThemeNotifier>(context);
-    final localeNotifier = Provider.of<LocaleNotifier>(context);
+    final theme = Provider.of<ThemeNotifier>(context);
+
+    final locale = Provider.of<LocaleNotifier>(context);
 
     return MaterialApp(
-      title: 'Diginexa',
-      debugShowCheckedModeBanner: false,
-      navigatorKey: appNavigatorKey,
-      // Provide a home to prevent white screen
-      // home: _homeScreen,
+      title: "Diginexa",
 
-      initialRoute: widget.initialRoute,
+      debugShowCheckedModeBanner: false,
+
+      navigatorKey: navigatorKey,
+
+      initialRoute: initialRoute,
+
       onGenerateRoute: (settings) {
-        print("Navigating to: ${settings.name}");
-        try {
-          return AppRoutes.generateRoute(settings);
-        } catch (e) {
-          print("Route generation error: $e");
-          // Fallback route
-          return MaterialPageRoute(
-             builder: (_) => Scaffold(
-              appBar: AppBar(title: const Text('Error')),
-              body: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error, size: 64, color: Colors.red),
-                    const SizedBox(height: 20),
-                    const Text('Navigation Error'),
-                    const SizedBox(height: 10),
-                    Text('Route: ${settings.name}'),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushReplacementNamed(
-                          context,
-                          AppRoutes.entryScreen,
-                        );
-                      },
-                      child: const Text('Go to Home'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }
+        return AppRoutes.generateRoute(settings);
       },
-      theme: themeNotifier.theme,
-      locale: localeNotifier.locale,
+
+      theme: theme.theme,
+
+      locale: locale.locale,
+
       supportedLocales: const [
-        Locale('en'),
-        Locale('ar'),
-        Locale('fr'),
-        Locale('zh'),
+        Locale("en"),
+
+        Locale("ar"),
+
+        Locale("fr"),
+
+        Locale("zh"),
       ],
+
       localizationsDelegates: const [
         AppLocalizations.delegate,
+
         GlobalMaterialLocalizations.delegate,
+
         GlobalWidgetsLocalizations.delegate,
+
         GlobalCupertinoLocalizations.delegate,
       ],
 
-      // Add a builder to catch errors
-     
-    builder: (context, child) {
-  return InternetWrapper(
-    child: child ?? const SizedBox(),
-  );
-},
-    );
-  }
-}
-
-// Add this fallback widget
-class SimpleLoadingScreen extends StatelessWidget {
-  const SimpleLoadingScreen({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const FlutterLogo(size: 100),
-            const SizedBox(height: 30),
-            const CircularProgressIndicator(),
-            const SizedBox(height: 20),
-            const Text(
-              'Diginexa',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Loading your financial experience...',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
-      ),
+      builder: (context, child) {
+        return InternetWrapper(child: child ?? const SizedBox());
+      },
     );
   }
 }

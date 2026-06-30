@@ -1355,15 +1355,16 @@ Widget buildValueInputByType({
                           ),
 
                         
-                        if (rule.condition.isNotEmpty ) ...[
-                          const SizedBox(height: 16),
-                          buildValueInputByType(
-                            rule: rule,
-                            groupIndex: groupIndex,
-                            ruleIndex: ruleIndex,
-                          ),
-                         
-                      ],
+                                      if (rule.condition.isNotEmpty &&
+    rule.condition != "Is Not Empty" &&
+    rule.condition != "Is Empty") ...[
+  const SizedBox(height: 16),
+  buildValueInputByType(
+    rule: rule,
+    groupIndex: groupIndex,
+    ruleIndex: ruleIndex,
+  ),
+],
           ]),
                   ),
                 );

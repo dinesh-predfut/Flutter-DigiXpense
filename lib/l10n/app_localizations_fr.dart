@@ -707,7 +707,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get cashAdvanceRequestForm =>
       'Formulaire de demande d’avance de trésorerie';
   @override
-  String get requestedPercentage => 'Pourcentage demandé';
+  String get requestedPercentage => 'Pourcentage demandé ligne';
   @override
   String get unitEstimatedAmount => 'Montant estimé par unité';
   @override

@@ -47,7 +47,7 @@ class _PunchScreenState extends State<PunchScreen> {
     _loadProfileImage();
       controller.updateTime();
           controller.fetchLastPunch();
-     controller.checkLocationDisclosure(context);
+  controller.checkLocationDisclosure(context);
         });
     controller.timer = Timer.periodic(
       Duration(minutes: 1),

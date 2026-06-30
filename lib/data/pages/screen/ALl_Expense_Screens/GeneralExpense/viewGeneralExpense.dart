@@ -2022,7 +2022,58 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                   }
 
                                   Widget inputField;
+// Percentage type - Make Reactive
+ if (fieldType == 'Percentage') {
+  if (field['_rxDoubleValue'] == null) {
+    field['_rxDoubleValue'] = Rx<double?>(
+      field['EnteredValue'] as double?,
+    );
+  }
 
+  inputField = Obx(() {
+    final rxValue = field['_rxDoubleValue'] as Rx<double?>;
+
+    final newText = rxValue.value?.toString() ?? '';
+    if (fieldControllers[fieldKey]!.text != newText) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        fieldControllers[fieldKey]!.text = newText;
+      });
+    }
+
+    return TextFormField(
+      enabled: controller.isEnable.value,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+      ],
+      controller: fieldControllers[fieldKey],
+      decoration: InputDecoration(
+        labelText: '$label${isMandatory ? " *" : ""}',
+        border: const OutlineInputBorder(),
+        errorText: field['Error'],
+        suffixText: '%',
+      ),
+      onChanged: (value) {
+        final doubleValue = double.tryParse(value);
+        rxValue.value = doubleValue;
+        field['EnteredValue'] = doubleValue;
+        field['Error'] = null;
+      },
+      validator: (value) {
+        if (isMandatory && (value == null || value.trim().isEmpty)) {
+          return '$label is required';
+        }
+        if (value != null && value.isNotEmpty) {
+          final p = double.tryParse(value);
+          if (p == null || p < 0 || p > 100) {
+            return 'Enter a value between 0 and 100';
+          }
+        }
+        return null;
+      },
+    );
+  });
+}
                                   // List type fields - Make Reactive
                                   if (fieldType == 'List' ||
                                       fieldType == 'CustomList' ||
@@ -2410,6 +2461,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                       );
                                     });
                                   }
+                                  
                                   // MobileNumber type - Make Reactive
                                   else if (fieldType == 'MobileNumber') {
                                     if (field['_rxStringValue'] == null) {
@@ -3362,6 +3414,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                           },
                                                         );
                                                       }
+                                                      
                                                       // Date and DateTime types - Make Reactive
                                                       else if (fieldType ==
                                                               'Date' ||
@@ -3546,6 +3599,65 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                           );
                                                         });
                                                       }
+                                                      // Percentage type - Make Reactive
+else if (fieldType == 'Percentage') {
+  if (field['_rxDoubleValue'] == null) {
+    field['_rxDoubleValue'] = Rx<double?>(
+      field['EnteredValue'] as double?,
+    );
+  }
+
+  inputField = Obx(() {
+    final rxValue = field['_rxDoubleValue'] as Rx<double?>;
+    final textEditingController = TextEditingController(
+      text: rxValue.value?.toString() ?? '',
+    );
+
+    textEditingController.addListener(() {
+      final value = textEditingController.text;
+      if (value.isEmpty) {
+        if (rxValue.value != null) {
+          rxValue.value = null;
+          field['EnteredValue'] = null;
+        }
+      } else {
+        final doubleValue = double.tryParse(value);
+        if (doubleValue != rxValue.value) {
+          rxValue.value = doubleValue;
+          field['EnteredValue'] = doubleValue;
+        }
+      }
+      field['Error'] = null;
+    });
+
+    return TextFormField(
+      enabled: controller.isEnable.value,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+      ],
+      controller: textEditingController,
+      decoration: InputDecoration(
+        labelText: '$label${isMandatory ? " *" : ""}',
+        border: const OutlineInputBorder(),
+        errorText: field['Error'],
+        suffixText: '%',
+      ),
+      validator: (value) {
+        if (isMandatory && (value == null || value.trim().isEmpty)) {
+          return '$label is required';
+        }
+        if (value != null && value.isNotEmpty) {
+          final p = double.tryParse(value);
+          if (p == null || p < 0 || p > 100) {
+            return 'Enter a value between 0 and 100';
+          }
+        }
+        return null;
+      },
+    );
+  });
+}
                                                       // LongInteger (Integer) type - Make Reactive
                                                       else if (fieldType ==
                                                           'LongInteger') {

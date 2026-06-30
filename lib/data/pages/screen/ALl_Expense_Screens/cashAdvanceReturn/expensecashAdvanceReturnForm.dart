@@ -7,7 +7,8 @@ import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
 import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
-import 'package:diginexa/core/utils.dart' show todayInOrgTimezone, toStartOfDayUtc;
+import 'package:diginexa/core/utils.dart'
+    show todayInOrgTimezone, toStartOfDayUtc, formatDate;
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:diginexa/main.dart';
@@ -90,7 +91,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
   void initState() {
     super.initState();
     _focusNode = FocusNode();
-final todayOrg = todayInOrgTimezone();
+    final todayOrg = todayInOrgTimezone();
 
     // Convert to UTC milliseconds
     final fromMs = toStartOfDayUtc(todayOrg);
@@ -99,7 +100,8 @@ final todayOrg = todayInOrgTimezone();
     controller.selectedDate ??= DateTime.fromMillisecondsSinceEpoch(
       fromMs,
       isUtc: true, // IMPORTANT: Keep this as true
-    );    _focusNode.addListener(() {
+    );
+    _focusNode.addListener(() {
       setState(() {
         _isTyping = _focusNode.hasFocus;
       });
@@ -1151,10 +1153,7 @@ final todayOrg = todayInOrgTimezone();
     bool isValid = true;
 
     final fields = itemizeController.customFieldsItems
-        .where(
-          (field) =>
-              field['ObjectName'] == 'ExpenseTrans'
-        )
+        .where((field) => field['ObjectName'] == 'ExpenseTrans')
         .toList();
 
     for (final field in fields) {
@@ -2233,8 +2232,7 @@ final todayOrg = todayInOrgTimezone();
                           },
                         );
                       });
-                    }
-               else if (fieldType == 'MobileNumber') {
+                    } else if (fieldType == 'MobileNumber') {
                       // Initialize persistent controllers and values if not exists
                       if (field['_phoneController'] == null) {
                         final defaultValue =
@@ -2337,116 +2335,127 @@ final todayOrg = todayInOrgTimezone();
                         ),
                       );
                     }
-                                  // Default Text type - Make Reactive
                     // Default Text type - Make Reactive
-else {
-  // Initialize Rx value safely
-  if (!field.containsKey('_rxStringValue') || field['_rxStringValue'] == null) {
-    field['_rxStringValue'] = Rx<String?>(field['EnteredValue'] as String?);
-  }
+                    // Default Text type - Make Reactive
+                    else {
+                      // Initialize Rx value safely
+                      if (!field.containsKey('_rxStringValue') ||
+                          field['_rxStringValue'] == null) {
+                        field['_rxStringValue'] = Rx<String?>(
+                          field['EnteredValue'] as String?,
+                        );
+                      }
 
-  // Get the Rx value safely
-  final rxValue = field['_rxStringValue'] as Rx<String?>?;
-  
-  if (rxValue == null) {
-    // Fallback if somehow still null
-    field['_rxStringValue'] = Rx<String?>(field['EnteredValue'] as String?);
-    final newRxValue = field['_rxStringValue'] as Rx<String?>;
-    
-    inputField = Obx(() {
-      final currentRxValue = field['_rxStringValue'] as Rx<String?>?;
-      final currentText = currentRxValue?.value ?? '';
-      
-      // Update controller without triggering rebuild during build
-      if (fieldControllers[fieldKey]!.text != currentText) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (fieldControllers.containsKey(fieldKey)) {
-            fieldControllers[fieldKey]!.text = currentText;
-          }
-        });
-      }
+                      // Get the Rx value safely
+                      final rxValue = field['_rxStringValue'] as Rx<String?>?;
 
-      return TextFormField(
-        enabled: controller.isEnable.value,
-        keyboardType: TextInputType.text,
-        controller: fieldControllers[fieldKey],
-        decoration: InputDecoration(
-          labelText: '$label${isMandatory ? " *" : ""}',
-          border: const OutlineInputBorder(),
-          errorText: field['Error'],
-        ),
-        onChanged: (value) {
-          currentRxValue?.value = value;
-          field['EnteredValue'] = value;
-          field['Error'] = null;
-        },
-        validator: (value) {
-          if (isMandatory && (value == null || value.trim().isEmpty)) {
-            return '$label is required';
-          }
-          return null;
-        },
-      );
-    });
-  } // Default Text type - Make Reactive
-else {
-  // Initialize Rx value
-  if (!field.containsKey('_rxStringValue') || field['_rxStringValue'] == null) {
-    field['_rxStringValue'] = Rx<String?>(field['EnteredValue'] as String?);
-  }
-  final rxValue = field['_rxStringValue'] as Rx<String?>;
-  
-  // Initialize controller if missing
-  final controller = fieldControllers.putIfAbsent(
-    fieldKey, 
-    () => TextEditingController(text: field['EnteredValue'] as String? ?? '')
-  );
-  
-  inputField = Obx(() {
-    final currentText = rxValue.value ?? '';
-    
-    // Update controller text if different
-    if (controller.text != currentText) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        controller.text = currentText;
-      });
-    }
+                      if (rxValue == null) {
+                        // Fallback if somehow still null
+                        field['_rxStringValue'] = Rx<String?>(
+                          field['EnteredValue'] as String?,
+                        );
+                        final newRxValue =
+                            field['_rxStringValue'] as Rx<String?>;
 
-    return TextFormField(
-      // enabled: controller.isEnable.value,
-      keyboardType: TextInputType.text,
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: '$label${isMandatory ? " *" : ""}',
-        border: const OutlineInputBorder(),
-        errorText: field['Error'],
-      ),
-      onChanged: (value) {
-        rxValue.value = value;
-        field['EnteredValue'] = value;
-        field['Error'] = null;
-      },
-      validator: (value) {
-        if (isMandatory && (value == null || value.trim().isEmpty)) {
-          return '$label is required';
-        }
-        return null;
-      },
-    );
-  });
-}
-}
+                        inputField = Obx(() {
+                          final currentRxValue =
+                              field['_rxStringValue'] as Rx<String?>?;
+                          final currentText = currentRxValue?.value ?? '';
 
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
-                                    child: inputField,
-                                  );
-                                })
-                                .toList(),
+                          // Update controller without triggering rebuild during build
+                          if (fieldControllers[fieldKey]!.text != currentText) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (fieldControllers.containsKey(fieldKey)) {
+                                fieldControllers[fieldKey]!.text = currentText;
+                              }
+                            });
+                          }
+
+                          return TextFormField(
+                            enabled: controller.isEnable.value,
+                            keyboardType: TextInputType.text,
+                            controller: fieldControllers[fieldKey],
+                            decoration: InputDecoration(
+                              labelText: '$label${isMandatory ? " *" : ""}',
+                              border: const OutlineInputBorder(),
+                              errorText: field['Error'],
+                            ),
+                            onChanged: (value) {
+                              currentRxValue?.value = value;
+                              field['EnteredValue'] = value;
+                              field['Error'] = null;
+                            },
+                            validator: (value) {
+                              if (isMandatory &&
+                                  (value == null || value.trim().isEmpty)) {
+                                return '$label is required';
+                              }
+                              return null;
+                            },
                           );
-                        }),
+                        });
+                      } // Default Text type - Make Reactive
+                      else {
+                        // Initialize Rx value
+                        if (!field.containsKey('_rxStringValue') ||
+                            field['_rxStringValue'] == null) {
+                          field['_rxStringValue'] = Rx<String?>(
+                            field['EnteredValue'] as String?,
+                          );
+                        }
+                        final rxValue = field['_rxStringValue'] as Rx<String?>;
+
+                        // Initialize controller if missing
+                        final controller = fieldControllers.putIfAbsent(
+                          fieldKey,
+                          () => TextEditingController(
+                            text: field['EnteredValue'] as String? ?? '',
+                          ),
+                        );
+
+                        inputField = Obx(() {
+                          final currentText = rxValue.value ?? '';
+
+                          // Update controller text if different
+                          if (controller.text != currentText) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              controller.text = currentText;
+                            });
+                          }
+
+                          return TextFormField(
+                            // enabled: controller.isEnable.value,
+                            keyboardType: TextInputType.text,
+                            controller: controller,
+                            decoration: InputDecoration(
+                              labelText: '$label${isMandatory ? " *" : ""}',
+                              border: const OutlineInputBorder(),
+                              errorText: field['Error'],
+                            ),
+                            onChanged: (value) {
+                              rxValue.value = value;
+                              field['EnteredValue'] = value;
+                              field['Error'] = null;
+                            },
+                            validator: (value) {
+                              if (isMandatory &&
+                                  (value == null || value.trim().isEmpty)) {
+                                return '$label is required';
+                              }
+                              return null;
+                            },
+                          );
+                        });
+                      }
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: inputField,
+                    );
+                  }).toList(),
+                );
+              }),
               const SizedBox(height: 8),
               Text("${loc.paidFor} *"),
               const SizedBox(height: 20),
@@ -2865,7 +2874,7 @@ else {
                           return OutlinedButton.icon(
                             onPressed: () {
                               // Validate current form before adding new itemize
-                              if (validateDropdowns() ) {
+                              if (validateDropdowns()) {
                                 _addItemize();
                               } else {
                                 // Optional: Show error message
@@ -3481,17 +3490,14 @@ else {
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(
-                                        controller.selectedDate == null
-                                            ? '${loc.selectDate} '
-                                            : DateFormat(
-                                                controller
-                                                        .selectedFormat
-                                                        ?.key ??
-                                                    'dd/MM/yyyy',
-                                              ).format(
-                                                controller.selectedDate!,
-                                              ),
+                                    Text(
+                                   controller.selectedDate == null
+                                              ? AppLocalizations.of(
+                                                  context,
+                                                )!.selectDate
+                                              : formatDate(
+                                                  controller.selectedDate!,
+                                                ), 
                                         style: TextStyle(
                                           color: controller.selectedDate == null
                                               ? Colors.grey
@@ -3549,6 +3555,9 @@ else {
                                   controller.employeeName.text =
                                       emp?.employeeName ?? '';
                                 });
+                                loadAndAppendCashAdvanceList();
+                                controller.fetchCashAdvanceExpenseCategory();
+                                controller.fetchProjectName();
                               },
                               rowBuilder: (emp, searchQuery) {
                                 bool isMatch = false;

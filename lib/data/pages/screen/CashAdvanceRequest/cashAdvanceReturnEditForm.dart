@@ -63,7 +63,7 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
   final List<String> paidToOptions = ['Amazon', 'Flipkart', 'Ola'];
   final List<String> paidWithOptions = ['Card', 'Cash', 'UPI'];
 
-  late Controller controller;
+  final controller = Get.find<Controller>();
   Future<List<ExpenseHistory>>? historyFuture;
 
   String? selectedPaidTo;
@@ -73,6 +73,7 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
   Timer? _debounce;
   int _itemizeCount = 1;
   bool allowDocAttachments = false;
+  bool docAttachmentsRequired = false;
 
   late final projectConfig;
   late final taxGroupConfig;
@@ -96,7 +97,7 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
   @override
   void initState() {
     super.initState();
-    controller = Get.put(Controller());
+  
     expenseIdController.text = "";
     requestDateController.text = "";
     merhantName.text = "";
@@ -177,7 +178,6 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
       if (widget.items!.stepType == "Approval") {
         controller.isEnable.value = false;
         controller.isApprovalEnable.value = true;
-        
       }
       selectedPaidTo = paidToOptions.first;
       selectedPaidWith = paidWithOptions.first;
@@ -389,7 +389,14 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
   Future<void> _loadSettings() async {
     final settings = await controller.fetchGeneralSettings();
     if (settings != null) {
-      setState(() => allowDocAttachments = settings.allowDocAttachments);
+      setState(() {
+        allowDocAttachments = settings.allowDocAttachments;
+        docAttachmentsRequired = settings.isDocAttachmentMandatory;
+        print("allowDocAttachments$allowDocAttachments");
+        // isLoading = false;
+      });
+    } else {
+      // setState(() => isLoading = false);
     }
   }
 
@@ -454,9 +461,7 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
       // ✅ CRITICAL FIX: First, make sure customFieldsItems has all fields from main controller
       if (mainController.customFields.isNotEmpty) {
         itemCtrl.cloneCustomFieldsFromRx(mainController.customFields);
-        print(
-          "Cloned ${itemCtrl.customFieldsItems.length} fields for item $idx",
-        );
+        print("Cloned ${itemCtrl.amountINRCA2.text} fields for item $idx");
       } else {
         print("Main controller customFields is empty for item $idx");
         itemCtrl.customFieldsItems.value = [];
@@ -882,8 +887,8 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
           if (exchangeResponse2 != null) {
             itemCtrl.unitRateCA2.text = exchangeResponse2.exchangeRate
                 .toString();
-            itemCtrl.amountINRCA2.text = exchangeResponse2.totalAmount
-                .toStringAsFixed(2);
+            // itemCtrl.amountINRCA2.text = exchangeResponse2.totalAmount
+            //     .toStringAsFixed(2);
           }
         }
       } catch (e) {
@@ -1348,7 +1353,7 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
             maxLines: 2,
           ),
           actions: [
-            if (widget.isReadOnly && 
+            if (widget.isReadOnly &&
                     widget.items != null &&
                     widget.items!.approvalStatus != "Cancelled" &&
                     widget.items!.approvalStatus != "Approved" &&
@@ -1398,8 +1403,10 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // ── DOCUMENT ATTACHMENTS ──
-                        if (allowDocAttachments) const SizedBox(height: 10),
-                        if (allowDocAttachments) _buildDocAttachmentArea(),
+                        if (allowDocAttachments || docAttachmentsRequired)
+                          const SizedBox(height: 10),
+                        if (allowDocAttachments || docAttachmentsRequired)
+                          _buildDocAttachmentArea(),
 
                         const SizedBox(height: 20),
 
@@ -1831,6 +1838,105 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
         );
       });
     }
+    // Amount type
+    else if (fieldType == 'Amount') {
+      if (field['_rxDoubleValue'] == null) {
+        field['_rxDoubleValue'] = Rx<double?>(field['EnteredValue'] as double?);
+      }
+
+      return Obx(() {
+        final rxValue = field['_rxDoubleValue'] as Rx<double?>;
+        final newText = rxValue.value?.toString() ?? '';
+        if (fieldControllers[fieldKey]!.text != newText) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            fieldControllers[fieldKey]!.text = newText;
+          });
+        }
+
+        return TextFormField(
+          enabled: controller.isEnable.value,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d*')),
+          ],
+          controller: fieldControllers[fieldKey],
+          decoration: InputDecoration(
+            labelText: '$label${isMandatory ? " *" : ""}',
+            border: const OutlineInputBorder(),
+            errorText: field['Error'],
+            prefixText:
+                '${controller.organizationDefaultCurrencySymbol ?? ''} ',
+          ),
+          onChanged: (value) {
+            final doubleValue = double.tryParse(value);
+            rxValue.value = doubleValue;
+            field['EnteredValue'] = doubleValue;
+            field['Error'] = null;
+          },
+          validator: (value) {
+            if (isMandatory && (value == null || value.trim().isEmpty)) {
+              return '$label is required';
+            }
+            if (value != null && value.isNotEmpty) {
+              final amt = double.tryParse(value);
+              if (amt == null || amt < 0) {
+                return 'Enter a valid amount';
+              }
+            }
+            return null;
+          },
+        );
+      });
+    }
+    // Percentage type
+    else if (fieldType == 'Percentage') {
+      if (field['_rxDoubleValue'] == null) {
+        field['_rxDoubleValue'] = Rx<double?>(field['EnteredValue'] as double?);
+      }
+
+      return Obx(() {
+        final rxValue = field['_rxDoubleValue'] as Rx<double?>;
+        final newText = rxValue.value?.toString() ?? '';
+        if (fieldControllers[fieldKey]!.text != newText) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            fieldControllers[fieldKey]!.text = newText;
+          });
+        }
+
+        return TextFormField(
+          enabled: controller.isEnable.value,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d*')),
+          ],
+          controller: fieldControllers[fieldKey],
+          decoration: InputDecoration(
+            labelText: '$label${isMandatory ? " *" : ""}',
+            border: const OutlineInputBorder(),
+            errorText: field['Error'],
+            suffixText: '%',
+          ),
+          onChanged: (value) {
+            final doubleValue = double.tryParse(value);
+            rxValue.value = doubleValue;
+            field['EnteredValue'] = doubleValue;
+            field['Error'] = null;
+          },
+          validator: (value) {
+            if (isMandatory && (value == null || value.trim().isEmpty)) {
+              return '$label is required';
+            }
+            if (value != null && value.isNotEmpty) {
+              final p = double.tryParse(value);
+              if (p == null || p < 0 || p > 100) {
+                return 'Enter a value between 0 and 100';
+              }
+            }
+            return null;
+          },
+        );
+      });
+    }
     // Checkbox type
     else if (fieldType == 'Checkbox') {
       if (field['_rxCheckboxValue'] == null) {
@@ -2128,49 +2234,49 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
 
                       Widget inputField;
                       if (label == 'Project Id') {
-                        inputField =
-                            SearchableMultiColumnDropdownField<Project>(
-                              enabled: controller.isEnable.value,
-                              labelText: AppLocalizations.of(
-                                context,
-                              )!.projectId,
-                              columnHeaders: [
-                                AppLocalizations.of(context)!.projectName,
-                                AppLocalizations.of(context)!.projectId,
+                        inputField = SearchableMultiColumnDropdownField<Project>(
+                          enabled: controller.isEnable.value,
+                          labelText:
+                              '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""}',
+                          columnHeaders: [
+                            AppLocalizations.of(context)!.projectName,
+                            AppLocalizations.of(context)!.projectId,
+                          ],
+                          items: controller.project,
+                          selectedValue: itemCtrl.selectedProject,
+                          searchValue: (p) => '${p.name} ${p.code}',
+                          displayText: (p) => p.code,
+                          validator: (p) => _validateDropdownField(
+                            itemCtrl.projectDropDowncontrollerError.text,
+                            "Project",
+                            isMandatory,
+                          ),
+                          onChanged: (p) {
+                            setState(() {
+                              controller.selectedProject = p;
+                              itemCtrl.selectedProject = p;
+                              controller.projectDropDowncontroller.text =
+                                  p!.code;
+                                   controller.projectDropDowncontrollerError.text =
+                                  p!.code;
+                            });
+                            controller.fetchCashAdvanceExpenseCategory();
+                            _recalculate(itemCtrl, index);
+                          },
+                          controller: itemCtrl.projectDropDowncontroller,
+                          rowBuilder: (p, sq) => Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 16,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(child: Text(p.name)),
+                                Expanded(child: Text(p.code)),
                               ],
-                              items: controller.project,
-                              selectedValue: itemCtrl.selectedProject,
-                              searchValue: (p) => '${p.name} ${p.code}',
-                              displayText: (p) => p.code,
-                              validator: (p) => _validateDropdownField(
-                                itemCtrl.projectDropDowncontroller.text,
-                                "Project",
-                                isMandatory,
-                              ),
-                              onChanged: (p) {
-                                setState(() {
-                                  controller.selectedProject = p;
-                                  itemCtrl.selectedProject = p;
-                                  controller.projectDropDowncontroller.text =
-                                      p!.code;
-                                });
-                                controller.fetchCashAdvanceExpenseCategory();
-                                _recalculate(itemCtrl, index);
-                              },
-                              controller: itemCtrl.projectDropDowncontroller,
-                              rowBuilder: (p, sq) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                  horizontal: 16,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(child: Text(p.name)),
-                                    Expanded(child: Text(p.code)),
-                                  ],
-                                ),
-                              ),
-                            );
+                            ),
+                          ),
+                        );
                       } else {
                         inputField = TextField(
                           decoration: InputDecoration(
@@ -2185,7 +2291,7 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
                         children: [
                           const SizedBox(height: 8),
                           inputField,
-                          const SizedBox(height: 16),
+                          // const SizedBox(height: 16),
                         ],
                       );
                     })
@@ -2985,6 +3091,19 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
                           );
                           return;
                         }
+                        if (docAttachmentsRequired &&
+                            controller.imageFiles.isEmpty) {
+                          Fluttertoast.showToast(
+                            msg: "Receipt is required",
+                            toastLength: Toast.LENGTH_SHORT,
+                            gravity: ToastGravity.BOTTOM,
+                            backgroundColor: Colors.red,
+                            textColor: Colors.white,
+                            fontSize: 16.0,
+                          );
+
+                          return;
+                        }
                         controller.setButtonLoading('resubmit', true);
                         controller.cashAdvanceReturnFinalItem(widget.items!);
                         controller
@@ -3044,6 +3163,19 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
                                 msg: "Please fill all required fields",
                                 backgroundColor: Colors.red,
                               );
+                              return;
+                            }
+                            if (docAttachmentsRequired &&
+                                controller.imageFiles.isEmpty) {
+                              Fluttertoast.showToast(
+                                msg: "Receipt is required",
+                                toastLength: Toast.LENGTH_SHORT,
+                                gravity: ToastGravity.BOTTOM,
+                                backgroundColor: Colors.red,
+                                textColor: Colors.white,
+                                fontSize: 16.0,
+                              );
+
                               return;
                             }
                             controller.setButtonLoading('update', true);
@@ -3116,6 +3248,19 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
                           );
                           return;
                         }
+                        if (docAttachmentsRequired &&
+                            controller.imageFiles.isEmpty) {
+                          Fluttertoast.showToast(
+                            msg: "Receipt is required",
+                            toastLength: Toast.LENGTH_SHORT,
+                            gravity: ToastGravity.BOTTOM,
+                            backgroundColor: Colors.red,
+                            textColor: Colors.white,
+                            fontSize: 16.0,
+                          );
+
+                          return;
+                        }
                         controller.setButtonLoading('submit', true);
                         controller.cashAdvanceReturnFinalItem(widget.items!);
                         controller
@@ -3169,6 +3314,19 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
                                 msg: "Please fill all required fields",
                                 backgroundColor: Colors.red,
                               );
+                              return;
+                            }
+                            if (docAttachmentsRequired &&
+                                controller.imageFiles.isEmpty) {
+                              Fluttertoast.showToast(
+                                msg: "Receipt is required",
+                                toastLength: Toast.LENGTH_SHORT,
+                                gravity: ToastGravity.BOTTOM,
+                                backgroundColor: Colors.red,
+                                textColor: Colors.white,
+                                fontSize: 16.0,
+                              );
+
                               return;
                             }
                             controller.setButtonLoading('saveGE', true);
@@ -3321,6 +3479,19 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
                               );
                               return;
                             }
+                            if (docAttachmentsRequired &&
+                                controller.imageFiles.isEmpty) {
+                              Fluttertoast.showToast(
+                                msg: "Receipt is required",
+                                toastLength: Toast.LENGTH_SHORT,
+                                gravity: ToastGravity.BOTTOM,
+                                backgroundColor: Colors.red,
+                                textColor: Colors.white,
+                                fontSize: 16.0,
+                              );
+
+                              return;
+                            }
                             controller.setButtonLoading('update_accept', true);
                             controller.cashAdvanceReturnFinalItem(
                               widget.items!,
@@ -3372,6 +3543,19 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
                                 msg: "Please fill all required fields",
                                 backgroundColor: Colors.red,
                               );
+                              return;
+                            }
+                            if (docAttachmentsRequired &&
+                                controller.imageFiles.isEmpty) {
+                              Fluttertoast.showToast(
+                                msg: "Receipt is required",
+                                toastLength: Toast.LENGTH_SHORT,
+                                gravity: ToastGravity.BOTTOM,
+                                backgroundColor: Colors.red,
+                                textColor: Colors.white,
+                                fontSize: 16.0,
+                              );
+
                               return;
                             }
                             controller.setButtonLoading('update_review', true);
@@ -3740,7 +3924,7 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
 
                     const SizedBox(height: 16),
                     Text(
-                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : ""}',
+                      '${AppLocalizations.of(context)!.comments} *',
                       style: const TextStyle(fontSize: 16),
                     ),
                     const SizedBox(height: 8),
@@ -4070,11 +4254,11 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
                     setState(() {
                       controller.selectedDate = picked;
                       controller.selectedProject = null;
-                      for (var c in itemizeControllers) {
-                        c.expenseCategory.value = [];
-                        c.categoryController.clear();
-                        c.projectDropDowncontroller.clear();
-                      }
+                      // for (var c in itemizeControllers) {
+                      //   c.expenseCategory.value = [];
+                      //   c.categoryController.clear();
+                      //   c.projectDropDowncontroller.clear();
+                      // }
                     });
                     controller.fetchCashAdvanceExpenseCategory();
                     controller.fetchProjectName();

@@ -398,9 +398,13 @@ class _ApprovalHubPageState extends State<ApprovalHubPage> {
                   if (snapshot.hasData) {
                     final data = snapshot.data ?? {};
 
-                    // if (data.isEmpty) {
-                    //   return const ExternalApprovalMetadataPage();
-                    // }
+                    // Empty result: distinguish "skipped" from "genuinely empty".
+                    if (data.isEmpty) {
+                      if (controller.skippedWorkItems.isNotEmpty) {
+                        return _buildSkippedMessage(context);
+                      }
+                      return const ExternalApprovalMetadataPage(); // or your genuine empty widget
+                    }
 
                     final rawType = data['ExpenseType'] ?? '';
                     final expenseType = rawType.toString().trim();
@@ -414,6 +418,10 @@ class _ApprovalHubPageState extends State<ApprovalHubPage> {
                     return _getExpenseWidget(expenseType, data);
                   }
 
+                  // Final fallback — also respect the skipped state here.
+                  if (controller.skippedWorkItems.isNotEmpty) {
+                    return _buildSkippedMessage(context);
+                  }
                   return const Center(
                     child: Text("No data available or unexpected format"),
                   );
@@ -422,7 +430,26 @@ class _ApprovalHubPageState extends State<ApprovalHubPage> {
       ),
     );
   }
-
+Widget _buildSkippedMessage(BuildContext context) {
+  return Center(
+    child: Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade400),
+          const SizedBox(height: 16),
+          Text(
+            "Some approval records have been skipped.\n"
+            "Tap the 'X' icon in the top-right corner to view the skipped records.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 15, color: Colors.grey.shade700),
+          ),
+        ],
+      ),
+    ),
+  );
+}
   void showFilterPopup() {
     FilterItem? localSelectedField = selectedField;
     String localSelectedType = selectedType;

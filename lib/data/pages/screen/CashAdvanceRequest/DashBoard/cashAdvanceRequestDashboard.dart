@@ -153,56 +153,56 @@ class _CashAdvanceRequestDashboardState
     setState(() {});
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _scrollController = ScrollController();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.searchQuery.value = '';
-      controller.selectedStatusDropDown.value = "Un Reported";
-      controller.selectedExpenseType.value = "All Expenses";
-      controller.searchControllerCashAdvance.clear();
-      controller.fetchUnreadNotifications();
-      controller.getUserPref(context);
-      controller.getPersonalDetails(context);
-      loadTimezoneValue();
-    });
-    // controller.loadProfilePictureFromStorage();
-    controller.selectedStatus = "Un Reported";
-    controller.fetchAndCombineData().then((_) {
-      if (controller.manageExpensesCards.isNotEmpty) {
-        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-        _animationController = AnimationController(
-          vsync: this,
-          duration: const Duration(seconds: 10),
-        )..repeat(reverse: false);
+ @override
+void initState() {
+  super.initState();
+  _scrollController = ScrollController();
 
-        _animation =
-            Tween<double>(begin: 0, end: 1).animate(_animationController)
-              ..addListener(() {
-                if (_scrollController.hasClients) {
-                  final maxScroll = _scrollController.position.maxScrollExtent;
-                  _scrollController.jumpTo(_animation.value * maxScroll);
-                }
-              });
-      }
-    });
+  // initialize the Rx AFTER this build pass, no setState
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    controller.isEnable.value = false;
+
+    controller.searchQuery.value = '';
+    controller.selectedStatusDropDown.value = "Un Reported";
+    controller.selectedExpenseType.value = "All Expenses";
+    controller.searchControllerCashAdvance.clear();
+    controller.fetchUnreadNotifications();
+    controller.getUserPref(context);
+    controller.getPersonalDetails(context);
+    loadTimezoneValue();
+  });
+
+  // plain (non-Rx) field, safe to set directly
+  controller.selectedStatus = "Un Reported";
+
+  controller.fetchAndCombineData().then((_) {
+    if (controller.manageExpensesCards.isNotEmpty) {
+      _animationController = AnimationController(
+        vsync: this,
+        duration: const Duration(seconds: 10),
+      )..repeat(reverse: false);
+
+      _animation =
+          Tween<double>(begin: 0, end: 1).animate(_animationController)
+            ..addListener(() {
+              if (_scrollController.hasClients) {
+                final maxScroll = _scrollController.position.maxScrollExtent;
+                _scrollController.jumpTo(_animation.value * maxScroll);
+              }
+            });
+    }
+  });
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    controller.loadSequenceModules();
+    _loadDataOnce();
     setState(() {
-      controller.isEnable.value = false;
+      _dragOffset = MediaQuery.of(context).size.height * 0.3;
     });
-    print("${controller.isEnable.value}isEnable");
+  });
 
-    // controller.fetchMileageRates();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.loadSequenceModules();
-      _loadDataOnce();
-      setState(() {
-        _dragOffset = MediaQuery.of(context).size.height * 0.3;
-      });
-    });
-    _loadProfileImage();
-  }
-
+  _loadProfileImage();
+}
   void _openMenu() {
     _scaffoldKey.currentState?.openDrawer();
   }

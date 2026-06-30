@@ -74,7 +74,8 @@ class _DashboardPageState extends State<DashboardPage>
     _scrollController = ScrollController();
     getDeviceDetails(context);
     controller.fetchAndStoreFeatures(Params.userToken, context);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async{
+       await SharedPreferences.getInstance();
       _loadProfileImage();
       controller.fetchFileTypes();
       _loadDashboards();
@@ -90,7 +91,7 @@ class _DashboardPageState extends State<DashboardPage>
     PermissionHelper.loadPermissions();
     if (controller.selectedTimezonevalue.value.isEmpty) {
       print("Timezone value is null, loading from SharedPreferences...");
-      loadTimezoneValue();
+      // loadTimezoneValue();
     }
   }
 

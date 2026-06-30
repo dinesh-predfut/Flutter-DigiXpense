@@ -80,7 +80,7 @@ class _PeriodPickerDialogState extends State<PeriodPickerDialog> {
         : range.start;
 
     setState(() {
-      _selectedRange = DateTimeRange(start: clampedStart, end: clampedEnd);
+      _selectedRange = range;
     });
   }
 

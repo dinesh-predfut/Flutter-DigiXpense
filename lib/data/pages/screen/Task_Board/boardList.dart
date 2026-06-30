@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert' show jsonEncode;
 import 'dart:io';
 
@@ -46,7 +47,8 @@ class KanbanBoardScreen extends StatefulWidget {
 class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
   final Controller controller = Get.find<Controller>();
   bool isSheetAlive = true;
-
+  final ScrollController _boardScrollController = ScrollController();
+  Timer? _autoScrollTimer;
   KanbanBoard? board;
   bool isLoading = true;
   KanbanBoard? originalBoard;
@@ -69,9 +71,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
   List<String> getTabTitles(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
 
-    List<String> tabs = [loc.board,loc.grid];
-
-   
+    List<String> tabs = [loc.board, loc.grid];
 
     // 👇 Show Settings only if Update permission
     if (PermissionHelper.canUpdate("Board Management")) {
@@ -89,6 +89,37 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       loadKanbanBoard();
     });
+  }
+
+  @override
+  void dispose() {
+    _autoScrollTimer?.cancel();
+    _boardScrollController.dispose();
+    searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _startAutoScroll(bool toRight) {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
+      if (!_boardScrollController.hasClients) return;
+      final pos = _boardScrollController.position;
+      final delta = toRight ? 12.0 : -12.0;
+      final next = (pos.pixels + delta).clamp(
+        pos.minScrollExtent,
+        pos.maxScrollExtent,
+      );
+      if (next == pos.pixels) {
+        _stopAutoScroll(); // reached the end
+      } else {
+        _boardScrollController.jumpTo(next);
+      }
+    });
+  }
+
+  void _stopAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = null;
   }
 
   Future<void> loadKanbanBoard() async {
@@ -205,7 +236,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
       if (selectedShelf != 'All' && shelf.shelfName != selectedShelf) continue;
 
       final List<TaskItem> filteredTasks = [];
-     for (final task in shelf.tasks) {
+      for (final task in shelf.tasks) {
         /// 🔍 SEARCH FILTER
         final bool matchesSearch =
             keyword.isEmpty ||
@@ -278,7 +309,6 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
   bool _matchesCreatedBy(TaskItem task) {
     // If 'All' is selected, return true
 
-    
     if (createBy == 'All') return true;
 
     // Check if task has createdBy
@@ -298,53 +328,53 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
 
   /// Helper method to check Due Date filter
   /// Helper method to check Due Date filter
-bool _matchesDueDate(
-  TaskItem task,
-  String? dueDateValue,
-  DateTime todayOnly,
-) {
-  // If 'All' is selected, show all tasks including those with null dates
-  if (dueDateValue == null || dueDateValue == 'All') {
-    return true;
-  }
-
-  // Handle 'No Date' - show only tasks with null dates
-  if (dueDateValue == 'No Date') {
-    return task.plannedEndDate == null;
-  }
-
-  // For all other date filters (Today, Late, etc.)
-  // Only check tasks that have a date
-  if (task.plannedEndDate == null) {
-    return false; // Exclude tasks with no date from specific date filters
-  }
-
-  final taskDate = task.plannedEndDate!;
-  final taskDateOnly = DateTime(taskDate.year, taskDate.month, taskDate.day);
-
-  switch (dueDateValue) {
-    case 'Today':
-      return DateUtils.isSameDay(taskDate, todayOnly);
-
-    case 'Late':
-      return taskDateOnly.isBefore(todayOnly);
-
-    case 'This Week':
-      final weekStart = todayOnly.subtract(
-        Duration(days: todayOnly.weekday - 1),
-      );
-      final weekEnd = weekStart.add(const Duration(days: 6));
-      return taskDate.isAfter(weekStart.subtract(const Duration(days: 1))) &&
-          taskDate.isBefore(weekEnd.add(const Duration(days: 1)));
-
-    case 'This Month':
-      return taskDate.year == todayOnly.year &&
-          taskDate.month == todayOnly.month;
-
-    default:
+  bool _matchesDueDate(
+    TaskItem task,
+    String? dueDateValue,
+    DateTime todayOnly,
+  ) {
+    // If 'All' is selected, show all tasks including those with null dates
+    if (dueDateValue == null || dueDateValue == 'All') {
       return true;
+    }
+
+    // Handle 'No Date' - show only tasks with null dates
+    if (dueDateValue == 'No Date') {
+      return task.plannedEndDate == null;
+    }
+
+    // For all other date filters (Today, Late, etc.)
+    // Only check tasks that have a date
+    if (task.plannedEndDate == null) {
+      return false; // Exclude tasks with no date from specific date filters
+    }
+
+    final taskDate = task.plannedEndDate!;
+    final taskDateOnly = DateTime(taskDate.year, taskDate.month, taskDate.day);
+
+    switch (dueDateValue) {
+      case 'Today':
+        return DateUtils.isSameDay(taskDate, todayOnly);
+
+      case 'Late':
+        return taskDateOnly.isBefore(todayOnly);
+
+      case 'This Week':
+        final weekStart = todayOnly.subtract(
+          Duration(days: todayOnly.weekday - 1),
+        );
+        final weekEnd = weekStart.add(const Duration(days: 6));
+        return taskDate.isAfter(weekStart.subtract(const Duration(days: 1))) &&
+            taskDate.isBefore(weekEnd.add(const Duration(days: 1)));
+
+      case 'This Month':
+        return taskDate.year == todayOnly.year &&
+            taskDate.month == todayOnly.month;
+
+      default:
+        return true;
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -446,7 +476,39 @@ bool _matchesDueDate(
               if (_selectedTabIndex == 0) ...[
                 _buildSearchBar(),
                 _buildFilterRow(),
-                Expanded(child: _buildKanban()),
+               Expanded(
+  child: Stack(
+    children: [
+      _buildKanban(),
+
+      // LEFT edge auto-scroll zone
+      Positioned(
+        left: 0, top: 0, bottom: 0, width: 40,
+        child: DragTarget<TaskItem>(
+          builder: (_, __, ___) => const SizedBox.expand(),
+          onWillAccept: (_) {
+            _startAutoScroll(false); // scroll left
+            return false;            // don't actually drop here
+          },
+          onLeave: (_) => _stopAutoScroll(),
+        ),
+      ),
+
+      // RIGHT edge auto-scroll zone
+      Positioned(
+        right: 0, top: 0, bottom: 0, width: 40,
+        child: DragTarget<TaskItem>(
+          builder: (_, __, ___) => const SizedBox.expand(),
+          onWillAccept: (_) {
+            _startAutoScroll(true); // scroll right
+            return false;
+          },
+          onLeave: (_) => _stopAutoScroll(),
+        ),
+      ),
+    ],
+  ),
+),
               ],
               if (_selectedTabIndex == 1) ...[
                 Expanded(
@@ -1523,6 +1585,7 @@ bool _matchesDueDate(
     }
 
     return ReorderableListView.builder(
+      scrollController: _boardScrollController,
       scrollDirection: Axis.horizontal,
       buildDefaultDragHandles: false,
       itemCount: viewBoard.shelfs.length,
@@ -1592,201 +1655,253 @@ class _ShelfColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Controller controller = Get.find<Controller>();
-    bool isSheetAlive = true;
+
     return Obx(() {
       if (controller.isLoading.value) {
         return const SkeletonLoaderPage();
       }
 
-      return Container(
-        width: shelf.isCollapsed ? 60 : 300,
-        margin: const EdgeInsets.all(8),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: hexToColor(shelf.colorPallete), // ✅ move her
-          // ✅ Add border here
-          border: Border.all(
-            color: isDarkBoard
-                ? Colors.white
-                : Colors.black, // your border color
-            width: 1.5, // thickness
-          ),
-        ),
+      // ⬇️ WRAP the whole shelf container in a DragTarget
+      return DragTarget<TaskItem>(
+        onWillAccept: (task) => task != null, // (see note below about shelfId)
+        onAccept: (task) async {
+          final ok = await controller.moveTaskToShelf(
+            taskRecId: task.recId,
+            targetShelfRecId: shelf.recId,
+          );
+          if (ok) {
+            await controller.fetchKanbanBoardAndNavigate(
+              context,
+              boardId,
+              true,
+            );
+            onTaskAdded();
+          } else {
+            Fluttertoast.showToast(
+              msg: "Failed to move task",
+              backgroundColor: Colors.red,
+            );
+          }
+        },
+        builder: (context, candidate, rejected) {
+          final highlight = candidate.isNotEmpty;
 
-        child: Column(
-          children: [
-            GestureDetector(
-              onTap: onToggle,
-              child: Padding(
-                padding: const EdgeInsets.all(5),
-                child: shelf.isCollapsed
-                    ? Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircleAvatar(
-                            radius: 10,
-                            child: Text(
-                              shelf.tasks.length.toString(),
-                              style: const TextStyle(fontSize: 10),
-                            ),
-                          ),
-                          const SizedBox(height: 30),
-                          RotatedBox(
-                            quarterTurns: 3, // 90° vertical text
-                            child: Text(
-                              shelf.shelfName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
+          // ⬇️ THIS is your existing Container — paste it here unchanged,
+          //    except add the highlight border.
+          return Container(
+            width: shelf.isCollapsed ? 60 : 300,
+            margin: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: hexToColor(shelf.colorPallete),
+              border: Border.all(
+                color: highlight
+                    ? Theme.of(context)
+                          .primaryColor // ← highlight on hover
+                    : (isDarkBoard ? Colors.white : Colors.black),
+                width: highlight ? 2.5 : 1.5,
+              ),
+            ),
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: onToggle,
+                  child: Padding(
+                    padding: const EdgeInsets.all(5),
+                    child: shelf.isCollapsed
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircleAvatar(
+                                radius: 10,
+                                child: Text(
+                                  shelf.tasks.length.toString(),
+                                  style: const TextStyle(fontSize: 10),
+                                ),
+                              ),
+                              const SizedBox(height: 30),
+                              RotatedBox(
+                                quarterTurns: 3, // 90° vertical text
+                                child: Text(
+                                  shelf.shelfName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDarkBoard
+                                        ? Colors.white
+                                        : Colors.black,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              _shelfAvatar(shelf.image, size: 24),
+                              SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  shelf.shelfName,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    // color: Colors.black,
+                                  ),
+                                ),
+                              ),
+
+                              CircleAvatar(
+                                radius: 12,
+                                child: Text(
+                                  shelf.tasks.length.toString(),
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+
+                              const SizedBox(width: 6),
+
+                              /// Burger / Kebab menu
+                              PopupMenuButton<String>(
+                                icon: Icon(
+                                  Icons.more_vert, // burger icon
+                                  color: isDarkBoard
+                                      ? Colors.white
+                                      : Colors.black,
+                                  size: 20,
+                                ),
+                                onSelected: (value) {
+                                  if (value ==
+                                      AppLocalizations.of(context)!.edit) {
+                                    _editShelf(
+                                      context,
+                                      shelf,
+                                      onTaskAdded,
+                                      isDarkBoard,
+                                    );
+                                  } else if (value ==
+                                      AppLocalizations.of(context)!.delete) {
+                                    _deleteShelf(shelf, context);
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  PopupMenuItem(
+                                    value: AppLocalizations.of(context)!.edit,
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.edit, size: 18),
+                                        SizedBox(width: 8),
+                                        Text('Edit Shelf'),
+                                      ],
+                                    ),
+                                  ),
+                                  PopupMenuItem(
+                                    value: AppLocalizations.of(context)!.delete,
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.delete,
+                                          size: 18,
+                                          color: Colors.red,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text('Delete Shelf'),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              Icon(
+                                shelf.isCollapsed
+                                    ? Icons.chevron_right
+                                    : Icons.chevron_left,
                                 color: isDarkBoard
                                     ? Colors.white
                                     : Colors.black,
                               ),
-                            ),
-                          ),
-                        ],
-                      )
-                    : Row(
-                        children: [
-                          _shelfAvatar(shelf.image, size: 24),
-                          SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              shelf.shelfName,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                // color: Colors.black,
-                              ),
-                            ),
-                          ),
-
-                          CircleAvatar(
-                            radius: 12,
-                            child: Text(
-                              shelf.tasks.length.toString(),
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-
-                          const SizedBox(width: 6),
-
-                          /// Burger / Kebab menu
-                          PopupMenuButton<String>(
-                            icon: Icon(
-                              Icons.more_vert, // burger icon
-                              color: isDarkBoard ? Colors.white : Colors.black,
-                              size: 20,
-                            ),
-                            onSelected: (value) {
-                              if (value == AppLocalizations.of(context)!.edit) {
-                                _editShelf(
-                                  context,
-                                  shelf,
-                                  onTaskAdded,
-                                  isDarkBoard,
-                                );
-                              } else if (value ==
-                                  AppLocalizations.of(context)!.delete) {
-                                _deleteShelf(shelf, context);
-                              }
-                            },
-                            itemBuilder: (context) => [
-                              PopupMenuItem(
-                                value: AppLocalizations.of(context)!.edit,
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.edit, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('Edit Shelf'),
-                                  ],
-                                ),
-                              ),
-                              PopupMenuItem(
-                                value: AppLocalizations.of(context)!.delete,
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.delete,
-                                      size: 18,
-                                      color: Colors.red,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text('Delete Shelf'),
-                                  ],
-                                ),
-                              ),
                             ],
                           ),
-
-                          Icon(
-                            shelf.isCollapsed
-                                ? Icons.chevron_right
-                                : Icons.chevron_left,
-                            color: isDarkBoard ? Colors.white : Colors.black,
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-
-            if (!shelf.isCollapsed)
-              Expanded(
-                child: shelf.tasks.isEmpty
-                    ? const Center(child: Text("No tasks"))
-                    : ListView.builder(
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        itemCount: shelf.tasks.length,
-                        itemBuilder: (_, i) => _TaskCard(
-                          task: shelf.tasks[i],
-                          boardIdNumb: boardId,
-                          isDarkBoard: isDarkBoard,
-                          callApi: onTaskAdded,
-                          onTap: () {
-                            print(
-                              "Open task details: ${shelf.tasks[i].taskName}",
-                            );
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => TaskDetailsPage(
-                                  taskRecId: shelf.tasks[i].recId,
-                                  bordeId: shelf.boardId,
-                                  mainAccess: true,
-                                ),
-                              ),
-                            );
-                            // Get.to(() => TaskDetailsPage(task: task));
-                          },
-                        ),
-                      ),
-              ),
-
-            if (!shelf.isCollapsed)
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: Text(AppLocalizations.of(context)!.addTask),
-                  onPressed: () async {
-                    await showAddTaskBottomSheet(
-                      context,
-                      shelfId: shelf.shelfId,
-                      boardId: boardId,
-                      onTaskAdded: onTaskAdded,
-                    );
-                  },
+                  ),
                 ),
-              ),
 
-            const SizedBox(height: 26),
-          ],
-        ),
+                if (!shelf.isCollapsed)
+                  Expanded(
+                    child: shelf.tasks.isEmpty
+                        ? const Center(child: Text("No tasks"))
+                        : ListView.builder(
+                            keyboardDismissBehavior:
+                                ScrollViewKeyboardDismissBehavior.onDrag,
+                            itemCount: shelf.tasks.length,
+                            itemBuilder: (_, i) {
+                              final task = shelf.tasks[i];
+                              return LongPressDraggable<TaskItem>(
+                                data: task,
+                                feedback: Material(
+                                  color: Colors.transparent,
+                                  child: SizedBox(
+                                    width: 280,
+                                    child: Opacity(
+                                      opacity: 0.9,
+                                      child: _TaskCard(
+                                        task: task,
+                                        boardIdNumb: boardId,
+                                        isDarkBoard: isDarkBoard,
+                                        callApi: onTaskAdded,
+                                        onTap: () {},
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                childWhenDragging: Opacity(
+                                  opacity: 0.3,
+                                  child: _TaskCard(
+                                    task: task,
+                                    boardIdNumb: boardId,
+                                    isDarkBoard: isDarkBoard,
+                                    callApi: onTaskAdded,
+                                    onTap: () {},
+                                  ),
+                                ),
+                                child: _TaskCard(
+                                  task: task,
+                                  boardIdNumb: boardId,
+                                  isDarkBoard: isDarkBoard,
+                                  callApi: onTaskAdded,
+                                  onTap: () {
+                                    /* your existing navigation */
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+
+                if (!shelf.isCollapsed)
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.add),
+                      label: Text(AppLocalizations.of(context)!.addTask),
+                      onPressed: () async {
+                        await showAddTaskBottomSheet(
+                          context,
+                          shelfId: shelf.shelfId,
+                          boardId: boardId,
+                          onTaskAdded: onTaskAdded,
+                        );
+                      },
+                    ),
+                  ),
+
+                const SizedBox(height: 26),
+              ],
+            ),
+          );
+        },
       );
     });
   }
@@ -3950,7 +4065,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
       });
     } catch (e) {
       debugPrint('Checklist error: $e');
-       isLoading.value = false;
+      isLoading.value = false;
     }
   }
 

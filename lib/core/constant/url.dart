@@ -18,7 +18,7 @@ class Urls {
   static const correncyDropdown =
       "$baseURL/api/v1/global/globalcurrency/currencyconfigurations?page=1&sort_by=CurrencyName&sort_order=desc&choosen_fields=CurrencyCode%2CCurrencyName%2CCurrencySymbol";
   static const geconfigureField =
-      "$baseURL/api/v1/masters/fieldmanagement/customfields/expensefieldconfigurations?filter_query=STPFieldConfigurations.FunctionalEntity__eq%3DExpenseRequisition&page=1&sort_order=desc&choosen_fields=FieldId%2CFieldName%2CIsEnabled%2CIsMandatory%2CFunctionalArea%2CRecId&lock_id=123&screen_name=expenseconfigure";
+      "$baseURL/api/v1/masters/fieldmanagement/customfields/expensefieldconfigurations?page=1&sort_order=asc";
       static const geconfigureFieldLeave =
       "$baseURL/api/v1/masters/fieldmanagement/customfields/leavefieldconfigurations?filter_query=STPFieldConfigurations.FunctionalEntity__eq%3DLeaveRequisition&page=1&sort_order=desc&choosen_fields=FieldId%2CFieldName%2CIsEnabled%2CIsMandatory%2CFunctionalArea%2CRecId";
   static const geconfigureFieldCashAdvance =
