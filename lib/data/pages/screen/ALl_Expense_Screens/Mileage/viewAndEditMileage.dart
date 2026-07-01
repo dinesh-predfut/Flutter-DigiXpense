@@ -27,13 +27,13 @@ class MileageDetailsPage extends StatefulWidget {
 class _MileageDetailsPageState extends State<MileageDetailsPage> {
   bool isEditMode = false;
   bool isLoadingGE2 = false;
-List<VehicleType> vehicleTypes = [];
-VehicleType? selectedVehicleType;
+  List<VehicleType> vehicleTypes = [];
+  VehicleType? selectedVehicleType;
   late Future<List<ExpenseHistory>> historyFuture;
 
-double calculatedAmountINR = 0;
-double calculatedAmountUSD = 0;
-double totalDistanceKm = 0;
+  double calculatedAmountINR = 0;
+  double calculatedAmountUSD = 0;
+  double totalDistanceKm = 0;
   late GoogleMapController _mapController;
   final controller = Get.find<Controller>();
 
@@ -48,14 +48,14 @@ double totalDistanceKm = 0;
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
 
-  final String googleApiKey = 'AIzaSyDRILJyIU6u6pII7EEP5_n7BQwYZLWr8E0';
+  final String googleApiKey = 'AIzaSyD0dYBiMSRBfj4cM89QDDx2negmyGRtMPE';
 
   @override
   void initState() {
     super.initState();
     if (widget.mileageId != null) {
       final expense = widget.mileageId!;
-        historyFuture = controller.fetchExpenseHistory(widget.mileageId!.recId);
+      historyFuture = controller.fetchExpenseHistory(widget.mileageId!.recId);
 
       // Set basic fields
       expenseId.text = expense.expenseId;
@@ -72,14 +72,15 @@ double totalDistanceKm = 0;
         isRoundTrip = firstFrom == lastTo;
       }
 
-     
-    totalDistanceKm = expense.travelPoints.fold(0.0, (sum, tp) => sum + (tp.quantity ?? 0.0));
-    totalDistance.text = totalDistanceKm.toStringAsFixed(2);
+      totalDistanceKm = expense.travelPoints.fold(
+        0.0,
+        (sum, tp) => sum + (tp.quantity ?? 0.0),
+      );
+      totalDistance.text = totalDistanceKm.toStringAsFixed(2);
 
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      fetchMileageRates(); 
-    });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        fetchMileageRates();
+      });
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _calculateAllDistances(expense.travelPoints, isRoundTrip: isRoundTrip);
@@ -94,8 +95,10 @@ double totalDistanceKm = 0;
   }
 
   // 🧮 Calculate route with dynamic points
-  Future<void> _calculateAllDistances(List<TravelPoint> travelPoints,
-      {required bool isRoundTrip}) async {
+  Future<void> _calculateAllDistances(
+    List<TravelPoint> travelPoints, {
+    required bool isRoundTrip,
+  }) async {
     if (travelPoints.isEmpty || !mounted) return;
 
     _markers.clear();
@@ -123,10 +126,14 @@ double totalDistanceKm = 0;
         List<Location> endLoc = await locationFromAddress(endAddress);
         if (!mounted || endLoc.isEmpty) continue;
 
-        LatLng startLatLng =
-            LatLng(startLoc.first.latitude, startLoc.first.longitude);
-        LatLng endLatLng =
-            LatLng(endLoc.first.latitude, endLoc.first.longitude);
+        LatLng startLatLng = LatLng(
+          startLoc.first.latitude,
+          startLoc.first.longitude,
+        );
+        LatLng endLatLng = LatLng(
+          endLoc.first.latitude,
+          endLoc.first.longitude,
+        );
 
         // 🔤 Marker labels: A, B, C...
         String startLabel = String.fromCharCode(65 + i);
@@ -136,28 +143,39 @@ double totalDistanceKm = 0;
         BitmapDescriptor endIcon = await createMarkerWithLabel(endLabel);
 
         // Add start marker
-        _markers.add(Marker(
-          markerId: MarkerId('start_$i'),
-          position: startLatLng,
-          infoWindow:
-              InfoWindow(title: 'Point $startLabel', snippet: startAddress),
-          icon: startIcon,
-        ));
+        _markers.add(
+          Marker(
+            markerId: MarkerId('start_$i'),
+            position: startLatLng,
+            infoWindow: InfoWindow(
+              title: 'Point $startLabel',
+              snippet: startAddress,
+            ),
+            icon: startIcon,
+          ),
+        );
 
         // Add end marker only once
         if (!_markers.any((m) => m.markerId == MarkerId('marker_${i + 1}'))) {
-          _markers.add(Marker(
-            markerId: MarkerId('marker_${i + 1}'),
-            position: endLatLng,
-            infoWindow:
-                InfoWindow(title: 'Point $endLabel', snippet: endAddress),
-            icon: endIcon,
-          ));
+          _markers.add(
+            Marker(
+              markerId: MarkerId('marker_${i + 1}'),
+              position: endLatLng,
+              infoWindow: InfoWindow(
+                title: 'Point $endLabel',
+                snippet: endAddress,
+              ),
+              icon: endIcon,
+            ),
+          );
         }
 
         // 🛣️ Draw polyline
-        double distanceKm =
-            await _fetchRoutePolyline(startLatLng, endLatLng, i);
+        double distanceKm = await _fetchRoutePolyline(
+          startLatLng,
+          endLatLng,
+          i,
+        );
         totalKm += distanceKm;
       } catch (e) {
         print("Error in segment $i: $e");
@@ -174,81 +192,93 @@ double totalDistanceKm = 0;
       _adjustCameraBounds(locations);
     }
   }
-Future<void> fetchMileageRates() async {
-  setState(() {
-    isLoadingGE2 = true;
-  });
 
-  final dateToUse = DateTime.now(); // Use receipt date if available
-  final formatted = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(dateToUse);
-  final fromDate = (toMillisecondsWithTimezone(DateTime.parse(formatted)) / 1000).floor();
-
-  try {
-    final response = await http.get(
-      Uri.parse('${Urls.empmileagevehicledetails}${Params.employeeId}&ReceiptDate=$fromDate'),
-      headers: {
-        "Authorization": 'Bearer ${Params.userToken ?? ''}',
-        "Content-Type": "application/json",
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body) as List;
-      vehicleTypes = data.map((item) => VehicleType.fromJson(item)).toList();
-
-      // Find the vehicle used in the expense
-      final expense = widget.mileageId!;
-      final vehicleName = expense.vehicalType;
-
-      selectedVehicleType =
-          vehicleTypes.firstWhere((v) => v.name == vehicleName, orElse: () => vehicleTypes.first);
-
-      // Now calculate amount
-      calculateAmount();
-
-      setState(() {
-        isLoadingGE2 = false;
-      });
-    } else {
-      print("API Error: ${response.statusCode}");
-      setState(() {
-        isLoadingGE2 = false;
-      });
-    }
-  } catch (e) {
-    print("Fetch Mileage Rates Error: $e");
+  Future<void> fetchMileageRates() async {
     setState(() {
-      isLoadingGE2 = false;
+      isLoadingGE2 = true;
     });
-  }
-}
-void calculateAmount() {
-  if (selectedVehicleType == null || totalDistanceKm <= 0) {
-    calculatedAmountINR = 0;
-    calculatedAmountUSD = 0;
-    return;
-  }
 
-  double ratePerKm = 0;
+    final dateToUse = DateTime.now(); // Use receipt date if available
+    final formatted = DateFormat(
+      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateToUse);
+    final fromDate =
+        (toMillisecondsWithTimezone(DateTime.parse(formatted)) / 1000).floor();
 
-  for (var rate in selectedVehicleType!.mileageRateLines) {
-    if ((rate.maximumDistances == 0 && totalDistanceKm >= rate.minimumDistances) ||
-        (totalDistanceKm >= rate.minimumDistances && totalDistanceKm <= rate.maximumDistances)) {
-      ratePerKm = rate.mileageRate;
-      break;
+    try {
+      final response = await http.get(
+        Uri.parse(
+          '${Urls.empmileagevehicledetails}${Params.employeeId}&ReceiptDate=$fromDate',
+        ),
+        headers: {
+          "Authorization": 'Bearer ${Params.userToken ?? ''}',
+          "Content-Type": "application/json",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as List;
+        vehicleTypes = data.map((item) => VehicleType.fromJson(item)).toList();
+
+        // Find the vehicle used in the expense
+        final expense = widget.mileageId!;
+        final vehicleName = expense.vehicalType;
+
+        selectedVehicleType = vehicleTypes.firstWhere(
+          (v) => v.name == vehicleName,
+          orElse: () => vehicleTypes.first,
+        );
+
+        // Now calculate amount
+        calculateAmount();
+
+        setState(() {
+          isLoadingGE2 = false;
+        });
+      } else {
+        print("API Error: ${response.statusCode}");
+        setState(() {
+          isLoadingGE2 = false;
+        });
+      }
+    } catch (e) {
+      print("Fetch Mileage Rates Error: $e");
+      setState(() {
+        isLoadingGE2 = false;
+      });
     }
   }
 
-  calculatedAmountINR = totalDistanceKm * ratePerKm;
-  calculatedAmountUSD = calculatedAmountINR / 80; // Approx INR to USD
+  void calculateAmount() {
+    if (selectedVehicleType == null || totalDistanceKm <= 0) {
+      calculatedAmountINR = 0;
+      calculatedAmountUSD = 0;
+      return;
+    }
 
-  // Update text controllers
-  totalAmount.text = calculatedAmountINR.toStringAsFixed(2);
+    double ratePerKm = 0;
 
-  print("Rate per KM: $ratePerKm");
-  print("Total Distance: $totalDistanceKm km");
-  print("Total Amount (INR): ₹$calculatedAmountINR");
-}
+    for (var rate in selectedVehicleType!.mileageRateLines) {
+      if ((rate.maximumDistances == 0 &&
+              totalDistanceKm >= rate.minimumDistances) ||
+          (totalDistanceKm >= rate.minimumDistances &&
+              totalDistanceKm <= rate.maximumDistances)) {
+        ratePerKm = rate.mileageRate;
+        break;
+      }
+    }
+
+    calculatedAmountINR = totalDistanceKm * ratePerKm;
+    calculatedAmountUSD = calculatedAmountINR / 80; // Approx INR to USD
+
+    // Update text controllers
+    totalAmount.text = calculatedAmountINR.toStringAsFixed(2);
+
+    print("Rate per KM: $ratePerKm");
+    print("Total Distance: $totalDistanceKm km");
+    print("Total Amount (INR): ₹$calculatedAmountINR");
+  }
+
   // 📍 Geocode address
   Future<List<Location>> locationFromAddress(String address) async {
     final url = Uri.parse(
@@ -269,7 +299,7 @@ void calculateAmount() {
                 latitude: lat.toDouble(),
                 longitude: lng.toDouble(),
                 timestamp: DateTime.now(),
-              )
+              ),
             ];
           }
         }
@@ -282,7 +312,10 @@ void calculateAmount() {
 
   // 🛣️ Fetch route polyline
   Future<double> _fetchRoutePolyline(
-      LatLng start, LatLng end, int index) async {
+    LatLng start,
+    LatLng end,
+    int index,
+  ) async {
     final url = Uri.parse(
       'https://maps.googleapis.com/maps/api/directions/json?'
       'origin=${start.latitude},${start.longitude}'
@@ -293,17 +326,20 @@ void calculateAmount() {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       if (data['routes'].isNotEmpty) {
-        final points =
-            _decodePolyline(data['routes'][0]['overview_polyline']['points']);
+        final points = _decodePolyline(
+          data['routes'][0]['overview_polyline']['points'],
+        );
         final distanceInMeters =
             data['routes'][0]['legs'][0]['distance']['value'];
 
-        _polylines.add(Polyline(
-          polylineId: PolylineId('route_$index'),
-          color: Colors.blue,
-          width: 5,
-          points: points,
-        ));
+        _polylines.add(
+          Polyline(
+            polylineId: PolylineId('route_$index'),
+            color: Colors.blue,
+            width: 5,
+            points: points,
+          ),
+        );
 
         return distanceInMeters / 1000; // km
       }
@@ -313,8 +349,11 @@ void calculateAmount() {
 
   // 🔤 Create custom marker with label (A, B, C)
   Future<BitmapDescriptor> createMarkerWithLabel(String label) async {
-    final icon =
-        await _createIcon(label, const Size(40, 40), const Color(0xFF7B61FF));
+    final icon = await _createIcon(
+      label,
+      const Size(40, 40),
+      const Color(0xFF7B61FF),
+    );
     final byteData = await icon.toByteData(format: ui.ImageByteFormat.png);
     return BitmapDescriptor.fromBytes(byteData!.buffer.asUint8List());
   }
@@ -324,7 +363,10 @@ void calculateAmount() {
     final canvas = Canvas(recorder);
     final paint = Paint()..color = color;
     final textStyle = ui.TextStyle(
-        color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold);
+      color: Colors.white,
+      fontSize: 16,
+      fontWeight: FontWeight.bold,
+    );
     final paragraphStyle = ui.ParagraphStyle(textAlign: TextAlign.center);
     final builder = ui.ParagraphBuilder(paragraphStyle)
       ..pushStyle(textStyle)
@@ -332,14 +374,21 @@ void calculateAmount() {
     final paragraph = builder.build();
     paragraph.layout(const ui.ParagraphConstraints(width: 40));
     canvas.drawCircle(
-        Offset(size.width / 2, size.height / 2), size.width / 2, paint);
+      Offset(size.width / 2, size.height / 2),
+      size.width / 2,
+      paint,
+    );
     canvas.drawParagraph(
-        paragraph,
-        Offset((size.width - paragraph.maxIntrinsicWidth) / 2,
-            (size.height - paragraph.height) / 2));
-    final img = await recorder
-        .endRecording()
-        .toImage(size.width.toInt(), size.height.toInt());
+      paragraph,
+      Offset(
+        (size.width - paragraph.maxIntrinsicWidth) / 2,
+        (size.height - paragraph.height) / 2,
+      ),
+    );
+    final img = await recorder.endRecording().toImage(
+      size.width.toInt(),
+      size.height.toInt(),
+    );
     return img;
   }
 
@@ -355,14 +404,18 @@ void calculateAmount() {
     if (latLngs.isEmpty) return;
 
     LatLngBounds bounds = LatLngBounds(
-      southwest: latLngs.reduce((a, b) => LatLng(
-            a.latitude < b.latitude ? a.latitude : b.latitude,
-            a.longitude < b.longitude ? a.longitude : b.longitude,
-          )),
-      northeast: latLngs.reduce((a, b) => LatLng(
-            a.latitude > b.latitude ? a.latitude : b.latitude,
-            a.longitude > b.longitude ? a.longitude : b.longitude,
-          )),
+      southwest: latLngs.reduce(
+        (a, b) => LatLng(
+          a.latitude < b.latitude ? a.latitude : b.latitude,
+          a.longitude < b.longitude ? a.longitude : b.longitude,
+        ),
+      ),
+      northeast: latLngs.reduce(
+        (a, b) => LatLng(
+          a.latitude > b.latitude ? a.latitude : b.latitude,
+          a.longitude > b.longitude ? a.longitude : b.longitude,
+        ),
+      ),
     );
 
     try {
@@ -414,7 +467,8 @@ void calculateAmount() {
     if (expense == null) return const Center(child: Text('No data'));
 
     // 🔁 Is round trip?
-    final isRoundTrip = expense.travelPoints.isNotEmpty &&
+    final isRoundTrip =
+        expense.travelPoints.isNotEmpty &&
         expense.travelPoints.first.fromLocation ==
             expense.travelPoints.last.toLocation;
 
@@ -441,8 +495,9 @@ void calculateAmount() {
       body: Column(
         children: [
           ClipRRect(
-            borderRadius:
-                const BorderRadius.vertical(bottom: Radius.circular(15)),
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(15),
+            ),
             child: SizedBox(
               height: 250,
               child: GoogleMap(
@@ -476,83 +531,95 @@ void calculateAmount() {
 
                   // 🟢 Always show Start Trip
                   _textField(
-                      'Start Trip', TextEditingController(text: startLoc),
-                      readOnly: true),
+                    'Start Trip',
+                    TextEditingController(text: startLoc),
+                    readOnly: true,
+                  ),
 
                   // 🟡 Show Stop Points only if not round trip and has intermediate points
                   if (!isRoundTrip && expense.travelPoints.length > 2)
                     ...List.generate(expense.travelPoints.length - 2, (index) {
                       final stopLoc =
                           expense.travelPoints[index + 1].fromLocation;
-                      return _textField('Stopping Point ${index + 1}',
-                          TextEditingController(text: stopLoc),
-                          readOnly: true);
+                      return _textField(
+                        'Stopping Point ${index + 1}',
+                        TextEditingController(text: stopLoc),
+                        readOnly: true,
+                      );
                     }),
 
                   // 🔴 Show End Trip
-                  _textField('End Trip', TextEditingController(text: endLoc),
-                      readOnly: true),
-                  _textField('Total Distance in Km',
-                      TextEditingController(text: totalDistance.text),
-                      readOnly: true),
-                  _textField('Total Amount in INR',
-                      TextEditingController(text: totalAmount.text),
-                      readOnly: true),
-                  _textField('Total Amount in INR',
-                      TextEditingController(text: totalAmount.text),
-                      readOnly: true),
+                  _textField(
+                    'End Trip',
+                    TextEditingController(text: endLoc),
+                    readOnly: true,
+                  ),
+                  _textField(
+                    'Total Distance in Km',
+                    TextEditingController(text: totalDistance.text),
+                    readOnly: true,
+                  ),
+                  _textField(
+                    'Total Amount in INR',
+                    TextEditingController(text: totalAmount.text),
+                    readOnly: true,
+                  ),
+                  _textField(
+                    'Total Amount in INR',
+                    TextEditingController(text: totalAmount.text),
+                    readOnly: true,
+                  ),
+
                   // 💵 Totals
-
                   const SizedBox(height: 16),
-                   _buildSection(
-                title: "Tracking History",
-                children: [
-                  const SizedBox(height: 12),
-                  FutureBuilder<List<ExpenseHistory>>(
-                    future: historyFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
+                  _buildSection(
+                    title: "Tracking History",
+                    children: [
+                      const SizedBox(height: 12),
+                      FutureBuilder<List<ExpenseHistory>>(
+                        future: historyFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
 
-                        if (snapshot.hasError) {
-                                          return Center(
-                                            child: Text(
-                                              "No Data Available",
-                                            ),
-                                          );
-                                        }
+                          if (snapshot.hasError) {
+                            return Center(child: Text("No Data Available"));
+                          }
 
-                      final historyList = snapshot.data!;
-                      if (historyList.isEmpty) {
-                        return const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Text(
-                              'The expense does not have a history. Please consider submitting it for approval.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ),
-                        );
-                      }
-                      return ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: historyList.length,
-                        itemBuilder: (context, index) {
-                          final item = historyList[index];
-                          print("Trackingitem: $item");
-                          return _buildTimelineItem(
-                            item,
-                            index == historyList.length - 1,
+                          final historyList = snapshot.data!;
+                          if (historyList.isEmpty) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Text(
+                                  'The expense does not have a history. Please consider submitting it for approval.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              ),
+                            );
+                          }
+                          return ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: historyList.length,
+                            itemBuilder: (context, index) {
+                              final item = historyList[index];
+                              print("Trackingitem: $item");
+                              return _buildTimelineItem(
+                                item,
+                                index == historyList.length - 1,
+                              );
+                            },
                           );
                         },
-                      );
-                    },
+                      ),
+                    ],
                   ),
-                ],
-              ),
                   const SizedBox(height: 16),
 
                   Row(
@@ -578,7 +645,8 @@ void calculateAmount() {
       ),
     );
   }
-Widget _buildSection({
+
+  Widget _buildSection({
     required String title,
     required List<Widget> children,
   }) {
@@ -588,8 +656,9 @@ Widget _buildSection({
         width: double.infinity,
         child: Card(
           elevation: 0,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: ExpansionTile(
             title: Text(
               title,
@@ -604,10 +673,13 @@ Widget _buildSection({
             textColor: Colors.deepPurple,
             iconColor: Colors.deepPurple,
             collapsedIconColor: Colors.grey,
-            childrenPadding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            childrenPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 6,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             children: children,
           ),
         ),
@@ -616,8 +688,12 @@ Widget _buildSection({
   }
 
   Widget buildTextField(
-      String label, TextEditingController controller, bool? bool,
-      {int maxLines = 1, Widget? suffix}) {
+    String label,
+    TextEditingController controller,
+    bool? bool, {
+    int maxLines = 1,
+    Widget? suffix,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: TextField(
@@ -636,8 +712,12 @@ Widget _buildSection({
       ),
     );
   }
-  Widget _textField(String label, TextEditingController controller,
-      {bool readOnly = true}) {
+
+  Widget _textField(
+    String label,
+    TextEditingController controller, {
+    bool readOnly = true,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextField(
@@ -674,7 +754,8 @@ Widget _buildSection({
       ),
     );
   }
-Widget _buildTimelineItem(ExpenseHistory item, bool isLast) {
+
+  Widget _buildTimelineItem(ExpenseHistory item, bool isLast) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -694,8 +775,10 @@ Widget _buildTimelineItem(ExpenseHistory item, bool isLast) {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.eventType,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    item.eventType,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
                   Text(item.notes),
                   const SizedBox(height: 6),
@@ -707,7 +790,7 @@ Widget _buildTimelineItem(ExpenseHistory item, bool isLast) {
               ),
             ),
           ),
-        )
+        ),
       ],
     );
   }

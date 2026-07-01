@@ -31,8 +31,7 @@ class HubMileageSecondFrom extends StatefulWidget {
     : super(key: key);
 
   @override
-  State<HubMileageSecondFrom> createState() =>
-      _HubMileageSecondFromState();
+  State<HubMileageSecondFrom> createState() => _HubMileageSecondFromState();
 }
 
 class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
@@ -54,7 +53,7 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
   Timer? _debounce;
 
   final String googleApiKey =
-      'AIzaSyDRILJyIU6u6pII7EEP5_n7BQwYZLWr8E0'; // Replace with your API key
+      'AIzaSyD0dYBiMSRBfj4cM89QDDx2negmyGRtMPE'; // Replace with your API key
   @override
   void initState() {
     super.initState();
@@ -184,7 +183,7 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
   Future<Location?> getCoordinatesFromAddress(String address) async {
     final encoded = Uri.encodeComponent(address);
     const String apiKey =
-        'AIzaSyDRILJyIU6u6pII7EEP5_n7BQwYZLWr8E0'; // 🔑 Replace this
+        'AIzaSyD0dYBiMSRBfj4cM89QDDx2negmyGRtMPE'; // 🔑 Replace this
     final url = Uri.parse(
       'https://maps.googleapis.com/maps/api/geocode/json?address=$encoded&key=$apiKey',
     );
@@ -579,7 +578,7 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
       child: Scaffold(
         resizeToAvoidBottomInset: true,
         backgroundColor: const Color(0xFFF2F2F2),
-        
+
         body: Column(
           children: [
             // Header Section (Auto Height)
@@ -944,8 +943,8 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
                                   child: _infoCardButton(
                                     title:
                                         '${AppLocalizations.of(context)!.totalAmountIN} ${controller.selectedCurrencyMileage.value}',
-                                    value: controller.calculatedAmountINR.toStringAsFixed(0)
-                                        ,
+                                    value: controller.calculatedAmountINR
+                                        .toStringAsFixed(0),
                                     onTap: () {},
                                   ),
                                 ),
@@ -1091,249 +1090,61 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
                       ),
                     ),
                   ),
-              
-                  
-                    // APPROVAL SECTION
-                  
-if (widget.mileageId != null) ...[
-                      Positioned(
-                        left: 16,
-                        right: 16,
-                        bottom: MediaQuery.of(context).viewInsets.bottom,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Submit Button
 
-                            // REVIEW SECTION
-                            if (widget.mileageId!.stepType == "Review")
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  // 🔵 Row 1: Update & Accept + Update
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Obx(() {
-                                          final isLoadingAccept =
-                                              controller
-                                                  .buttonLoaders['update_accept'] ??
-                                              false;
-                                          final isAnyLoading = controller
-                                              .buttonLoaders
-                                              .values
-                                              .any(
-                                                (loading) => loading == true,
-                                              );
+                  // APPROVAL SECTION
+                  if (widget.mileageId != null) ...[
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: MediaQuery.of(context).viewInsets.bottom,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Submit Button
 
-                                          return SizedBox(
-                                            height:
-                                                40, // 👈 Fix uniform button height
-                                            child: ElevatedButton(
-                                              onPressed:
-                                                  (isLoadingAccept ||
-                                                      isAnyLoading)
-                                                  ? null
-                                                  : () async {
-                                                      controller
-                                                          .setButtonLoading(
-                                                            'update_accept',
-                                                            true,
-                                                          );
-                                                      try {
-                                                        await controller
-                                                            .hubreviewMileageRegistration(
-                                                              context,
-                                                              true,
-                                                              workitemrecid,
-                                                            );
-                                                      } finally {
-                                                        controller
-                                                            .setButtonLoading(
-                                                              'update_accept',
-                                                              false,
-                                                            );
-                                                      }
-                                                    },
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor:
-                                                    const Color.fromARGB(
-                                                      255,
-                                                      3,
-                                                      20,
-                                                      117,
-                                                    ),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                    ),
-                                              ),
-                                              child: isLoadingAccept
-                                                  ? const SizedBox(
-                                                      width: 18,
-                                                      height: 18,
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                            color: Colors.white,
-                                                            strokeWidth: 2,
-                                                          ),
-                                                    )
-                                                  : FittedBox(
-                                                      fit: BoxFit.scaleDown,
-                                                      child: Text(
-                                                        AppLocalizations.of(
-                                                          context,
-                                                        )!.updateAndAccept,
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: const TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 12,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    ),
-                                            ),
-                                          );
-                                        }),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Obx(() {
-                                          final isLoadingUpdate =
-                                              controller
-                                                  .buttonLoaders['update_review'] ??
-                                              false;
-                                          final isAnyLoading = controller
-                                              .buttonLoaders
-                                              .values
-                                              .any(
-                                                (loading) => loading == true,
-                                              );
+                          // REVIEW SECTION
+                          if (widget.mileageId!.stepType == "Review")
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // 🔵 Row 1: Update & Accept + Update
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Obx(() {
+                                        final isLoadingAccept =
+                                            controller
+                                                .buttonLoaders['update_accept'] ??
+                                            false;
+                                        final isAnyLoading = controller
+                                            .buttonLoaders
+                                            .values
+                                            .any((loading) => loading == true);
 
-                                          return SizedBox(
-                                            height:
-                                                40, // 👈 Same height for both
-                                            child: ElevatedButton(
-                                              onPressed:
-                                                  (isLoadingUpdate ||
-                                                      isAnyLoading)
-                                                  ? null
-                                                  : () async {
-                                                      controller
-                                                          .setButtonLoading(
-                                                            'update_review',
-                                                            true,
-                                                          );
-                                                      try {
-                                                        await controller
-                                                            .hubreviewMileageRegistration(
-                                                              context,
-                                                              false,
-                                                              workitemrecid,
-                                                            );
-                                                      } finally {
-                                                        controller
-                                                            .setButtonLoading(
-                                                              'update_review',
-                                                              false,
-                                                            );
-                                                      }
-                                                    },
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor:
-                                                    const Color.fromARGB(
-                                                      255,
-                                                      3,
-                                                      20,
-                                                      117,
-                                                    ),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                    ),
-                                              ),
-                                              child: isLoadingUpdate
-                                                  ? const SizedBox(
-                                                      width: 18,
-                                                      height: 18,
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                            color: Colors.white,
-                                                            strokeWidth: 2,
-                                                          ),
-                                                    )
-                                                  : FittedBox(
-                                                      fit: BoxFit.scaleDown,
-                                                      child: Text(
-                                                        AppLocalizations.of(
-                                                          context,
-                                                        )!.update,
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: const TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 12,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    ),
-                                            ),
-                                          );
-                                        }),
-                                      ),
-                                    ],
-                                  ),
-
-                                  const SizedBox(height: 12),
-
-                                  // 🔴 Row 2: Reject + Close
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Obx(() {
-                                          final isLoadingReject =
-                                              controller
-                                                  .buttonLoaders['reject_review'] ??
-                                              false;
-                                          final isAnyLoading = controller
-                                              .buttonLoaders
-                                              .values
-                                              .any(
-                                                (loading) => loading == true,
-                                              );
-
-                                          return ElevatedButton(
+                                        return SizedBox(
+                                          height:
+                                              40, // 👈 Fix uniform button height
+                                          child: ElevatedButton(
                                             onPressed:
-                                                (isLoadingReject ||
+                                                (isLoadingAccept ||
                                                     isAnyLoading)
                                                 ? null
                                                 : () async {
                                                     controller.setButtonLoading(
-                                                      'reject_review',
+                                                      'update_accept',
                                                       true,
                                                     );
                                                     try {
-                                                      showActionPopup(
-                                                        context,
-                                                        "Reject",
-                                                      );
+                                                      await controller
+                                                          .hubreviewMileageRegistration(
+                                                            context,
+                                                            true,
+                                                            workitemrecid,
+                                                          );
                                                     } finally {
                                                       controller
                                                           .setButtonLoading(
-                                                            'reject_review',
+                                                            'update_accept',
                                                             false,
                                                           );
                                                     }
@@ -1342,329 +1153,493 @@ if (widget.mileageId != null) ...[
                                               backgroundColor:
                                                   const Color.fromARGB(
                                                     255,
-                                                    238,
+                                                    3,
                                                     20,
-                                                    20,
+                                                    117,
+                                                  ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
                                                   ),
                                             ),
-                                            child: isLoadingReject
-                                                ? const CircularProgressIndicator(
-                                                    color: Colors.white,
-                                                    strokeWidth: 2,
+                                            child: isLoadingAccept
+                                                ? const SizedBox(
+                                                    width: 18,
+                                                    height: 18,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          color: Colors.white,
+                                                          strokeWidth: 2,
+                                                        ),
                                                   )
-                                                : Text(
-                                                    AppLocalizations.of(
-                                                      context,
-                                                    )!.reject,
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 12,
+                                                : FittedBox(
+                                                    fit: BoxFit.scaleDown,
+                                                    child: Text(
+                                                      AppLocalizations.of(
+                                                        context,
+                                                      )!.updateAndAccept,
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
                                                     ),
                                                   ),
-                                          );
-                                        }),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Obx(() {
-                                          final isLoadingClose =
-                                              controller
-                                                  .buttonLoaders['close_review'] ??
-                                              false;
-                                          final isAnyLoading = controller
-                                              .buttonLoaders
-                                              .values
-                                              .any(
-                                                (loading) => loading == true,
-                                              );
+                                          ),
+                                        );
+                                      }),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Obx(() {
+                                        final isLoadingUpdate =
+                                            controller
+                                                .buttonLoaders['update_review'] ??
+                                            false;
+                                        final isAnyLoading = controller
+                                            .buttonLoaders
+                                            .values
+                                            .any((loading) => loading == true);
 
-                                          return ElevatedButton(
+                                        return SizedBox(
+                                          height: 40, // 👈 Same height for both
+                                          child: ElevatedButton(
                                             onPressed:
-                                                (isLoadingClose || isAnyLoading)
+                                                (isLoadingUpdate ||
+                                                    isAnyLoading)
                                                 ? null
                                                 : () async {
                                                     controller.setButtonLoading(
-                                                      'close_review',
+                                                      'update_review',
                                                       true,
                                                     );
                                                     try {
-                                                      controller
-                                                          .skipCurrentItem(
-                                                            widget
-                                                                .mileageId!
-                                                                .workitemRecId!,
+                                                      await controller
+                                                          .hubreviewMileageRegistration(
                                                             context,
+                                                            false,
+                                                            workitemrecid,
                                                           );
                                                     } finally {
                                                       controller
                                                           .setButtonLoading(
-                                                            'close_review',
+                                                            'update_review',
                                                             false,
                                                           );
                                                     }
                                                   },
                                             style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.grey,
+                                              backgroundColor:
+                                                  const Color.fromARGB(
+                                                    255,
+                                                    3,
+                                                    20,
+                                                    117,
+                                                  ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                  ),
                                             ),
-                                            child: isLoadingClose
-                                                ? const CircularProgressIndicator(
-                                                    color: Colors.black,
-                                                    strokeWidth: 2,
+                                            child: isLoadingUpdate
+                                                ? const SizedBox(
+                                                    width: 18,
+                                                    height: 18,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          color: Colors.white,
+                                                          strokeWidth: 2,
+                                                        ),
                                                   )
-                                                : Text(
-                                                    AppLocalizations.of(
-                                                      context,
-                                                    )!.skip,
-                                                    style: const TextStyle(
-                                                      color: Colors.black,
-                                                      fontSize: 12,
+                                                : FittedBox(
+                                                    fit: BoxFit.scaleDown,
+                                                    child: Text(
+                                                      AppLocalizations.of(
+                                                        context,
+                                                      )!.update,
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
                                                     ),
                                                   ),
-                                          );
-                                        }),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                                          ),
+                                        );
+                                      }),
+                                    ),
+                                  ],
+                                ),
 
-                            // APPROVAL SECTION
-                            if (widget.mileageId!.stepType == "Approval")
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Obx(() {
-                                          final isLoading =
-                                              controller
-                                                  .buttonLoaders['approve'] ??
-                                              false;
-                                          return ElevatedButton(
-                                            onPressed: isLoading
-                                                ? null
-                                                : () async {
+                                const SizedBox(height: 12),
+
+                                // 🔴 Row 2: Reject + Close
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Obx(() {
+                                        final isLoadingReject =
+                                            controller
+                                                .buttonLoaders['reject_review'] ??
+                                            false;
+                                        final isAnyLoading = controller
+                                            .buttonLoaders
+                                            .values
+                                            .any((loading) => loading == true);
+
+                                        return ElevatedButton(
+                                          onPressed:
+                                              (isLoadingReject || isAnyLoading)
+                                              ? null
+                                              : () async {
+                                                  controller.setButtonLoading(
+                                                    'reject_review',
+                                                    true,
+                                                  );
+                                                  try {
+                                                    showActionPopup(
+                                                      context,
+                                                      "Reject",
+                                                    );
+                                                  } finally {
+                                                    controller.setButtonLoading(
+                                                      'reject_review',
+                                                      false,
+                                                    );
+                                                  }
+                                                },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                const Color.fromARGB(
+                                                  255,
+                                                  238,
+                                                  20,
+                                                  20,
+                                                ),
+                                          ),
+                                          child: isLoadingReject
+                                              ? const CircularProgressIndicator(
+                                                  color: Colors.white,
+                                                  strokeWidth: 2,
+                                                )
+                                              : Text(
+                                                  AppLocalizations.of(
+                                                    context,
+                                                  )!.reject,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                        );
+                                      }),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Obx(() {
+                                        final isLoadingClose =
+                                            controller
+                                                .buttonLoaders['close_review'] ??
+                                            false;
+                                        final isAnyLoading = controller
+                                            .buttonLoaders
+                                            .values
+                                            .any((loading) => loading == true);
+
+                                        return ElevatedButton(
+                                          onPressed:
+                                              (isLoadingClose || isAnyLoading)
+                                              ? null
+                                              : () async {
+                                                  controller.setButtonLoading(
+                                                    'close_review',
+                                                    true,
+                                                  );
+                                                  try {
+                                                    controller.skipCurrentItem(
+                                                      widget
+                                                          .mileageId!
+                                                          .workitemRecId!,
+                                                      context,
+                                                    );
+                                                  } finally {
+                                                    controller.setButtonLoading(
+                                                      'close_review',
+                                                      false,
+                                                    );
+                                                  }
+                                                },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.grey,
+                                          ),
+                                          child: isLoadingClose
+                                              ? const CircularProgressIndicator(
+                                                  color: Colors.black,
+                                                  strokeWidth: 2,
+                                                )
+                                              : Text(
+                                                  AppLocalizations.of(
+                                                    context,
+                                                  )!.skip,
+                                                  style: const TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                        );
+                                      }),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+
+                          // APPROVAL SECTION
+                          if (widget.mileageId!.stepType == "Approval")
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Obx(() {
+                                        final isLoading =
+                                            controller
+                                                .buttonLoaders['approve'] ??
+                                            false;
+                                        return ElevatedButton(
+                                          onPressed: isLoading
+                                              ? null
+                                              : () async {
+                                                  controller.setButtonLoading(
+                                                    'approve',
+                                                    true,
+                                                  );
+                                                  try {
+                                                    showActionPopup(
+                                                      context,
+                                                      "Approve",
+                                                    );
+                                                  } finally {
                                                     controller.setButtonLoading(
                                                       'approve',
-                                                      true,
+                                                      false,
                                                     );
-                                                    try {
-                                                      showActionPopup(
-                                                        context,
-                                                        "Approve",
-                                                      );
-                                                    } finally {
-                                                      controller
-                                                          .setButtonLoading(
-                                                            'approve',
-                                                            false,
-                                                          );
-                                                    }
-                                                  },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  const Color.fromARGB(
-                                                    255,
-                                                    30,
-                                                    117,
-                                                    3,
-                                                  ),
-                                            ),
-                                            child: isLoading
-                                                ? const CircularProgressIndicator(
+                                                  }
+                                                },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                const Color.fromARGB(
+                                                  255,
+                                                  30,
+                                                  117,
+                                                  3,
+                                                ),
+                                          ),
+                                          child: isLoading
+                                              ? const CircularProgressIndicator(
+                                                  color: Colors.white,
+                                                  strokeWidth: 2,
+                                                )
+                                              : Text(
+                                                  AppLocalizations.of(
+                                                    context,
+                                                  )!.approve,
+                                                  style: const TextStyle(
                                                     color: Colors.white,
-                                                    strokeWidth: 2,
-                                                  )
-                                                : Text(
-                                                    AppLocalizations.of(
-                                                      context,
-                                                    )!.approve,
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                    ),
                                                   ),
-                                          );
-                                        }),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Obx(() {
-                                          final isLoading =
-                                              controller
-                                                  .buttonLoaders['reject_approval'] ??
-                                              false;
-                                          return ElevatedButton(
-                                            onPressed: isLoading
-                                                ? null
-                                                : () async {
+                                                ),
+                                        );
+                                      }),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Obx(() {
+                                        final isLoading =
+                                            controller
+                                                .buttonLoaders['reject_approval'] ??
+                                            false;
+                                        return ElevatedButton(
+                                          onPressed: isLoading
+                                              ? null
+                                              : () async {
+                                                  controller.setButtonLoading(
+                                                    'reject_approval',
+                                                    true,
+                                                  );
+                                                  try {
+                                                    showActionPopup(
+                                                      context,
+                                                      "Reject",
+                                                    );
+                                                  } finally {
                                                     controller.setButtonLoading(
                                                       'reject_approval',
-                                                      true,
+                                                      false,
                                                     );
-                                                    try {
-                                                      showActionPopup(
-                                                        context,
-                                                        "Reject",
-                                                      );
-                                                    } finally {
-                                                      controller
-                                                          .setButtonLoading(
-                                                            'reject_approval',
-                                                            false,
-                                                          );
-                                                    }
-                                                  },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  const Color.fromARGB(
-                                                    255,
-                                                    238,
-                                                    20,
-                                                    20,
-                                                  ),
-                                            ),
-                                            child: isLoading
-                                                ? const CircularProgressIndicator(
+                                                  }
+                                                },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                const Color.fromARGB(
+                                                  255,
+                                                  238,
+                                                  20,
+                                                  20,
+                                                ),
+                                          ),
+                                          child: isLoading
+                                              ? const CircularProgressIndicator(
+                                                  color: Colors.white,
+                                                  strokeWidth: 2,
+                                                )
+                                              : Text(
+                                                  AppLocalizations.of(
+                                                    context,
+                                                  )!.reject,
+                                                  style: const TextStyle(
                                                     color: Colors.white,
-                                                    strokeWidth: 2,
-                                                  )
-                                                : Text(
-                                                    AppLocalizations.of(
-                                                      context,
-                                                    )!.reject,
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                    ),
                                                   ),
-                                          );
-                                        }),
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Obx(() {
-                                          final isLoading =
-                                              controller
-                                                  .buttonLoaders['escalate'] ??
-                                              false;
-                                          return ElevatedButton(
-                                            onPressed: isLoading
-                                                ? null
-                                                : () async {
+                                                ),
+                                        );
+                                      }),
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Obx(() {
+                                        final isLoading =
+                                            controller
+                                                .buttonLoaders['escalate'] ??
+                                            false;
+                                        return ElevatedButton(
+                                          onPressed: isLoading
+                                              ? null
+                                              : () async {
+                                                  controller.setButtonLoading(
+                                                    'escalate',
+                                                    true,
+                                                  );
+                                                  try {
+                                                    showActionPopup(
+                                                      context,
+                                                      "Escalate",
+                                                    );
+                                                  } finally {
                                                     controller.setButtonLoading(
                                                       'escalate',
-                                                      true,
+                                                      false,
                                                     );
-                                                    try {
-                                                      showActionPopup(
-                                                        context,
-                                                        "Escalate",
-                                                      );
-                                                    } finally {
-                                                      controller
-                                                          .setButtonLoading(
-                                                            'escalate',
-                                                            false,
-                                                          );
-                                                    }
-                                                  },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  const Color.fromARGB(
-                                                    255,
-                                                    3,
-                                                    20,
-                                                    117,
-                                                  ),
-                                            ),
-                                            child: isLoading
-                                                ? const CircularProgressIndicator(
+                                                  }
+                                                },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                const Color.fromARGB(
+                                                  255,
+                                                  3,
+                                                  20,
+                                                  117,
+                                                ),
+                                          ),
+                                          child: isLoading
+                                              ? const CircularProgressIndicator(
+                                                  color: Colors.white,
+                                                  strokeWidth: 2,
+                                                )
+                                              : Text(
+                                                  AppLocalizations.of(
+                                                    context,
+                                                  )!.escalate,
+                                                  style: const TextStyle(
                                                     color: Colors.white,
-                                                    strokeWidth: 2,
-                                                  )
-                                                : Text(
-                                                    AppLocalizations.of(
-                                                      context,
-                                                    )!.escalate,
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                    ),
                                                   ),
-                                          );
-                                        }),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Obx(() {
-                                          final isLoadingClose =
-                                              controller
-                                                  .buttonLoaders['close_review'] ??
-                                              false;
-                                          final isAnyLoading = controller
-                                              .buttonLoaders
-                                              .values
-                                              .any(
-                                                (loading) => loading == true,
-                                              );
+                                                ),
+                                        );
+                                      }),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Obx(() {
+                                        final isLoadingClose =
+                                            controller
+                                                .buttonLoaders['close_review'] ??
+                                            false;
+                                        final isAnyLoading = controller
+                                            .buttonLoaders
+                                            .values
+                                            .any((loading) => loading == true);
 
-                                          return ElevatedButton(
-                                            onPressed:
-                                                (isLoadingClose || isAnyLoading)
-                                                ? null
-                                                : () async {
+                                        return ElevatedButton(
+                                          onPressed:
+                                              (isLoadingClose || isAnyLoading)
+                                              ? null
+                                              : () async {
+                                                  controller.setButtonLoading(
+                                                    'close_review',
+                                                    true,
+                                                  );
+                                                  try {
+                                                    controller.skipCurrentItem(
+                                                      widget
+                                                          .mileageId!
+                                                          .workitemRecId!,
+                                                      context,
+                                                    );
+                                                  } finally {
                                                     controller.setButtonLoading(
                                                       'close_review',
-                                                      true,
+                                                      false,
                                                     );
-                                                    try {
-                                                      controller
-                                                          .skipCurrentItem(
-                                                            widget
-                                                                .mileageId!
-                                                                .workitemRecId!,
-                                                            context,
-                                                          );
-                                                    } finally {
-                                                      controller
-                                                          .setButtonLoading(
-                                                            'close_review',
-                                                            false,
-                                                          );
-                                                    }
-                                                  },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.grey,
-                                            ),
-                                            child: isLoadingClose
-                                                ? const CircularProgressIndicator(
+                                                  }
+                                                },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.grey,
+                                          ),
+                                          child: isLoadingClose
+                                              ? const CircularProgressIndicator(
+                                                  color: Colors.black,
+                                                  strokeWidth: 2,
+                                                )
+                                              : Text(
+                                                  AppLocalizations.of(
+                                                    context,
+                                                  )!.skip,
+                                                  style: const TextStyle(
                                                     color: Colors.black,
-                                                    strokeWidth: 2,
-                                                  )
-                                                : Text(
-                                                    AppLocalizations.of(
-                                                      context,
-                                                    )!.skip,
-                                                    style: const TextStyle(
-                                                      color: Colors.black,
-                                                    ),
                                                   ),
-                                          );
-                                        }),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            SizedBox(height: 50),
-                          ],
-                        ),
+                                                ),
+                                        );
+                                      }),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          SizedBox(height: 50),
+                        ],
                       ),
-                    ],
+                    ),
+                  ],
                 ],
-          ),
+              ),
             ),
             // const SizedBox(height: 26),
           ],

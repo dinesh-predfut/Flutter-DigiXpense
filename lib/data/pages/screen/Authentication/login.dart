@@ -16,7 +16,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   // final controller = Get.put(Controller());
-final Controller controller = Get.put(Controller());
+  final Controller controller = Get.put(Controller());
 
   @override
   void initState() {
@@ -111,7 +111,10 @@ final Controller controller = Get.put(Controller());
                                 TextFormField(
                                   style: const TextStyle(color: Colors.black),
                                   controller: controller.emailController,
-                                  autofillHints: const [AutofillHints.username, AutofillHints.email],
+                                  autofillHints: const [
+                                    AutofillHints.username,
+                                    AutofillHints.email,
+                                  ],
                                   decoration: const InputDecoration(
                                     labelText: 'Email address',
                                     labelStyle: TextStyle(color: Colors.black),
@@ -130,7 +133,7 @@ final Controller controller = Get.put(Controller());
                                 TextField(
                                   style: const TextStyle(color: Colors.black),
                                   controller: controller.passwordController,
-                                    autofillHints: const [AutofillHints.password],
+                                  autofillHints: const [AutofillHints.password],
                                   obscureText: !controller.passwordVisible,
                                   decoration: InputDecoration(
                                     labelText: 'Password',
@@ -219,46 +222,46 @@ final Controller controller = Get.put(Controller());
                               ),
                             );
                           }),
-                          const SizedBox(height: 16),
-                          const Row(
-                            children: [
-                              Expanded(child: Divider()),
-                              Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 8.0),
-                                child: Text(
-                                  "Or",
-                                  style: TextStyle(color: Colors.black),
-                                ),
-                              ),
-                              Expanded(child: Divider()),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text(
-                                "Don’t have an account? ",
-                                style: TextStyle(color: Colors.black),
-                              ),
-                              GestureDetector(
-                                onTap: controller.isLoadingLogin.value
-                                    ? null
-                                    : () {
-                                        controller.launchURL(
-                                          'https://app.digixpense.com/auth/register',
-                                        );
-                                      },
-                                child: const Text(
-                                  "Sign up",
-                                  style: TextStyle(
-                                    color: Colors.blue,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                          // const SizedBox(height: 16),
+                          // const Row(
+                          //   children: [
+                          //     Expanded(child: Divider()),
+                          //     Padding(
+                          //       padding: EdgeInsets.symmetric(horizontal: 8.0),
+                          //       child: Text(
+                          //         "Or",
+                          //         style: TextStyle(color: Colors.black),
+                          //       ),
+                          //     ),
+                          //     Expanded(child: Divider()),
+                          //   ],
+                          // ),
+                          // const SizedBox(height: 16),
+                          // Row(
+                          //   mainAxisAlignment: MainAxisAlignment.center,
+                          //   children: [
+                          //     const Text(
+                          //       "Don’t have an account? ",
+                          //       style: TextStyle(color: Colors.black),
+                          //     ),
+                          //     GestureDetector(
+                          //       onTap: controller.isLoadingLogin.value
+                          //           ? null
+                          //           : () {
+                          //               controller.launchURL(
+                          //                 'https://app.digixpense.com/auth/register',
+                          //               );
+                          //             },
+                          //       child: const Text(
+                          //         "Sign up",
+                          //         style: TextStyle(
+                          //           color: Colors.blue,
+                          //           fontWeight: FontWeight.bold,
+                          //         ),
+                          //       ),
+                          //     ),
+                          //   ],
+                          // ),
                         ],
                       ),
                     ),

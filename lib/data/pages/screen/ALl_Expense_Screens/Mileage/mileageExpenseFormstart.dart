@@ -69,7 +69,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       await controller.fetchProjectName();
       await controller.loadSequenceModules();
       await controller.configuration();
-      controller.fetchEmployeesID();
+      await controller.fetchEmployeesID();
       _loadSettings();
       loadAndAppendCashAdvanceList();
       initializeCashAdvanceSelection();
@@ -77,6 +77,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
 controller.loadAllMillageCategotyCustomFieldValues(
         savedValues: [],
       );
+      controller.fetchMileageRates();
       if (widget.mileageId != null) {
         controller.isEnable.value = false;
         historyFuture = controller.fetchExpenseHistory(widget.mileageId!.recId);

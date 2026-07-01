@@ -5,7 +5,16 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-
+ <queries>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="mailto" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+    </queries>
     <!-- Force remove ALL media permissions -->
     <uses-permission
         android:name="android.permission.READ_MEDIA_IMAGES"
@@ -62,7 +71,7 @@
             android:value="2" />
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyDRILJyIU6u6pII7EEP5_n7BQwYZLWr8E0" />
+            android:value="AIzaSyD0dYBiMSRBfj4cM89QDDx2negmyGRtMPE" />
         <meta-data
             android:name="com.google.maps.android.renderer"
             android:value="latest" />

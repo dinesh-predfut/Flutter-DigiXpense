@@ -48,6 +48,7 @@ import 'package:diginexa/data/pages/screen/Punch-In_Punch-out/Reports%20for%20Le
 import 'package:diginexa/data/pages/screen/Punch-In_Punch-out/createPunchIn-out.dart';
 import 'package:diginexa/data/pages/screen/Punch-In_Punch-out/listPunchIn-Out.dart';
 import 'package:diginexa/data/pages/screen/Punch-In_Punch-out/myTeamPunchIn-Out.dart';
+import 'package:diginexa/data/pages/screen/Supports/support.dart';
 import 'package:diginexa/data/pages/screen/Task_Board/addmoreetailsTask.dart';
 import 'package:diginexa/data/pages/screen/Task_Board/boardDashboard.dart';
 import 'package:diginexa/data/pages/screen/Task_Board/boardList.dart'
@@ -198,6 +199,8 @@ class AppRoutes {
       '/leave/punchInOutList/punchInOutList';
   static const String myAttendanceList =
       '/leave/myAttendanceList/myAttendanceList';
+        static const String support =
+      '/leave/support/support';
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case entryScreen:
@@ -222,6 +225,8 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const MyPayslip_Dashboard());
       case timeSheetDashboard:
         return MaterialPageRoute(builder: (_) => const TimeSheetDashboard());
+          case support:
+        return MaterialPageRoute(builder: (_) => const SupportPage());
       case myTeamimeSheetRequestPage:
         return MaterialPageRoute(
           builder: (_) => const MyTeamTimeSheetDashboard(),

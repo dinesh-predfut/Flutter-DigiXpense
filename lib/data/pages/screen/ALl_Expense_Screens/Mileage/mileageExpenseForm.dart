@@ -54,7 +54,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
   Timer? _debounce;
 
   final String googleApiKey =
-      'AIzaSyDRILJyIU6u6pII7EEP5_n7BQwYZLWr8E0'; // Replace with your API key
+      'AIzaSyD0dYBiMSRBfj4cM89QDDx2negmyGRtMPE'; // Replace with your API key
   @override
   void initState() {
     super.initState();
@@ -184,7 +184,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
   Future<Location?> getCoordinatesFromAddress(String address) async {
     final encoded = Uri.encodeComponent(address);
     const String apiKey =
-        'AIzaSyDRILJyIU6u6pII7EEP5_n7BQwYZLWr8E0'; // 🔑 Replace this
+        'AIzaSyD0dYBiMSRBfj4cM89QDDx2negmyGRtMPE'; // 🔑 Replace this
     final url = Uri.parse(
       'https://maps.googleapis.com/maps/api/geocode/json?address=$encoded&key=$apiKey',
     );
@@ -990,8 +990,8 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                   child: _infoCardButton(
                                     title:
                                         '${AppLocalizations.of(context)!.totalAmountIN} ${controller.selectedCurrencyMileage.value}',
-                                    value: controller.calculatedAmountINR.toStringAsFixed(0)
-                                        ,
+                                    value: controller.calculatedAmountINR
+                                        .toStringAsFixed(0),
                                     onTap: () {},
                                   ),
                                 ),
@@ -2392,47 +2392,44 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
     required String value,
     required VoidCallback onTap,
   }) {
-    return Expanded(
-      // Ensures card shares available space
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 5,
-                  offset: const Offset(0, 3),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 5,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Text(
+                '${controller.organizationDefaultCurrencySymbol} $value',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Colors.black,
                 ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Text(
-                  '${controller.organizationDefaultCurrencySymbol} $value',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: Colors.black,
-                  ),
-                  softWrap: true,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  title,
-                  style: const TextStyle(fontSize: 8, color: Colors.grey),
-                  softWrap: true,
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+                softWrap: true,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 8, color: Colors.grey),
+                softWrap: true,
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
       ),
@@ -2444,47 +2441,44 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
     required String value,
     required VoidCallback onTap,
   }) {
-    return Expanded(
-      // Ensures card shares available space
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 5,
-                  offset: const Offset(0, 3),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 5,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Colors.black,
                 ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: Colors.black,
-                  ),
-                  softWrap: true,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  title,
-                  style: const TextStyle(fontSize: 8, color: Colors.grey),
-                  softWrap: true,
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+                softWrap: true,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 8, color: Colors.grey),
+                softWrap: true,
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
       ),
@@ -2506,4 +2500,3 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
     return true; // All fields are filled
   }
 }
-

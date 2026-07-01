@@ -926,7 +926,7 @@ class _MyDrawerState extends State<MyDrawer>
             title: loc.help,
             icon: Icons.help_outline,
             menuKey: loc.help,
-            onTap: () => {},
+            onTap: () => Navigator.pushNamed(context, AppRoutes.support),
           ),
 
           // -------------------- LOGOUT -------------------- //
