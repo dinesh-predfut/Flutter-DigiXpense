@@ -4988,7 +4988,7 @@ else if (fieldType == 'Percentage') {
                                             const SizedBox(height: 14),
                                             SearchableMultiColumnDropdownField<
                                               Unit
-                                            >(
+                                            >( 
                                               labelText:
                                                   '${AppLocalizations.of(context)!.unit} *',
                                               enabled:
@@ -5271,7 +5271,7 @@ else if (fieldType == 'Percentage') {
                                             ),
                                             const SizedBox(height: 8),
                                             _buildTextField(
-                                              label:
+                                              label: 
                                                   '${AppLocalizations.of(context)!.lineAmountInInr} '
                                                   '${controller.organizationCurrency}',
                                               controller:
@@ -6119,7 +6119,7 @@ else if (fieldType == 'Percentage') {
                         if (widget.isReadOnly &&
                             widget.items.approvalStatus == "Pending")
                           Row(
-                            children: [
+                            children: [ 
                               Obx(() {
                                 final isLoading =
                                     controller.buttonLoaders['cancel'] ?? false;

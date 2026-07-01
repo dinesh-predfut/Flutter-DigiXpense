@@ -27,7 +27,7 @@ class CreatePerDiemPage extends StatefulWidget {
   State<CreatePerDiemPage> createState() => _CreatePerDiemPageState();
 }
 
-class _CreatePerDiemPageState extends State<CreatePerDiemPage>
+class  _CreatePerDiemPageState extends State<CreatePerDiemPage>
     with SingleTickerProviderStateMixin {
   final controller = Get.find<Controller>();
   final Map<String, TextEditingController> fieldControllers = {};
@@ -438,6 +438,30 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
       controller.cashAdvanceListDropDown,
       backendSelectedIds,
     );
+  }
+
+    Future<bool> _showDistributionWarning() async {
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text("Warning"),
+            content: const Text(
+              "Changing the  Date will clear all Account Distribution data. Do you want to continue?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text("Continue"),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   @override
@@ -2023,6 +2047,21 @@ else if (field['FieldType'] == 'Percentage') {
                                             );
                                             try {
                                               if (validateForm()) {
+                                                 // Validate No. of Days
+  final hasZeroDays = controller.allocationLines.any(
+    (line) => (line.quantity ?? 0 ) <= 0,
+  );
+
+  if (hasZeroDays) {
+    Fluttertoast.showToast(
+      msg: "No. of Days cannot be 0.",
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.red,
+      textColor: Colors.white,
+    );
+    return;
+  }
                                                 await controller
                                                     .updatePerDiemDetails(
                                                       context,
@@ -2468,6 +2507,23 @@ else if (field['FieldType'] == 'Percentage') {
                                         ? null
                                         : () {
                                             if (validateForm()) {
+                                               // Validate No. of Days
+  final hasZeroDays = controller.allocationLines.any(
+    (line) => (line.quantity ?? 0 ) <= 0,
+  );
+
+  if (hasZeroDays) {
+    Fluttertoast.showToast(
+      msg: "No. of Days cannot be 0.",
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.red,
+      textColor: Colors.white,
+          fontSize: 16.0,
+
+    );
+    return;
+  }
                                               controller.setButtonLoading(
                                                 'submit',
                                                 true,
@@ -2544,6 +2600,23 @@ else if (field['FieldType'] == 'Percentage') {
                                             ? null
                                             : () {
                                                 if (validateForm()) {
+
+ // Validate No. of Days
+  final hasZeroDays = controller.allocationLines.any(
+    (line) => (line.quantity ?? 0 ) <= 0,
+  );
+
+  if (hasZeroDays) {
+    Fluttertoast.showToast(
+      msg: "No. of Days cannot be 0.",
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.red,
+      textColor: Colors.white,
+    );
+    return;
+  }
+
                                                   controller.setButtonLoading(
                                                     'save',
                                                     true,
@@ -2671,6 +2744,21 @@ else if (field['FieldType'] == 'Percentage') {
                                             ? null
                                             : () {
                                                 if (validateForm()) {
+                                                   // Validate No. of Days
+  final hasZeroDays = controller.allocationLines.any(
+    (line) => (line.quantity ?? 0 ) <= 0,
+  );
+
+  if (hasZeroDays) {
+    Fluttertoast.showToast(
+      msg: "No. of Days cannot be 0.",
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.red,
+      textColor: Colors.white,
+    );
+    return;
+  }
                                                   controller.setButtonLoading(
                                                     'resubmit',
                                                     true,
@@ -2744,6 +2832,21 @@ else if (field['FieldType'] == 'Percentage') {
                                                 ? null
                                                 : () {
                                                     if (validateForm()) {
+                                                       // Validate No. of Days
+  final hasZeroDays = controller.allocationLines.any(
+    (line) => (line.quantity ?? 0 ) <= 0,
+  );
+
+  if (hasZeroDays) {
+    Fluttertoast.showToast(
+      msg: "No. of Days cannot be 0.",
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.red,
+      textColor: Colors.white,
+    );
+    return;
+  }
                                                       controller
                                                           .setButtonLoading(
                                                             'update',
@@ -3142,6 +3245,16 @@ else if (field['FieldType'] == 'Percentage') {
       child: GestureDetector(
         onTap: enabled
             ? () async {
+
+ if (isFromDate &&
+            (controller.accountingDistributions.isNotEmpty ||
+             controller.split.isNotEmpty)) {
+
+          final proceed = await _showDistributionWarning();
+
+          if (!proceed) return;
+        }
+
                 // Get current date from controller text (which is in org-local format)
                 DateTime initialDate = DateTime.now();
 
@@ -3176,6 +3289,16 @@ else if (field['FieldType'] == 'Percentage') {
                 );
 
                 if (picked != null) {
+
+                  final oldValue = controllers.text;
+
+  final newValue = DateFormat(
+    controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+  ).format(picked);
+
+
+
+
                   if (!isFromDate &&
                       controller.fromDateController.text.isNotEmpty) {
                     final fromDateDisplay = DateFormat(
@@ -3193,6 +3316,13 @@ else if (field['FieldType'] == 'Percentage') {
                       return;
                     }
                   }
+
+
+if (isFromDate && oldValue != newValue) {
+    controller.accountingDistributions.clear();
+    controller.split.clear();
+  }
+
 
                   // Store the picked date (will be converted to UTC when saving)
                   controllers.text = DateFormat(
